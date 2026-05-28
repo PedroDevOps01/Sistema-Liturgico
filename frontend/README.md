@@ -1,8 +1,49 @@
-# React + TypeScript + Vite
+# Frontend — Sistema de Escalas Litúrgicas
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 18 + TypeScript + Vite + TailwindCSS
 
-Currently, two official plugins are available:
+## Iniciar
+
+```bash
+npm install
+npm run dev      # http://localhost:5173
+npm run build    # build de produção
+```
+
+O Vite redireciona `/api/*` para `http://127.0.0.1:8000` via proxy (configurado em `vite.config.ts`).
+
+## Principais bibliotecas
+
+| Lib | Uso |
+|-----|-----|
+| `react-router-dom` | Roteamento SPA |
+| `react-hook-form` + `zod` | Formulários com validação |
+| `axios` | Requisições HTTP com interceptor de auto-unwrap |
+| `@dnd-kit` | Drag & drop na montagem da escala |
+| `date-fns` | Formatação de datas em pt-BR |
+| `lucide-react` | Ícones |
+| `react-hot-toast` | Notificações |
+
+## Estrutura de pastas relevante
+
+```
+src/
+  lib/
+    api.ts          # axios com interceptor Bearer token
+    auth.ts         # helpers de localStorage (token/user)
+    dateUtils.ts    # formatadores de data/hora/telefone
+  pages/            # uma página por rota
+  components/
+    Layout/         # Sidebar + Layout com Outlet
+    common/         # Badge, Modal, SearchableSelect, etc.
+  types/index.ts    # interfaces TypeScript de toda a API
+```
+
+---
+
+Veja o README raiz do projeto para instruções completas.
+
+## Plugins anteriores
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
 - [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
