@@ -35,7 +35,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('celebracoes/sem-escala', [CelebracaoController::class, 'semEscala']);
     Route::get('celebracoes/grupo', [CelebracaoController::class, 'porGrupo']);
     Route::post('celebracoes/batch', [CelebracaoController::class, 'storeBatch']);
-    Route::apiResource('celebracoes', CelebracaoController::class);
+    Route::apiResource('celebracoes', CelebracaoController::class)
+        ->parameters(['celebracoes' => 'celebracao']);
 
     // Escalas
     Route::post('escalas/gerar-estrutura', [EscalaController::class, 'gerarEstrutura']);
@@ -65,4 +66,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Estatísticas
     Route::get('estatisticas', [EstatisticasController::class, 'index']);
+
+    // Relatório de presenças
+    Route::get('relatorios/presencas', [\App\Http\Controllers\API\RelatorioController::class, 'presencas']);
 });

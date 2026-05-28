@@ -6,15 +6,24 @@ use App\Http\Controllers\Controller;
 use App\Models\Celebracao;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class CelebracaoController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Celebracao::with('escala');
+        $query = Celebracao::with('escala')->where('ativo', true);
 
         if ($request->filled('data')) {
             $query->where('data', $request->data);
+        }
+
+        if ($request->filled('data_inicio')) {
+            $query->where('data', '>=', $request->data_inicio);
+        }
+
+        if ($request->filled('data_fim')) {
+            $query->where('data', '<=', $request->data_fim);
         }
 
         if ($request->filled('periodo_liturgico')) {
@@ -168,17 +177,18 @@ class CelebracaoController extends Controller
 
     public function destroy(Celebracao $celebracao): JsonResponse
     {
-        $celebracao->delete();
+        $celebracao->update(['ativo' => false]);
 
         return response()->json([
             'data' => null,
-            'message' => 'Celebração excluída com sucesso.',
+            'message' => 'Celebração inativada com sucesso.',
         ]);
     }
 
-    public function semEscala(Request $request): JsonResponse
+    public function semEscala(): JsonResponse
     {
         $celebracoes = Celebracao::whereDoesntHave('escala')
+            ->where('ativo', true)
             ->orderBy('data')
             ->orderBy('horario')
             ->get();

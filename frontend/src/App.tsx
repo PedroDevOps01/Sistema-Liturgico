@@ -13,6 +13,8 @@ import EscalaView from './pages/EscalaView'
 import Usuarios from './pages/Usuarios'
 import Configuracoes from './pages/Configuracoes'
 import Telao from './pages/Telao'
+import Calendario from './pages/Calendario'
+import Relatorio from './pages/Relatorio'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated()) {
@@ -75,6 +77,8 @@ export default function App() {
           <Route path="/escalas/:id/editar" element={<EscalaForm />} />
           <Route path="/usuarios" element={<Usuarios />} />
           <Route path="/configuracoes" element={<Configuracoes />} />
+          <Route path="/calendario" element={<Calendario />} />
+          <Route path="/relatorio" element={<Relatorio />} />
         </Route>
 
         {/* Fallback */}

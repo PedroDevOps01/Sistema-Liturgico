@@ -12,6 +12,7 @@ class Presenca extends Model
     protected $fillable = [
         'escala_item_id',
         'status',
+        'status_confirmacao',
         'observacao',
     ];
 

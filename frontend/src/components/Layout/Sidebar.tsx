@@ -3,12 +3,13 @@ import {
   LayoutDashboard,
   Users,
   Calendar,
+  CalendarDays,
   List,
+  BarChart2,
   UserCog,
   Settings,
   LogOut,
   Cross,
-  Monitor,
 } from 'lucide-react'
 import { removeToken, removeUser, getUser } from '../../lib/auth'
 import api from '../../lib/api'
@@ -18,9 +19,10 @@ const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, to: '/' },
   { label: 'Cerimoniários', icon: Users, to: '/cerimoniarios' },
   { label: 'Celebrações', icon: Calendar, to: '/celebracoes' },
+  { label: 'Calendário', icon: CalendarDays, to: '/calendario' },
   { label: 'Escalas', icon: List, to: '/escalas' },
+  { label: 'Relatório', icon: BarChart2, to: '/relatorio' },
   { label: 'Usuários', icon: UserCog, to: '/usuarios' },
-  { label: 'Telão', icon: Monitor, to: '/telao' },
   { label: 'Configurações', icon: Settings, to: '/configuracoes' },
 ]
 
@@ -55,15 +57,16 @@ export default function Sidebar({ onCloseMobile }: SidebarProps) {
     : 'U'
 
   return (
-    <aside className="flex flex-col h-full bg-wine-900 text-white w-64 min-w-[256px]">
+    <aside className="sidebar-gradient flex flex-col h-full text-white w-64 min-w-[256px]">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-white/10">
-        <div className="w-10 h-10 bg-gold-500 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
-          <Cross size={20} className="text-black" />
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg"
+             style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)' }}>
+          <Cross size={20} className="text-wine-900" />
         </div>
         <div>
           <div className="font-bold text-base leading-tight text-white">Escala Litúrgica</div>
-          <div className="text-white/40 text-xs">Sistema de Gestão</div>
+          <div className="text-orange-200/60 text-xs">Sistema de Gestão</div>
         </div>
       </div>
 
@@ -78,8 +81,8 @@ export default function Sidebar({ onCloseMobile }: SidebarProps) {
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-[15px] font-medium ${
                 isActive
-                  ? 'bg-gold-500 text-black font-semibold shadow-sm'
-                  : 'text-gray-300 hover:bg-white/10 hover:text-white'
+                  ? 'bg-white/20 text-white font-semibold shadow-sm border border-white/20 backdrop-blur-sm'
+                  : 'text-orange-100/80 hover:bg-white/10 hover:text-white'
               }`
             }
           >
@@ -94,12 +97,13 @@ export default function Sidebar({ onCloseMobile }: SidebarProps) {
         {/* User info */}
         {user && (
           <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl mb-1">
-            <div className="w-8 h-8 rounded-full bg-gold-500/20 border border-gold-500/40 flex items-center justify-center flex-shrink-0">
-              <span className="text-gold-400 text-xs font-bold">{initials}</span>
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                 style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)' }}>
+              <span className="text-wine-900 text-xs font-bold">{initials}</span>
             </div>
             <div className="min-w-0">
               <div className="text-white text-sm font-medium truncate">{user.nome}</div>
-              <div className="text-white/40 text-xs truncate">@{user.usuario}</div>
+              <div className="text-orange-200/50 text-xs truncate">@{user.usuario}</div>
             </div>
           </div>
         )}

@@ -8,6 +8,7 @@ const routeLabels: Record<string, string> = {
   '/cerimoniarios': 'Cerimoniários',
   '/celebracoes': 'Celebrações',
   '/escalas': 'Escalas',
+  '/calendario': 'Calendário',
   '/usuarios': 'Usuários',
   '/telao': 'Telão',
   '/configuracoes': 'Configurações',
@@ -57,7 +58,7 @@ export default function Layout() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile Header */}
-        <header className="lg:hidden flex items-center gap-3 px-4 py-3 bg-wine-900 text-white shadow-md flex-shrink-0">
+        <header className="lg:hidden flex items-center gap-3 px-4 py-3 text-white shadow-md flex-shrink-0 sidebar-gradient">
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
             className="p-2 rounded-xl hover:bg-white/10 transition-colors"

@@ -323,13 +323,14 @@ export default function Celebracoes() {
   async function handleReutilizarEscala() {
     if (!ultimaEscala || !newCelebracaoId) return
     try {
-      await api.post(`/escalas/${ultimaEscala.id}/duplicar`, { celebracao_id: newCelebracaoId })
+      const r = await api.post<{ id: number }>(`/escalas/${ultimaEscala.id}/duplicar`, { celebracao_id: newCelebracaoId })
       toast.success('Escala criada com base na última!')
       setUltimaEscalaModal(false)
-      navigate(`/escalas/nova?celebracao_id=${newCelebracaoId}`)
+      // Vai direto para visualizar a escala duplicada — sem precisar passar pelo formulário
+      navigate(`/escalas/${r.data.id}`)
     } catch {
-      toast.error('Erro ao duplicar escala. Crie manualmente.')
-      navigate(`/escalas/nova?celebracao_id=${newCelebracaoId}`)
+      toast.error('Erro ao duplicar escala')
+      setUltimaEscalaModal(false)
     }
   }
 
@@ -732,7 +733,7 @@ export default function Celebracoes() {
                         <button
                           onClick={() => setDeleteTarget(c)}
                           className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Excluir"
+                          title="Inativar"
                         >
                           <Trash2 size={15} />
                         </button>
@@ -823,9 +824,9 @@ export default function Celebracoes() {
 
       <ConfirmDialog
         isOpen={!!deleteTarget}
-        title="Excluir Celebração"
-        message={`Excluir a celebração de ${deleteTarget ? formatData(deleteTarget.data) : ''}?`}
-        confirmLabel="Excluir"
+        title="Inativar Celebração"
+        message={`Inativar a celebração de ${deleteTarget ? formatData(deleteTarget.data) : ''}?`}
+        confirmLabel="Inativar"
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />
@@ -833,7 +834,7 @@ export default function Celebracoes() {
       {/* Modal: reutilizar última escala */}
       {ultimaEscalaModal && ultimaEscala && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setUltimaEscalaModal(false); navigate(`/escalas/nova?celebracao_id=${newCelebracaoId}`) }} />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setUltimaEscalaModal(false)} />
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-slide-up">
             <div className="flex items-start gap-4 mb-5">
               <div className="w-12 h-12 bg-gold-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -868,7 +869,10 @@ export default function Celebracoes() {
 
             <div className="flex gap-3">
               <button
-                onClick={() => { setUltimaEscalaModal(false); navigate(`/escalas/nova?celebracao_id=${newCelebracaoId}`) }}
+                onClick={() => {
+                  setUltimaEscalaModal(false)
+                  navigate(`/escalas/nova?celebracao_id=${newCelebracaoId}`)
+                }}
                 className="flex-1 px-4 py-2.5 rounded-xl border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-colors text-sm"
               >
                 Não, criar do zero

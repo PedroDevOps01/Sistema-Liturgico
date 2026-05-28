@@ -51,7 +51,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
         className={`relative bg-white rounded-2xl shadow-2xl w-full ${sizeClasses[size]} max-h-[95vh] sm:max-h-[90vh] flex flex-col animate-slide-up overflow-hidden`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-wine-900 flex-shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 flex-shrink-0 sidebar-gradient">
           <h2 className="text-lg font-bold text-white">{title}</h2>
           <button
             onClick={onClose}

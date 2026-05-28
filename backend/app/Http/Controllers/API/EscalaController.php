@@ -19,7 +19,8 @@ class EscalaController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Escala::with(['celebracao', 'criador', 'escalaItens.cerimoniario', 'escalaItens.funcao']);
+        $query = Escala::with(['celebracao', 'criador', 'escalaItens.cerimoniario', 'escalaItens.funcao'])
+            ->where('ativo', true);
 
         if ($request->filled('celebracao_id')) {
             $query->where('celebracao_id', $request->celebracao_id);
@@ -220,15 +221,15 @@ class EscalaController extends Controller
         HistoricoEscala::create([
             'escala_id' => $escala->id,
             'user_id' => $request->user()->id,
-            'acao' => 'excluiu',
-            'descricao' => 'Escala excluída.',
+            'acao' => 'inativou',
+            'descricao' => 'Escala inativada.',
         ]);
 
-        $escala->delete();
+        DB::table('escalas')->where('id', $escala->id)->update(['ativo' => false, 'updated_at' => now()]);
 
         return response()->json([
             'data' => null,
-            'message' => 'Escala excluída com sucesso.',
+            'message' => 'Escala inativada com sucesso.',
         ]);
     }
 
@@ -251,31 +252,40 @@ class EscalaController extends Controller
             || $celebracao->crisma;
 
         if ($especial) {
-            $estrutura[] = ['funcao_id' => 1, 'ordem' => 1];
+            $estrutura[] = ['funcao_id' => 1, 'ordem' => 0];
         } else {
-            // Always: Cerimoniário - Mestre
-            $estrutura[] = ['funcao_id' => 1, 'ordem' => 1];
+            // Build full candidate list based on flags
+            $estrutura[] = ['funcao_id' => 1, 'ordem' => 0]; // Mestre
 
-            // Auxiliares 1-4 unless celebracao_6h
             if (! $celebracao->celebracao_6h) {
-                $estrutura[] = ['funcao_id' => 2, 'ordem' => 2];
-                $estrutura[] = ['funcao_id' => 3, 'ordem' => 3];
-                $estrutura[] = ['funcao_id' => 4, 'ordem' => 4];
-                $estrutura[] = ['funcao_id' => 5, 'ordem' => 5];
+                $estrutura[] = ['funcao_id' => 2, 'ordem' => 1]; // 1º Aux
+                $estrutura[] = ['funcao_id' => 3, 'ordem' => 2]; // 2º Aux
+                $estrutura[] = ['funcao_id' => 4, 'ordem' => 3]; // 3º Aux
+                $estrutura[] = ['funcao_id' => 5, 'ordem' => 4]; // 4º Aux
             }
 
-            // Turiferário only if celebracao_noite
             if ($celebracao->celebracao_noite) {
-                $estrutura[] = ['funcao_id' => 6, 'ordem' => 6];
+                $estrutura[] = ['funcao_id' => 6, 'ordem' => count($estrutura)]; // Turiferário
             }
 
-            // Bishop functions
             if ($celebracao->possui_bispo) {
-                $estrutura[] = ['funcao_id' => 7, 'ordem' => 7];
-                $estrutura[] = ['funcao_id' => 8, 'ordem' => 8];
-                $estrutura[] = ['funcao_id' => 9, 'ordem' => 9];
+                $estrutura[] = ['funcao_id' => 7, 'ordem' => count($estrutura)];
+                $estrutura[] = ['funcao_id' => 8, 'ordem' => count($estrutura)];
+                $estrutura[] = ['funcao_id' => 9, 'ordem' => count($estrutura)];
+            }
+
+            // Respect qtd_cerimoniarios — trim to the quantity set in the celebration
+            $qtd = $celebracao->qtd_cerimoniarios ?? count($estrutura);
+            if ($qtd > 0 && $qtd < count($estrutura)) {
+                $estrutura = array_slice($estrutura, 0, $qtd);
             }
         }
+
+        // Re-index ordem after slicing
+        foreach ($estrutura as $i => &$item) {
+            $item['ordem'] = $i;
+        }
+        unset($item);
 
         // Load funcao data
         $funcaoIds = collect($estrutura)->pluck('funcao_id')->toArray();
@@ -283,12 +293,12 @@ class EscalaController extends Controller
 
         $resultado = collect($estrutura)->map(function ($item) use ($funcoes) {
             return [
-                'funcao_id' => $item['funcao_id'],
-                'funcao' => $funcoes[$item['funcao_id']] ?? null,
-                'funcao_label' => null,
-                'cerimoniario_id' => null,
-                'cerimoniario' => null,
-                'ordem' => $item['ordem'],
+                'funcao_id'      => $item['funcao_id'],
+                'funcao'         => $funcoes[$item['funcao_id']] ?? null,
+                'funcao_label'   => null,
+                'cerimoniario_id'=> null,
+                'cerimoniario'   => null,
+                'ordem'          => $item['ordem'],
             ];
         })->values();
 

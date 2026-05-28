@@ -18,8 +18,9 @@ class DashboardController extends Controller
         $inicioMes = now()->startOfMonth()->toDateString();
         $fimMes = now()->endOfMonth()->toDateString();
 
-        // Próximas celebrações (próximos 30 dias)
-        $proximasCelebracoes = Celebracao::with('escala')
+        // Próximas celebrações (próximos 30 dias) — apenas ativas
+        $proximasCelebracoes = Celebracao::with(['escala' => fn ($q) => $q->where('ativo', true)])
+            ->where('ativo', true)
             ->where('data', '>=', $hoje)
             ->where('data', '<=', now()->addDays(30)->toDateString())
             ->orderBy('data')
@@ -27,16 +28,18 @@ class DashboardController extends Controller
             ->take(10)
             ->get();
 
-        // Escalas do mês
-        $escalasDoMes = Escala::whereHas('celebracao', function ($q) use ($inicioMes, $fimMes) {
-            $q->whereBetween('data', [$inicioMes, $fimMes]);
-        })->count();
+        // Escalas do mês — apenas escalas ativas
+        $escalasDoMes = Escala::where('ativo', true)
+            ->whereHas('celebracao', function ($q) use ($inicioMes, $fimMes) {
+                $q->whereBetween('data', [$inicioMes, $fimMes])->where('ativo', true);
+            })->count();
 
         // Cerimoniários ativos
         $cerimoniarios_ativos = Cerimoniario::where('ativo', true)->count();
 
-        // Celebrações sem escala (próximos 30 dias)
-        $celebracoesSemEscala = Celebracao::whereDoesntHave('escala')
+        // Celebrações sem escala ativa (próximos 30 dias)
+        $celebracoesSemEscala = Celebracao::where('ativo', true)
+            ->whereDoesntHave('escala', fn ($q) => $q->where('ativo', true))
             ->where('data', '>=', $hoje)
             ->where('data', '<=', now()->addDays(30)->toDateString())
             ->count();

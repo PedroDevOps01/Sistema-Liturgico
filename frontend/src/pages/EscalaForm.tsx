@@ -55,32 +55,37 @@ const FUNCOES_LABELS = [
 ]
 
 function buildStructure(c: Celebracao): Omit<EscalaItem, 'id'>[] {
-  const items: Omit<EscalaItem, 'id'>[] = []
+  const all: Omit<EscalaItem, 'id'>[] = []
 
-  // Always: Mestre
-  items.push({ funcao_label: 'Cerimoniário - Mestre', ordem: 0 })
+  all.push({ funcao_label: 'Cerimoniário - Mestre', ordem: 0 })
 
   const isSpecial = c.celebracao_6h || c.celebracao_palavra || c.celebracao_solene || c.casamento || c.batismo || c.crisma
 
   if (!isSpecial) {
-    // Standard auxiliares
     for (let i = 1; i <= 4; i++) {
-      items.push({ funcao_label: `Cerimoniário - Auxiliar ${i}`, ordem: i })
+      all.push({ funcao_label: `Cerimoniário - Auxiliar ${i}`, ordem: all.length })
     }
-    // Night: add Turiferário as 6th
     if (c.celebracao_noite) {
-      items.push({ funcao_label: 'Turiferário', ordem: items.length })
+      all.push({ funcao_label: 'Turiferário', ordem: all.length })
     }
   }
 
-  // Bishop adds Môr, Mitra, Bácula
   if (c.possui_bispo) {
-    items.push({ funcao_label: 'Môr', ordem: items.length })
-    items.push({ funcao_label: 'Mitra', ordem: items.length })
-    items.push({ funcao_label: 'Bácula', ordem: items.length })
+    all.push({ funcao_label: 'Môr',    ordem: all.length })
+    all.push({ funcao_label: 'Mitra',  ordem: all.length })
+    all.push({ funcao_label: 'Bácula', ordem: all.length })
   }
 
-  return items
+  // Trim/pad to exactly qtd_cerimoniarios
+  const qty = c.qtd_cerimoniarios ?? all.length
+  const result = all.slice(0, qty)
+
+  // If qty > generated items, add blank rows
+  while (result.length < qty) {
+    result.push({ funcao_label: '', ordem: result.length })
+  }
+
+  return result.map((item, i) => ({ ...item, ordem: i }))
 }
 
 function safeParseDate(raw: string): Date {
@@ -123,7 +128,7 @@ function getAvailabilityInfo(cerimoniario: Cerimoniario, celebracao: Celebracao)
     else if (isNoite) available = cerimoniario.disponivel_semana_noite
   }
 
-  if (!available) return { status: 'busy', label: '(outro horário)' }
+  if (!available) return { status: 'busy', label: '(fora do horário habitual)' }
   return { status: 'available', label: '(livre)' }
 }
 
@@ -422,7 +427,36 @@ export default function EscalaForm() {
         if (celebracao) {
           setSelectedCelebracaoId(celebracao.id)
           setSelectedCelebracao(celebracao)
-          generateStructure(celebracao)
+
+          // Use the API to generate structure — ensures qtd_cerimoniarios
+          // from the DB is respected (same path as manual dropdown selection)
+          try {
+            const structR = await api.post<{
+              celebracao: Celebracao
+              estrutura: Array<{ funcao_id: number; funcao: { titulo: string } | null; funcao_label: string | null; ordem: number }>
+              especial: boolean
+            }>('/escalas/gerar-estrutura', { celebracao_id: celebracao.id })
+
+            const newItems: EscalaItem[] = structR.data.estrutura.map((item) => ({
+              id: crypto.randomUUID(),
+              funcao_label: item.funcao?.titulo ?? item.funcao_label ?? '',
+              ordem: item.ordem,
+              cerimoniario_id: undefined,
+              cerimoniario: undefined,
+            }))
+            setItems(newItems)
+          } catch {
+            // Fallback to local generation
+            generateStructure(celebracao)
+          }
+
+          // Load conflict map for this celebration's date
+          try {
+            const confR = await api.get<Record<number, Array<{ horario: string; periodo_liturgico: string }>>>(
+              `/escalas/conflitos-data?data=${celebracao.data.substring(0, 10)}`
+            )
+            setConflictMap(confR.data ?? {})
+          } catch { /* ignore */ }
         }
       }
 
@@ -758,15 +792,15 @@ export default function EscalaForm() {
           <div className="flex flex-wrap items-center gap-4 mb-4 text-xs text-gray-400">
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-green-500 block" />
-              Disponível
+              Disponível neste horário
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-400 block" />
-              Outro horário
+              Fora do horário habitual
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-red-500 block" />
-              Indisponível
+              Indisponível temporário
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-orange-500 block" />

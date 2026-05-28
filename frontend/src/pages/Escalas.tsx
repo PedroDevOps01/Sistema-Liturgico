@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Plus, Eye, Pencil, FileDown, MessageCircle,
-  Copy, Trash2, Calendar, Search, Clock, X,
+  Trash2, Calendar, Search, Clock, X,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
@@ -56,12 +56,7 @@ export default function Escalas() {
     }
   }
 
-  function handleDuplicate(escala: Escala) {
-    toast('Para duplicar, selecione uma celebração diferente na tela de edição', { icon: 'ℹ️' })
-    navigate(`/escalas/nova?duplicar=${escala.id}`)
-  }
-
-  async function handleDownloadPdf(escala: Escala) {
+async function handleDownloadPdf(escala: Escala) {
     try {
       const r = await api.get(`/escalas/${escala.id}/pdf`, { responseType: 'blob' })
       const url = window.URL.createObjectURL(new Blob([r.data]))
@@ -250,17 +245,10 @@ export default function Escalas() {
                       >
                         <MessageCircle size={16} />
                       </button>
-                      <button
-                        onClick={() => handleDuplicate(escala)}
-                        className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all duration-200 hidden sm:block"
-                        title="Duplicar"
-                      >
-                        <Copy size={16} />
-                      </button>
-                      <button
+<button
                         onClick={() => setDeleteTarget(escala)}
                         className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
-                        title="Excluir"
+                        title="Inativar"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -275,9 +263,9 @@ export default function Escalas() {
 
       <ConfirmDialog
         isOpen={!!deleteTarget}
-        title="Excluir Escala"
-        message="Tem certeza que deseja excluir esta escala? Esta ação não pode ser desfeita."
-        confirmLabel="Excluir"
+        title="Inativar Escala"
+        message="Tem certeza que deseja inativar esta escala? Esta ação não pode ser desfeita."
+        confirmLabel="Inativar"
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />

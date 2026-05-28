@@ -348,7 +348,7 @@ export default function Cerimoniarios() {
                       <button
                         onClick={() => setDeleteTarget(c)}
                         className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
-                        title="Excluir"
+                        title="Inativar"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -414,7 +414,7 @@ export default function Cerimoniarios() {
                   <button
                     onClick={() => setDeleteTarget(c)}
                     className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Excluir"
+                    title="Inativar"
                   >
                     <Trash2 size={16} />
                   </button>
@@ -560,9 +560,9 @@ export default function Cerimoniarios() {
       {/* Confirm Delete */}
       <ConfirmDialog
         isOpen={!!deleteTarget}
-        title="Excluir Cerimoniário"
-        message={`Tem certeza que deseja excluir "${deleteTarget?.nome}"? Esta ação não pode ser desfeita.`}
-        confirmLabel="Excluir"
+        title="Inativar Cerimoniário"
+        message={`Tem certeza que deseja inativar "${deleteTarget?.nome}"? Esta ação não pode ser desfeita.`}
+        confirmLabel="Inativar"
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />

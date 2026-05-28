@@ -6,13 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
     public function index(): JsonResponse
     {
-        $users = User::orderBy('nome')->get();
+        $users = User::where('ativo', true)->orderBy('nome')->get();
 
         return response()->json([
             'data' => $users,
@@ -72,21 +73,23 @@ class UserController extends Controller
 
     public function destroy(User $user): JsonResponse
     {
-        $user->delete(); // soft delete
+        DB::table('users')->where('id', $user->id)->update(['ativo' => false, 'updated_at' => now()]);
 
         return response()->json([
             'data' => null,
-            'message' => 'Usuário excluído com sucesso.',
+            'message' => 'Usuário inativado com sucesso.',
         ]);
     }
 
     public function toggleAtivo(User $user): JsonResponse
     {
-        $user->update(['ativo' => ! $user->ativo]);
+        $novoAtivo = ! $user->ativo;
+        DB::table('users')->where('id', $user->id)->update(['ativo' => $novoAtivo, 'updated_at' => now()]);
 
+        $userAtualizado = User::find($user->id);
         return response()->json([
-            'data' => $user->fresh(),
-            'message' => $user->ativo ? 'Usuário ativado.' : 'Usuário desativado.',
+            'data' => $userAtualizado,
+            'message' => $novoAtivo ? 'Usuário ativado.' : 'Usuário desativado.',
         ]);
     }
 

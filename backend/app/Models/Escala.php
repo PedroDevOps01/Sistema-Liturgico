@@ -14,6 +14,7 @@ class Escala extends Model
     protected $table = 'escalas';
 
     protected $fillable = [
+        'ativo',
         'celebracao_id',
         'criado_por',
         'editado_por',

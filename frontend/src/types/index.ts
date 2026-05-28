@@ -30,6 +30,7 @@ export interface Funcao {
 
 export interface Celebracao {
   id: number
+  ativo: boolean
   data: string
   horario: string
   periodo_liturgico: string
@@ -42,12 +43,15 @@ export interface Celebracao {
   casamento: boolean
   batismo: boolean
   crisma: boolean
+  final_de_semana: boolean
+  weekend_group_id?: string
   observacao?: string
   escala?: Escala
 }
 
 export interface Escala {
   id: number
+  ativo: boolean
   celebracao_id: number
   celebracao?: Celebracao
   criado_por: number
@@ -72,7 +76,10 @@ export interface EscalaItem {
 export interface Presenca {
   id: number
   escala_item_id: number
-  status: 'confirmado' | 'serviu' | 'faltou' | 'substituido' | 'justificado'
+  /** Confirmação prévia: se o cerimoniário confirmou presença antes da celebração */
+  status_confirmacao?: 'confirmado' | null
+  /** Status real pós-celebração */
+  status?: 'serviu' | 'faltou' | 'substituido' | 'justificado' | null
   observacao?: string
 }
 

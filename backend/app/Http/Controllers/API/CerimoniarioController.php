@@ -7,16 +7,13 @@ use App\Models\Cerimoniario;
 use App\Models\Celebracao;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class CerimoniarioController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Cerimoniario::query();
-
-        if ($request->has('ativo')) {
-            $query->where('ativo', filter_var($request->ativo, FILTER_VALIDATE_BOOLEAN));
-        }
+        $query = Cerimoniario::query()->where('ativo', true);
 
         if ($request->filled('search')) {
             $query->where('nome', 'ilike', '%' . $request->search . '%');
@@ -90,21 +87,22 @@ class CerimoniarioController extends Controller
 
     public function destroy(Cerimoniario $cerimoniario): JsonResponse
     {
-        $cerimoniario->delete(); // soft delete
+        DB::table('cerimoniarios')->where('id', $cerimoniario->id)->update(['ativo' => false, 'updated_at' => now()]);
 
         return response()->json([
             'data' => null,
-            'message' => 'Cerimoniário excluído com sucesso.',
+            'message' => 'Cerimoniário inativado com sucesso.',
         ]);
     }
 
     public function toggleAtivo(Cerimoniario $cerimoniario): JsonResponse
     {
-        $cerimoniario->update(['ativo' => ! $cerimoniario->ativo]);
+        $novoAtivo = ! $cerimoniario->ativo;
+        DB::table('cerimoniarios')->where('id', $cerimoniario->id)->update(['ativo' => $novoAtivo, 'updated_at' => now()]);
 
         return response()->json([
-            'data' => $cerimoniario->fresh(),
-            'message' => $cerimoniario->ativo ? 'Cerimoniário ativado.' : 'Cerimoniário desativado.',
+            'data' => Cerimoniario::find($cerimoniario->id),
+            'message' => $novoAtivo ? 'Cerimoniário ativado.' : 'Cerimoniário desativado.',
         ]);
     }
 

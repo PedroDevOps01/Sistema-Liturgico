@@ -66,23 +66,25 @@ export default function Login() {
   const isSuccess = status === 'success'
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4"
+         style={{ background: 'linear-gradient(135deg, #431407 0%, #7c2d12 35%, #c2410c 65%, #f97316 100%)' }}>
       <div className="w-full max-w-sm">
 
         {/* Logo / Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-wine-900 rounded-2xl mb-4 shadow-lg">
-            {/* Cross icon via SVG */}
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-gold-500">
-              <path d="M12 2v20M2 12h20" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-xl shadow-orange-900/30"
+               style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)' }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2v20M2 12h20" stroke="#7c2d12" strokeWidth="3.5" strokeLinecap="round"/>
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Escala Litúrgica</h1>
-          <p className="text-gray-500 mt-1 text-sm">Sistema de Gestão Litúrgica</p>
+          <h1 className="text-2xl font-bold text-white drop-shadow">Escala Litúrgica</h1>
+          <p className="text-orange-200/70 mt-1 text-sm">Sistema de Gestão Litúrgica</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-2xl overflow-hidden"
+             style={{ boxShadow: '0 20px 60px rgba(67, 20, 7, 0.4)' }}>
 
           {/* Success state */}
           {isSuccess ? (
@@ -165,7 +167,7 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-wine-900 text-white font-semibold text-base rounded-xl hover:bg-wine-800 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 shadow-sm mt-2"
+                className="w-full flex items-center justify-center gap-2 px-6 py-3 text-white font-semibold text-base rounded-xl active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 mt-2 btn-primary"
               >
                 {isLoading ? (
                   <>
@@ -183,7 +185,7 @@ export default function Login() {
           )}
         </div>
 
-        <p className="text-center mt-6 text-gray-400 text-xs">
+        <p className="text-center mt-6 text-orange-200/50 text-xs">
           © {new Date().getFullYear()} Escala Litúrgica · Sistema de Gestão
         </p>
       </div>

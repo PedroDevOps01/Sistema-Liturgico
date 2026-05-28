@@ -13,6 +13,7 @@ class Celebracao extends Model
     protected $table = 'celebracoes';
 
     protected $fillable = [
+        'ativo',
         'data',
         'horario',
         'periodo_liturgico',
@@ -43,6 +44,7 @@ class Celebracao extends Model
             'batismo' => 'boolean',
             'crisma' => 'boolean',
             'final_de_semana' => 'boolean',
+            'ativo' => 'boolean',
             'qtd_cerimoniarios' => 'integer',
         ];
     }
