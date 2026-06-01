@@ -149,11 +149,6 @@ npm run dev                   # http://localhost:5173
 - Ranking "Quem mais serviu" baseado em `status = 'serviu'` nas escalas ativas (consistente com o relatório de presenças)
 - Consultas disponíveis: próximas escalas, escalas da semana/mês, casamentos, batismos, cerimoniários ativos/inativos/experientes/indisponíveis, presenças pendentes, ausências e muito mais
 
-### Telão / Sacristia
-- Tela em tela cheia para exibição em TV ou projetor
-- Fundo preto, texto grande, auto-atualização a cada 2 minutos
-- Exibe escalas do dia atual
-
 ### Usuários
 - CRUD de administradores com usuário/senha (sem e-mail)
 - Resetar senha, ativar/desativar, soft delete
