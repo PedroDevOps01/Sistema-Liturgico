@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Plus, Eye, Pencil, FileDown, MessageCircle,
-  Calendar, Search, Clock, X, MoreVertical, ToggleLeft, Trash2,
+  Calendar, Search, Clock, X, MoreVertical, ToggleLeft, ToggleRight, Trash2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
@@ -48,6 +48,16 @@ export default function Escalas() {
   }, [])
 
   useEffect(() => { loadList() }, [loadList])
+
+  async function toggleAtivo(escala: Escala) {
+    try {
+      await api.patch(`/escalas/${escala.id}/toggle-ativo`)
+      toast.success(escala.ativo ? 'Escala inativada' : 'Escala ativada')
+      loadList()
+    } catch {
+      toast.error('Erro ao alterar status')
+    }
+  }
 
   async function handleDelete() {
     if (!deleteTarget) return
@@ -171,6 +181,7 @@ async function handleDownloadPdf(escala: Escala) {
                 <th className="text-left px-5 py-3.5 font-semibold text-sm">Celebração</th>
                 <th className="text-left px-5 py-3.5 font-semibold text-sm hidden md:table-cell">Período</th>
                 <th className="text-left px-5 py-3.5 font-semibold text-sm hidden lg:table-cell">Criada em</th>
+                <th className="text-left px-5 py-3.5 font-semibold text-sm">Status</th>
                 <th className="text-right px-5 py-3.5 font-semibold text-sm">Ações</th>
               </tr>
             </thead>
@@ -226,6 +237,11 @@ async function handleDownloadPdf(escala: Escala) {
                     {formatDatetime(escala.created_at)}
                   </td>
                   <td className="px-5 py-4">
+                    <Badge variant={escala.ativo ? 'green' : 'red'} size="sm">
+                      {escala.ativo ? 'Ativo' : 'Inativo'}
+                    </Badge>
+                  </td>
+                  <td className="px-5 py-4">
                     <div className="flex items-center justify-end">
                       <button
                         onClick={() => setMenuTarget(escala)}
@@ -262,7 +278,13 @@ async function handleDownloadPdf(escala: Escala) {
           { label: 'Editar', icon: <Pencil size={18} />, onClick: () => navigate(`/escalas/${menuTarget.id}/editar`) },
           { label: 'Baixar PDF', icon: <FileDown size={18} />, onClick: () => handleDownloadPdf(menuTarget) },
           { label: 'Enviar WhatsApp', icon: <MessageCircle size={18} />, onClick: () => handleWhatsApp(menuTarget), separator: true },
-          { label: 'Inativar', icon: <ToggleLeft size={18} />, onClick: () => setDeleteTarget(menuTarget), variant: 'warning' as const, separator: true },
+          {
+            label: menuTarget.ativo ? 'Inativar' : 'Ativar',
+            icon: menuTarget.ativo ? <ToggleLeft size={18} /> : <ToggleRight size={18} />,
+            onClick: () => toggleAtivo(menuTarget),
+            variant: menuTarget.ativo ? 'warning' as const : 'success' as const,
+            separator: true,
+          },
         ] : []}
       />
     </div>

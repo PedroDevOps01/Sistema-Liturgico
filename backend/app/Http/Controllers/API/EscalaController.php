@@ -235,6 +235,24 @@ class EscalaController extends Controller
         ]);
     }
 
+    public function toggleAtivo(Request $request, Escala $escala): JsonResponse
+    {
+        $novoAtivo = ! $escala->ativo;
+        DB::table('escalas')->where('id', $escala->id)->update(['ativo' => $novoAtivo, 'updated_at' => now()]);
+
+        HistoricoEscala::create([
+            'escala_id'  => $escala->id,
+            'user_id'    => $request->user()->id,
+            'acao'       => $novoAtivo ? 'ativou' : 'inativou',
+            'descricao'  => $novoAtivo ? 'Escala reativada.' : 'Escala inativada.',
+        ]);
+
+        return response()->json([
+            'data'    => Escala::find($escala->id),
+            'message' => $novoAtivo ? 'Escala ativada.' : 'Escala inativada.',
+        ]);
+    }
+
     public function gerarEstrutura(Request $request): JsonResponse
     {
         $request->validate([

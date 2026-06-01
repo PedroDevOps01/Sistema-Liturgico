@@ -34,6 +34,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Celebrações
     Route::get('celebracoes/sem-escala', [CelebracaoController::class, 'semEscala']);
+    Route::patch('celebracoes/{celebracao}/toggle-ativo', [CelebracaoController::class, 'toggleAtivo']);
     Route::get('celebracoes/grupo', [CelebracaoController::class, 'porGrupo']);
     Route::post('celebracoes/batch', [CelebracaoController::class, 'storeBatch']);
     Route::apiResource('celebracoes', CelebracaoController::class)
@@ -42,6 +43,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Escalas
     Route::get('historico', [EscalaController::class, 'historico']);
     Route::post('escalas/gerar-estrutura', [EscalaController::class, 'gerarEstrutura']);
+    Route::patch('escalas/{escala}/toggle-ativo', [EscalaController::class, 'toggleAtivo']);
     Route::get('escalas/ultima', [EscalaController::class, 'ultima']);
     Route::get('escalas/conflitos-data', [EscalaController::class, 'conflitosData']);
     Route::get('escalas/{id}/whatsapp', [EscalaController::class, 'copiarWhatsapp']);

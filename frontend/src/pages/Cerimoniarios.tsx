@@ -341,7 +341,7 @@ export default function Cerimoniarios() {
                     <AvailabilityDots c={c} />
                   </td>
                   <td className="px-5 py-4">
-                    <Badge variant={c.ativo ? 'green' : 'gray'} size="sm">
+                    <Badge variant={c.ativo ? 'green' : 'red'} size="sm">
                       {c.ativo ? 'Ativo' : 'Inativo'}
                     </Badge>
                   </td>

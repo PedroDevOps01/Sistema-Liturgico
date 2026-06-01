@@ -188,6 +188,16 @@ class CelebracaoController extends Controller
         ]);
     }
 
+    public function toggleAtivo(Celebracao $celebracao): JsonResponse
+    {
+        $celebracao->update(['ativo' => ! $celebracao->ativo]);
+
+        return response()->json([
+            'data'    => $celebracao->fresh(),
+            'message' => $celebracao->ativo ? 'Celebração ativada.' : 'Celebração inativada.',
+        ]);
+    }
+
     public function semEscala(): JsonResponse
     {
         $celebracoes = Celebracao::whereDoesntHave('escala')

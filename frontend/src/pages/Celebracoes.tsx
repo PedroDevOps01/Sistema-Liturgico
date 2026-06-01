@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Plus, Search, Pencil, Trash2, Calendar, Clock, CheckCircle2, XCircle, Moon, X, Copy, MoreVertical } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Calendar, Clock, CheckCircle2, XCircle, Moon, X, Copy, MoreVertical, ToggleLeft, ToggleRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
@@ -447,6 +447,16 @@ export default function Celebracoes() {
     }
   }
 
+  async function toggleAtivo(c: Celebracao) {
+    try {
+      await api.patch(`/celebracoes/${c.id}/toggle-ativo`)
+      toast.success(c.ativo ? 'Celebração inativada' : 'Celebração ativada')
+      loadList()
+    } catch {
+      toast.error('Erro ao alterar status')
+    }
+  }
+
   async function handleDelete() {
     if (!deleteTarget) return
     try {
@@ -751,6 +761,7 @@ export default function Celebracoes() {
               <th className="text-left px-5 py-3.5 font-semibold text-sm">Período</th>
               <th className="text-left px-5 py-3.5 font-semibold text-sm hidden lg:table-cell">Tipo</th>
               <th className="text-left px-5 py-3.5 font-semibold text-sm">Escala</th>
+              <th className="text-left px-5 py-3.5 font-semibold text-sm">Status</th>
               <th className="text-right px-5 py-3.5 font-semibold text-sm">Ações</th>
             </tr>
           </thead>
@@ -825,6 +836,11 @@ export default function Celebracoes() {
                           <span className="text-xs">Sem escala</span>
                         </div>
                       )}
+                    </td>
+                    <td className="px-5 py-4">
+                      <Badge variant={c.ativo ? 'green' : 'red'} size="sm">
+                        {c.ativo ? 'Ativo' : 'Inativo'}
+                      </Badge>
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center justify-end">
@@ -934,6 +950,13 @@ export default function Celebracoes() {
             label: 'Editar',
             icon: <Pencil size={18} />,
             onClick: () => openEdit(menuTarget),
+            separator: true,
+          },
+          {
+            label: menuTarget.ativo ? 'Inativar' : 'Ativar',
+            icon: menuTarget.ativo ? <ToggleLeft size={18} /> : <ToggleRight size={18} />,
+            onClick: () => toggleAtivo(menuTarget),
+            variant: menuTarget.ativo ? 'warning' as const : 'success' as const,
             separator: true,
           },
         ] : []}

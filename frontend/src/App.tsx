@@ -2,9 +2,12 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { isAuthenticated } from './lib/auth'
 import { applyLiturgicalTheme } from './lib/theme'
+import { applyDynamicFavicon } from './lib/favicon'
+import logoGrupo from './assets/logogrupo.png'
 
 // Aplica o tema litúrgico antes de qualquer render (sem flash de cor errada)
 applyLiturgicalTheme()
+applyDynamicFavicon(logoGrupo)
 
 import Layout from './components/Layout/Layout'
 import Login from './pages/Login'

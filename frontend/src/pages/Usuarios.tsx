@@ -214,7 +214,7 @@ export default function Usuarios() {
                     </code>
                   </td>
                   <td className="px-5 py-4">
-                    <Badge variant={u.ativo ? 'green' : 'gray'} size="sm">
+                    <Badge variant={u.ativo ? 'green' : 'red'} size="sm">
                       {u.ativo ? 'Ativo' : 'Inativo'}
                     </Badge>
                   </td>
