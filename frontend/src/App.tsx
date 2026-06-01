@@ -1,11 +1,16 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { isAuthenticated } from './lib/auth'
+import { applyLiturgicalTheme } from './lib/theme'
+
+// Aplica o tema litúrgico antes de qualquer render (sem flash de cor errada)
+applyLiturgicalTheme()
 
 import Layout from './components/Layout/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Cerimoniarios from './pages/Cerimoniarios'
+import CerimoniarioDashboard from './pages/CerimoniarioDashboard'
 import Celebracoes from './pages/Celebracoes'
 import Escalas from './pages/Escalas'
 import EscalaForm from './pages/EscalaForm'
@@ -15,6 +20,8 @@ import Configuracoes from './pages/Configuracoes'
 import Telao from './pages/Telao'
 import Calendario from './pages/Calendario'
 import Relatorio from './pages/Relatorio'
+import Historico from './pages/Historico'
+import Treinamentos from './pages/Treinamentos'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated()) {
@@ -70,6 +77,7 @@ export default function App() {
         >
           <Route path="/" element={<Dashboard />} />
           <Route path="/cerimoniarios" element={<Cerimoniarios />} />
+          <Route path="/cerimoniarios/:id" element={<CerimoniarioDashboard />} />
           <Route path="/celebracoes" element={<Celebracoes />} />
           <Route path="/escalas" element={<Escalas />} />
           <Route path="/escalas/nova" element={<EscalaForm />} />
@@ -79,6 +87,8 @@ export default function App() {
           <Route path="/configuracoes" element={<Configuracoes />} />
           <Route path="/calendario" element={<Calendario />} />
           <Route path="/relatorio" element={<Relatorio />} />
+          <Route path="/historico" element={<Historico />} />
+          <Route path="/treinamentos" element={<Treinamentos />} />
         </Route>
 
         {/* Fallback */}

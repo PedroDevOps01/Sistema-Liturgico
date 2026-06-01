@@ -26,6 +26,7 @@ class Cerimoniario extends Model
         'disponivel_semana_noite',
         'disponivel_sabado',
         'indisponivel_temporario',
+        'experiente',
     ];
 
     protected function casts(): array
@@ -40,6 +41,7 @@ class Cerimoniario extends Model
             'disponivel_semana_noite' => 'boolean',
             'disponivel_sabado' => 'boolean',
             'indisponivel_temporario' => 'boolean',
+            'experiente' => 'boolean',
         ];
     }
 

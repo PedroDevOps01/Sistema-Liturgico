@@ -211,7 +211,7 @@ export default function Calendario() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-4">
           <div className="w-1 h-10 rounded-full flex-shrink-0"
-               style={{ background: 'linear-gradient(180deg,#f97316,#c2410c)' }} />
+               style={{ background: 'linear-gradient(180deg, var(--theme-btn-to), var(--theme-btn-from))' }} />
           <div>
             <h1 className="text-2xl font-bold text-gray-900 leading-tight">Calendário</h1>
             <p className="text-sm text-gray-500 mt-0.5 capitalize">
@@ -279,11 +279,11 @@ export default function Calendario() {
       <div className="card overflow-hidden">
         {/* Weekday headers */}
         <div className="grid grid-cols-7 border-b border-gray-100"
-             style={{ background: 'linear-gradient(135deg,#7c2d12,#c2410c)' }}>
+             style={{ background: 'linear-gradient(135deg, var(--theme-mid), var(--theme-to))' }}>
           {weekDays.map((day, i) => (
             <div key={day}
                  className={`py-3 text-center text-xs font-bold uppercase tracking-wider ${
-                   i === 0 ? 'text-red-200' : i === 6 ? 'text-blue-200' : 'text-orange-100'
+                   i === 0 ? 'text-red-200' : i === 6 ? 'text-blue-200' : 'text-wine-100'
                  }`}>
               {day}
             </div>
@@ -308,7 +308,7 @@ export default function Calendario() {
                 <div key={key}
                      className={`border-r border-b border-gray-100 p-1.5 min-h-[110px] flex flex-col transition-colors ${
                        !inMonth ? 'bg-gray-50/80' :
-                       isSun || isSat ? 'bg-orange-50/40' : 'bg-white hover:bg-orange-50/20'
+                       isSun || isSat ? 'bg-wine-50/40' : 'bg-white hover:bg-wine-50/20'
                      }`}>
                   {/* Day number */}
                   <div className="flex items-center justify-between mb-1.5">
@@ -317,7 +317,7 @@ export default function Calendario() {
                       !inMonth ? 'text-gray-300' :
                       isSun ? 'text-red-500' : isSat ? 'text-blue-500' : 'text-gray-800'
                     }`}
-                    style={isT ? { background: 'linear-gradient(135deg,#ea580c,#7c2d12)' } : undefined}>
+                    style={isT ? { background: 'linear-gradient(135deg, var(--theme-btn-to), var(--theme-mid))' } : undefined}>
                       {format(day, 'd')}
                     </span>
                     {dayCels.length > 0 && inMonth && (
@@ -369,7 +369,7 @@ export default function Calendario() {
             {/* Drawer header */}
             <div className="flex items-start justify-between px-5 py-4 flex-shrink-0 sidebar-gradient text-white">
               <div className="flex-1 min-w-0 pr-3">
-                <p className="text-orange-200/70 text-xs uppercase tracking-wider font-semibold mb-1">
+                <p className="text-wine-200/70 text-xs uppercase tracking-wider font-semibold mb-1">
                   {format(safeParseDate(drawer.celebracao.data), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                 </p>
                 <h2 className="text-lg font-bold truncate">{drawer.celebracao.periodo_liturgico}</h2>
@@ -378,8 +378,8 @@ export default function Calendario() {
                     <Clock size={12} className="opacity-70" />
                     <span className="text-sm font-bold">{formatHorario(drawer.celebracao.horario)}</span>
                   </div>
-                  <span className="text-orange-300/50">·</span>
-                  <span className="text-sm text-orange-100/80">{getCelebrationLabel(drawer.celebracao)}</span>
+                  <span className="text-wine-300/50">·</span>
+                  <span className="text-sm text-wine-100/80">{getCelebrationLabel(drawer.celebracao)}</span>
                 </div>
               </div>
               <button onClick={() => setDrawer(null)}
@@ -418,7 +418,7 @@ export default function Calendario() {
                       .map((item, i) => (
                         <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
                           <div className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
-                               style={{ background: 'linear-gradient(135deg,#ea580c,#c2410c)' }}>
+                               style={{ background: 'linear-gradient(135deg, var(--theme-btn-to), var(--theme-btn-from))' }}>
                             {i + 1}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -456,7 +456,7 @@ export default function Calendario() {
                 </>
               ) : (
                 <div className="flex flex-col items-center justify-center h-40 text-center">
-                  <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center mb-3">
+                  <div className="w-14 h-14 bg-wine-50 rounded-2xl flex items-center justify-center mb-3">
                     <Calendar size={28} className="text-wine-400" />
                   </div>
                   <p className="font-semibold text-gray-600">Sem escala criada</p>

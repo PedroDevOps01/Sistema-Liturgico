@@ -19,8 +19,10 @@ class EscalaController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Escala::with(['celebracao', 'criador', 'escalaItens.cerimoniario', 'escalaItens.funcao'])
-            ->where('ativo', true);
+        $query = Escala::with(['celebracao', 'criador', 'escalaItens.cerimoniario', 'escalaItens.funcao']);
+        if (! $request->boolean('todos')) {
+            $query->where('ativo', true);
+        }
 
         if ($request->filled('celebracao_id')) {
             $query->where('celebracao_id', $request->celebracao_id);
@@ -126,7 +128,7 @@ class EscalaController extends Controller
             'editor',
             'escalaItens.cerimoniario',
             'escalaItens.funcao',
-            'escalaItens.presenca',
+            'escalaItens.presenca.substituto',
             'historicos.user',
         ]);
 
@@ -249,36 +251,43 @@ class EscalaController extends Controller
             || $celebracao->celebracao_solene
             || $celebracao->casamento
             || $celebracao->batismo
-            || $celebracao->crisma;
+            || $celebracao->crisma
+            || $celebracao->primeira_eucaristia
+            || $celebracao->adoracao_santissimo
+            || $celebracao->procissao
+            || $celebracao->via_sacra
+            || $celebracao->exequias
+            || $celebracao->vigilia_pascal
+            || $celebracao->paixao_senhor
+            || $celebracao->ordenacao;
 
-        if ($especial) {
-            $estrutura[] = ['funcao_id' => 1, 'ordem' => 0];
-        } else {
-            // Build full candidate list based on flags
-            $estrutura[] = ['funcao_id' => 1, 'ordem' => 0]; // Mestre
+        // Base: sempre começa com o Mestre
+        $estrutura[] = ['funcao_id' => 1, 'ordem' => 0];
 
-            if (! $celebracao->celebracao_6h) {
-                $estrutura[] = ['funcao_id' => 2, 'ordem' => 1]; // 1º Aux
-                $estrutura[] = ['funcao_id' => 3, 'ordem' => 2]; // 2º Aux
-                $estrutura[] = ['funcao_id' => 4, 'ordem' => 3]; // 3º Aux
-                $estrutura[] = ['funcao_id' => 5, 'ordem' => 4]; // 4º Aux
-            }
+        // Celebrações normais adicionam os auxiliares
+        if (! $especial) {
+            $estrutura[] = ['funcao_id' => 2, 'ordem' => count($estrutura)]; // 1º Aux
+            $estrutura[] = ['funcao_id' => 3, 'ordem' => count($estrutura)]; // 2º Aux
+            $estrutura[] = ['funcao_id' => 4, 'ordem' => count($estrutura)]; // 3º Aux
+            $estrutura[] = ['funcao_id' => 5, 'ordem' => count($estrutura)]; // 4º Aux
+        }
 
-            if ($celebracao->celebracao_noite) {
-                $estrutura[] = ['funcao_id' => 6, 'ordem' => count($estrutura)]; // Turiferário
-            }
+        // Noturno sempre adiciona Turiferário (independente de ser especial)
+        if ($celebracao->celebracao_noite) {
+            $estrutura[] = ['funcao_id' => 6, 'ordem' => count($estrutura)];
+        }
 
-            if ($celebracao->possui_bispo) {
-                $estrutura[] = ['funcao_id' => 7, 'ordem' => count($estrutura)];
-                $estrutura[] = ['funcao_id' => 8, 'ordem' => count($estrutura)];
-                $estrutura[] = ['funcao_id' => 9, 'ordem' => count($estrutura)];
-            }
+        // Respeita qtd_cerimoniarios para a base (antes de adicionar bispo)
+        $qtd = $celebracao->qtd_cerimoniarios ?? count($estrutura);
+        if ($qtd > 0 && $qtd < count($estrutura)) {
+            $estrutura = array_slice($estrutura, 0, $qtd);
+        }
 
-            // Respect qtd_cerimoniarios — trim to the quantity set in the celebration
-            $qtd = $celebracao->qtd_cerimoniarios ?? count($estrutura);
-            if ($qtd > 0 && $qtd < count($estrutura)) {
-                $estrutura = array_slice($estrutura, 0, $qtd);
-            }
+        // Bispo adiciona Môr, Mitra e Bácula ALÉM do qtd base
+        if ($celebracao->possui_bispo) {
+            $estrutura[] = ['funcao_id' => 7, 'ordem' => count($estrutura)];
+            $estrutura[] = ['funcao_id' => 8, 'ordem' => count($estrutura)];
+            $estrutura[] = ['funcao_id' => 9, 'ordem' => count($estrutura)];
         }
 
         // Re-index ordem after slicing
@@ -403,6 +412,8 @@ class EscalaController extends Controller
             ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
             ->join('celebracoes as c', 'c.id', '=', 'e.celebracao_id')
             ->where('c.data', $request->data)
+            ->where('c.ativo', true)
+            ->whereNull('c.deleted_at')
             ->whereNotNull('ei.cerimoniario_id')
             ->when($escalaIdExcluir, fn ($q) => $q->where('e.id', '!=', $escalaIdExcluir))
             ->select('ei.cerimoniario_id', 'c.horario', 'c.periodo_liturgico', 'e.id as escala_id')
@@ -417,6 +428,72 @@ class EscalaController extends Controller
         return response()->json([
             'data' => $ocupados,
             'message' => 'Conflitos verificados.',
+        ]);
+    }
+
+    public function historico(Request $request): JsonResponse
+    {
+        $request->validate([
+            'data_inicio' => 'nullable|date',
+            'data_fim'    => 'nullable|date',
+            'search'      => 'nullable|string|max:100',
+        ]);
+
+        $hoje   = now()->toDateString();
+        $inicio = $request->data_inicio ?? now()->startOfMonth()->toDateString();
+        $fim    = $request->data_fim    ?? $hoje;
+
+        $query = Escala::with([
+            'celebracao',
+            'escalaItens'                     => fn ($q) => $q->orderBy('ordem'),
+            'escalaItens.cerimoniario',
+            'escalaItens.funcao',
+            'escalaItens.presenca.substituto',
+        ])
+        ->where('escalas.ativo', true)
+        ->join('celebracoes', 'celebracoes.id', '=', 'escalas.celebracao_id')
+        ->where('celebracoes.ativo', true)
+        ->whereNull('celebracoes.deleted_at')
+        ->where('celebracoes.data', '<', $hoje)
+        ->whereBetween('celebracoes.data', [$inicio, $fim])
+        ->select('escalas.*');
+
+        if ($request->filled('search')) {
+            $s = '%' . $request->search . '%';
+            $query->where(function ($q) use ($s) {
+                $q->where('celebracoes.periodo_liturgico', 'ilike', $s)
+                  ->orWhereRaw("CAST(celebracoes.data AS TEXT) ilike ?", [$s]);
+            });
+        }
+
+        $escalas = $query
+            ->orderByDesc('celebracoes.data')
+            ->orderByDesc('celebracoes.horario')
+            ->get();
+
+        // Stats do período
+        $totalEscalados  = $escalas->sum(fn ($e) => $e->escalaItens->count());
+        $totalServiu     = $escalas->sum(fn ($e) => $e->escalaItens->filter(fn ($i) => $i->presenca?->status === 'serviu')->count());
+        $totalFaltou     = $escalas->sum(fn ($e) => $e->escalaItens->filter(fn ($i) => $i->presenca?->status === 'faltou')->count());
+        $totalSubstituido = $escalas->sum(fn ($e) => $e->escalaItens->filter(fn ($i) => $i->presenca?->status === 'substituido')->count());
+        $taxaPresenca    = ($totalServiu + $totalFaltou) > 0
+            ? round($totalServiu / ($totalServiu + $totalFaltou) * 100)
+            : null;
+
+        return response()->json([
+            'data' => [
+                'escalas' => $escalas->values(),
+                'stats'   => [
+                    'total_celebracoes' => $escalas->count(),
+                    'total_escalados'   => $totalEscalados,
+                    'serviu'            => $totalServiu,
+                    'faltou'            => $totalFaltou,
+                    'substituido'       => $totalSubstituido,
+                    'taxa_presenca'     => $taxaPresenca,
+                ],
+                'periodo' => ['inicio' => $inicio, 'fim' => $fim],
+            ],
+            'message' => 'Histórico carregado com sucesso.',
         ]);
     }
 

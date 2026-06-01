@@ -7,13 +7,16 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
     public function index(): JsonResponse
     {
-        $users = User::where('ativo', true)->orderBy('nome')->get();
+        $query = User::orderBy('nome');
+        if (! request()->boolean('todos')) {
+            $query->where('ativo', true);
+        }
+        $users = $query->get();
 
         return response()->json([
             'data' => $users,
@@ -29,8 +32,6 @@ class UserController extends Controller
             'password' => 'required|string|min:6',
             'ativo' => 'boolean',
         ]);
-
-        $validated['password'] = Hash::make($validated['password']);
 
         $user = User::create($validated);
 
@@ -57,9 +58,7 @@ class UserController extends Controller
             'ativo' => 'sometimes|boolean',
         ]);
 
-        if (isset($validated['password']) && $validated['password']) {
-            $validated['password'] = Hash::make($validated['password']);
-        } else {
+        if (! (isset($validated['password']) && $validated['password'])) {
             unset($validated['password']);
         }
 
@@ -100,7 +99,7 @@ class UserController extends Controller
         ]);
 
         $user->update([
-            'password' => Hash::make($validated['password']),
+            'password' => $validated['password'],
         ]);
 
         return response()->json([

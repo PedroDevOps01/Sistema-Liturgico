@@ -10,20 +10,30 @@ import {
   Settings,
   LogOut,
   Cross,
+  History,
+  GraduationCap,
 } from 'lucide-react'
 import { removeToken, removeUser, getUser } from '../../lib/auth'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 
 const navItems = [
-  { label: 'Dashboard', icon: LayoutDashboard, to: '/' },
-  { label: 'Cerimoniários', icon: Users, to: '/cerimoniarios' },
-  { label: 'Celebrações', icon: Calendar, to: '/celebracoes' },
-  { label: 'Calendário', icon: CalendarDays, to: '/calendario' },
-  { label: 'Escalas', icon: List, to: '/escalas' },
-  { label: 'Relatório', icon: BarChart2, to: '/relatorio' },
-  { label: 'Usuários', icon: UserCog, to: '/usuarios' },
-  { label: 'Configurações', icon: Settings, to: '/configuracoes' },
+  // ── Visão geral ──────────────
+  { label: 'Dashboard',     icon: LayoutDashboard, to: '/' },
+  // ── Cadastro base ────────────
+  { label: 'Cerimoniários', icon: Users,           to: '/cerimoniarios' },
+  { label: 'Celebrações',   icon: Calendar,        to: '/celebracoes' },
+  // ── Escalonamento ────────────
+  { label: 'Escalas',       icon: List,            to: '/escalas' },
+  { label: 'Calendário',    icon: CalendarDays,    to: '/calendario' },
+  // ── Acompanhamento ───────────
+  { label: 'Histórico',     icon: History,         to: '/historico' },
+  { label: 'Treinamentos',  icon: GraduationCap,   to: '/treinamentos' },
+  // ── Análise ──────────────────
+  { label: 'Relatório',     icon: BarChart2,       to: '/relatorio' },
+  // ── Administração ────────────
+  { label: 'Usuários',      icon: UserCog,         to: '/usuarios' },
+  { label: 'Configurações', icon: Settings,        to: '/configuracoes' },
 ]
 
 interface SidebarProps {

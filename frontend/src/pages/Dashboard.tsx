@@ -19,18 +19,11 @@ import { SkeletonCard } from '../components/common/LoadingSpinner'
 import Badge from '../components/common/Badge'
 import toast from 'react-hot-toast'
 import { formatDataMedium, parseDateParts, formatHorario } from '../lib/dateUtils'
+import { getPeriodoBadgeVariant } from '../lib/liturgico'
 
 const formatData = formatDataMedium
 const formatDayMonth = parseDateParts
-
-function getPeriodoBadge(periodo: string): 'wine' | 'gold' | 'purple' | 'green' | 'blue' {
-  const p = periodo?.toLowerCase() || ''
-  if (p.includes('advento')) return 'purple'
-  if (p.includes('natal')) return 'blue'
-  if (p.includes('quaresma')) return 'gold'
-  if (p.includes('páscoa') || p.includes('pascoa')) return 'green'
-  return 'wine'
-}
+const getPeriodoBadge = getPeriodoBadgeVariant
 
 function DateChip({ data }: { data: string }) {
   const { day, month, weekday } = formatDayMonth(data)

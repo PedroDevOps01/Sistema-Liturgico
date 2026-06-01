@@ -17,8 +17,14 @@
   to   { opacity: 1; }
 }
 
-.animate-slide-up { animation: slide-up 0.22s ease-out; }
-.animate-fade-in  { animation: fade-in 0.18s ease-out; }
+.animate-slide-up        { animation: slide-up         0.22s ease-out; }
+.animate-fade-in         { animation: fade-in          0.18s ease-out; }
+.animate-slide-in-right  { animation: slide-in-right  0.22s ease-out; }
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0);    }
+}
 
 .skeleton {
   background: linear-gradient(90deg, #f3e8dc 25%, #ffe8d4 50%, #f3e8dc 75%);
@@ -27,9 +33,35 @@
   border-radius: 8px;
 }
 
+/* ── Tema litúrgico — escala de cor completa (padrão: vinho/laranja) ── */
+:root {
+  /* Wine color scale — RGB space-separated (sem rgb()) para suportar / opacity do Tailwind */
+  --w-50:  255 247 237;
+  --w-100: 255 237 213;
+  --w-200: 254 215 170;
+  --w-300: 253 186 116;
+  --w-400: 251 146 60;
+  --w-500: 249 115 22;
+  --w-600: 234 88 12;
+  --w-700: 194 65 12;
+  --w-800: 154 52 18;
+  --w-900: 124 45 18;
+  --w-950: 67 20 7;
+
+  /* Sidebar / botão derivados da escala */
+  --theme-from:           rgb(67 20 7);
+  --theme-mid:            rgb(124 45 18);
+  --theme-to:             rgb(194 65 12);
+  --theme-btn-from:       rgb(194 65 12);
+  --theme-btn-to:         rgb(234 88 12);
+  --theme-btn-hover-from: rgb(154 52 18);
+  --theme-btn-hover-to:   rgb(194 65 12);
+  --theme-btn-shadow:     rgba(194, 65, 12, 0.35);
+}
+
 /* ── Sidebar gradient ── */
 .sidebar-gradient {
-  background: linear-gradient(160deg, #431407 0%, #7c2d12 45%, #c2410c 100%);
+  background: linear-gradient(160deg, var(--theme-from) 0%, var(--theme-mid) 45%, var(--theme-to) 100%);
 }
 
 /* ── Hero / page gradient bg ── */
@@ -41,11 +73,11 @@
   html { font-size: 17px; }
 
   body {
-    @apply bg-orange-50/40 text-gray-900 antialiased;
+    @apply bg-wine-50/40 text-gray-900 antialiased;
     margin: 0;
     background-image:
-      radial-gradient(ellipse at 0% 0%, #ffedd5 0%, transparent 60%),
-      radial-gradient(ellipse at 100% 100%, #fff7ed 0%, transparent 50%);
+      radial-gradient(ellipse at 0% 0%, rgb(var(--w-100)) 0%, transparent 60%),
+      radial-gradient(ellipse at 100% 100%, rgb(var(--w-50))  0%, transparent 50%);
     background-attachment: fixed;
   }
 
@@ -61,12 +93,12 @@
     @apply inline-flex items-center gap-2 px-5 py-2.5 font-semibold rounded-xl
            active:scale-95 transition-all duration-200 text-base
            disabled:opacity-50 disabled:cursor-not-allowed shadow-sm;
-    background: linear-gradient(135deg, #c2410c 0%, #ea580c 100%);
+    background: linear-gradient(135deg, var(--theme-btn-from) 0%, var(--theme-btn-to) 100%);
     color: white;
   }
   .btn-primary:hover:not(:disabled) {
-    background: linear-gradient(135deg, #9a3412 0%, #c2410c 100%);
-    box-shadow: 0 4px 14px rgba(194, 65, 12, 0.35);
+    background: linear-gradient(135deg, var(--theme-btn-hover-from) 0%, var(--theme-btn-hover-to) 100%);
+    box-shadow: 0 4px 14px var(--theme-btn-shadow);
   }
 
   .btn-secondary {
@@ -98,13 +130,13 @@
 
   /* ── Inputs ── */
   .input-field {
-    @apply w-full px-4 py-2.5 border-2 border-orange-100 rounded-xl text-base
+    @apply w-full px-4 py-2.5 border-2 border-wine-100 rounded-xl text-base
            focus:outline-none focus:border-wine-500 focus:ring-2 focus:ring-wine-500/15
            transition-all duration-200 bg-white placeholder-gray-400;
   }
 
   .select-field {
-    @apply w-full px-4 py-2.5 border-2 border-orange-100 rounded-xl text-base
+    @apply w-full px-4 py-2.5 border-2 border-wine-100 rounded-xl text-base
            focus:outline-none focus:border-wine-500 focus:ring-2 focus:ring-wine-500/15
            transition-all bg-white appearance-none cursor-pointer;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23c2410c' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
@@ -119,11 +151,11 @@
 
   /* ── Cards ── */
   .card {
-    @apply bg-white rounded-2xl border border-orange-100/80 transition-all duration-200;
-    box-shadow: 0 1px 3px rgba(194, 65, 12, 0.06), 0 1px 2px rgba(0,0,0,0.04);
+    @apply bg-white rounded-2xl border border-wine-100/80 transition-all duration-200;
+    box-shadow: 0 1px 3px rgb(var(--w-700) / 0.06), 0 1px 2px rgba(0,0,0,0.04);
   }
   .card:hover {
-    box-shadow: 0 4px 16px rgba(194, 65, 12, 0.10), 0 1px 4px rgba(0,0,0,0.06);
+    box-shadow: 0 4px 16px rgb(var(--w-700) / 0.10), 0 1px 4px rgba(0,0,0,0.06);
   }
 
   /* ── Table header ── */
@@ -135,6 +167,6 @@
   /* ── Stat card accent bar ── */
   .stat-card-orange {
     @apply card p-5 flex items-center gap-4;
-    border-left: 4px solid #ea580c;
+    border-left: 4px solid rgb(var(--w-600));
   }
 }

@@ -4,24 +4,52 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Plus, Search, Pencil, Trash2, Calendar, Clock, CheckCircle2, XCircle, Moon, X, Copy } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Calendar, Clock, CheckCircle2, XCircle, Moon, X, Copy, MoreVertical } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
+import { getPeriodoLiturgico, getPeriodoBadgeVariant } from '../lib/liturgico'
 import type { Celebracao, Escala } from '../types'
 import Modal from '../components/common/Modal'
 import ConfirmDialog from '../components/common/ConfirmDialog'
+import ActionsDrawer from '../components/common/ActionsDrawer'
+import InativosToggle from '../components/common/InativosToggle'
 import PageHeader from '../components/common/PageHeader'
 import Badge from '../components/common/Badge'
 import { SkeletonRow } from '../components/common/LoadingSpinner'
 
 const PERIODOS = [
-  'Tempo Comum',
   'Advento',
-  'Natal',
+  'Tempo do Natal',
+  'Tempo Comum',
   'Quaresma',
-  'Páscoa',
+  'Tríduo Pascal',
+  'Tempo Pascal',
   'Pentecostes',
+]
+
+type FlagKey =
+  | 'celebracao_noite' | 'celebracao_6h' | 'possui_bispo' | 'celebracao_palavra'
+  | 'celebracao_solene' | 'casamento' | 'batismo' | 'crisma'
+  | 'primeira_eucaristia' | 'adoracao_santissimo' | 'procissao' | 'via_sacra'
+  | 'exequias' | 'vigilia_pascal' | 'paixao_senhor' | 'ordenacao'
+
+const FLAG_OPTIONS: { key: FlagKey; label: string }[] = [
+  { key: 'celebracao_solene',   label: 'Celebração Solene' },
+  { key: 'possui_bispo',        label: 'Possui Bispo' },
+  { key: 'celebracao_palavra',  label: 'Celebração da Palavra' },
+  { key: 'celebracao_6h',       label: 'Missa das 6h' },
+  { key: 'casamento',           label: 'Casamento' },
+  { key: 'batismo',             label: 'Batismo' },
+  { key: 'crisma',              label: 'Crisma' },
+  { key: 'primeira_eucaristia', label: 'Primeira Eucaristia' },
+  { key: 'adoracao_santissimo', label: 'Adoração ao Santíssimo' },
+  { key: 'procissao',           label: 'Procissão' },
+  { key: 'via_sacra',           label: 'Via-Sacra' },
+  { key: 'exequias',            label: 'Exéquias' },
+  { key: 'vigilia_pascal',      label: 'Vigília Pascal' },
+  { key: 'paixao_senhor',       label: 'Paixão do Senhor' },
+  { key: 'ordenacao',           label: 'Ordenação' },
 ]
 
 const schema = z.object({
@@ -37,6 +65,14 @@ const schema = z.object({
   casamento: z.boolean(),
   batismo: z.boolean(),
   crisma: z.boolean(),
+  primeira_eucaristia: z.boolean(),
+  adoracao_santissimo: z.boolean(),
+  procissao: z.boolean(),
+  via_sacra: z.boolean(),
+  exequias: z.boolean(),
+  vigilia_pascal: z.boolean(),
+  paixao_senhor: z.boolean(),
+  ordenacao: z.boolean(),
   observacao: z.string().optional(),
 })
 
@@ -55,6 +91,14 @@ const defaultFormValues: FormData = {
   casamento: false,
   batismo: false,
   crisma: false,
+  primeira_eucaristia: false,
+  adoracao_santissimo: false,
+  procissao: false,
+  via_sacra: false,
+  exequias: false,
+  vigilia_pascal: false,
+  paixao_senhor: false,
+  ordenacao: false,
   observacao: '',
 }
 
@@ -72,6 +116,39 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
       </button>
       <span className="text-sm text-gray-700">{label}</span>
     </label>
+  )
+}
+
+function FlagsChips({
+  values,
+  onChange,
+  exclude = [],
+}: {
+  values: Partial<Record<FlagKey, boolean>>
+  onChange: (key: FlagKey, v: boolean) => void
+  exclude?: FlagKey[]
+}) {
+  const options = FLAG_OPTIONS.filter((o) => !exclude.includes(o.key))
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map(({ key, label }) => {
+        const active = !!values[key]
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onChange(key, !active)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors duration-150 select-none ${
+              active
+                ? 'bg-wine-900 text-white border-wine-900'
+                : 'bg-white text-gray-600 border-gray-300 hover:border-wine-800 hover:text-wine-900'
+            }`}
+          >
+            {label}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -132,6 +209,8 @@ export default function Celebracoes() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Celebracao | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Celebracao | null>(null)
+  const [menuTarget, setMenuTarget] = useState<Celebracao | null>(null)
+  const [mostrarInativos, setMostrarInativos] = useState(false)
   // Reutilizar última escala
   const [ultimaEscalaModal, setUltimaEscalaModal] = useState(false)
   const [newCelebracaoId, setNewCelebracaoId] = useState<number | null>(null)
@@ -154,11 +233,18 @@ export default function Celebracoes() {
   useEffect(() => {
     if (horario) {
       const [h] = horario.split(':').map(Number)
-      if (h >= 17) {
-        setValue('celebracao_noite', true)
-      }
+      if (h >= 17) setValue('celebracao_noite', true)
     }
   }, [horario, setValue])
+
+  // Auto detect periodo_liturgico when data changes
+  const dataField = watch('data')
+  useEffect(() => {
+    if (dataField) {
+      const { periodo } = getPeriodoLiturgico(dataField)
+      setValue('periodo_liturgico', periodo)
+    }
+  }, [dataField, setValue])
 
   // Sync batchForms length with qtdCelebracoes
   useEffect(() => {
@@ -183,6 +269,17 @@ export default function Celebracoes() {
     setBatchForms((prev) => {
       const updated = [...prev]
       updated[idx] = { ...updated[idx], [field]: value }
+
+      // Auto-detect periodo_liturgico when data changes
+      if (field === 'data' && value) {
+        const { periodo } = getPeriodoLiturgico(value)
+        if (repetirDias) {
+          return updated.map((f) => ({ ...f, data: value, periodo_liturgico: periodo }))
+        }
+        updated[idx].periodo_liturgico = periodo
+        return updated
+      }
+
       // Se repetirDias e o campo é "data", propaga para todos
       if (field === 'data' && repetirDias) {
         return updated.map((f) => ({ ...f, data: value }))
@@ -202,16 +299,24 @@ export default function Celebracoes() {
     try {
       const watchedData = watch()
       const flags = {
-        possui_bispo:      watchedData.possui_bispo      ?? false,
-        celebracao_6h:     watchedData.celebracao_6h     ?? false,
-        celebracao_palavra:watchedData.celebracao_palavra?? false,
-        celebracao_solene: watchedData.celebracao_solene ?? false,
-        casamento:         watchedData.casamento         ?? false,
-        batismo:           watchedData.batismo           ?? false,
-        crisma:            watchedData.crisma            ?? false,
-        qtd_cerimoniarios: watchedData.qtd_cerimoniarios ?? 6,
-        observacao:        watchedData.observacao        ?? '',
-        final_de_semana:   true,
+        possui_bispo:         watchedData.possui_bispo         ?? false,
+        celebracao_6h:        watchedData.celebracao_6h        ?? false,
+        celebracao_palavra:   watchedData.celebracao_palavra   ?? false,
+        celebracao_solene:    watchedData.celebracao_solene    ?? false,
+        casamento:            watchedData.casamento            ?? false,
+        batismo:              watchedData.batismo              ?? false,
+        crisma:               watchedData.crisma               ?? false,
+        primeira_eucaristia:  watchedData.primeira_eucaristia  ?? false,
+        adoracao_santissimo:  watchedData.adoracao_santissimo  ?? false,
+        procissao:            watchedData.procissao            ?? false,
+        via_sacra:            watchedData.via_sacra            ?? false,
+        exequias:             watchedData.exequias             ?? false,
+        vigilia_pascal:       watchedData.vigilia_pascal       ?? false,
+        paixao_senhor:        watchedData.paixao_senhor        ?? false,
+        ordenacao:            watchedData.ordenacao            ?? false,
+        qtd_cerimoniarios:    watchedData.qtd_cerimoniarios    ?? 6,
+        observacao:           watchedData.observacao           ?? '',
+        final_de_semana:      true,
       }
       const celebracoes = batchForms.map((bf) => {
         const [h] = (bf.horario || '00:00').split(':').map(Number)
@@ -230,7 +335,7 @@ export default function Celebracoes() {
 
   const loadList = useCallback(async () => {
     try {
-      const r = await api.get<Celebracao[]>('/celebracoes')
+      const r = await api.get<Celebracao[]>('/celebracoes?todos=1')
       setList(r.data)
     } catch {
       toast.error('Erro ao carregar celebrações')
@@ -269,16 +374,24 @@ export default function Celebracoes() {
       } else if (finalDeSemana) {
         // Batch creation
         const flags = {
-          possui_bispo: data.possui_bispo,
-          celebracao_6h: data.celebracao_6h,
-          celebracao_palavra: data.celebracao_palavra,
-          celebracao_solene: data.celebracao_solene,
-          casamento: data.casamento,
-          batismo: data.batismo,
-          crisma: data.crisma,
-          qtd_cerimoniarios: data.qtd_cerimoniarios,
-          observacao: data.observacao,
-          final_de_semana: true,
+          possui_bispo:        data.possui_bispo,
+          celebracao_6h:       data.celebracao_6h,
+          celebracao_palavra:  data.celebracao_palavra,
+          celebracao_solene:   data.celebracao_solene,
+          casamento:           data.casamento,
+          batismo:             data.batismo,
+          crisma:              data.crisma,
+          primeira_eucaristia: data.primeira_eucaristia,
+          adoracao_santissimo: data.adoracao_santissimo,
+          procissao:           data.procissao,
+          via_sacra:           data.via_sacra,
+          exequias:            data.exequias,
+          vigilia_pascal:      data.vigilia_pascal,
+          paixao_senhor:       data.paixao_senhor,
+          ordenacao:           data.ordenacao,
+          qtd_cerimoniarios:   data.qtd_cerimoniarios,
+          observacao:          data.observacao,
+          final_de_semana:     true,
         }
         const celebracoes = batchForms.map((bf) => {
           const [h] = (bf.horario || '00:00').split(':').map(Number)
@@ -346,7 +459,9 @@ export default function Celebracoes() {
     }
   }
 
+  const inativos = list.filter((c) => !c.ativo)
   const filtered = list.filter((c) => {
+    if (!mostrarInativos && !c.ativo) return false
     const term = search.toLowerCase()
     return (
       c.data.includes(term) ||
@@ -357,14 +472,22 @@ export default function Celebracoes() {
 
   function getCelebrationFlags(c: Celebracao) {
     const flags = []
-    if (c.celebracao_noite) flags.push({ label: 'Noite', variant: 'blue' as const })
-    if (c.possui_bispo) flags.push({ label: 'Bispo', variant: 'purple' as const })
-    if (c.casamento) flags.push({ label: 'Casamento', variant: 'gold' as const })
-    if (c.batismo) flags.push({ label: 'Batismo', variant: 'blue' as const })
-    if (c.crisma) flags.push({ label: 'Crisma', variant: 'purple' as const })
-    if (c.celebracao_solene) flags.push({ label: 'Solene', variant: 'wine' as const })
-    if (c.celebracao_palavra) flags.push({ label: 'Palavra', variant: 'green' as const })
-    if (c.celebracao_6h) flags.push({ label: '6h', variant: 'orange' as const })
+    if (c.celebracao_noite)    flags.push({ label: 'Noite',              variant: 'blue'   as const })
+    if (c.possui_bispo)        flags.push({ label: 'Bispo',              variant: 'purple' as const })
+    if (c.celebracao_solene)   flags.push({ label: 'Solene',             variant: 'wine'   as const })
+    if (c.celebracao_palavra)  flags.push({ label: 'Palavra',            variant: 'green'  as const })
+    if (c.celebracao_6h)       flags.push({ label: '6h',                 variant: 'orange' as const })
+    if (c.casamento)           flags.push({ label: 'Casamento',          variant: 'gold'   as const })
+    if (c.batismo)             flags.push({ label: 'Batismo',            variant: 'blue'   as const })
+    if (c.crisma)              flags.push({ label: 'Crisma',             variant: 'purple' as const })
+    if (c.primeira_eucaristia) flags.push({ label: '1ª Eucaristia',      variant: 'gold'   as const })
+    if (c.adoracao_santissimo) flags.push({ label: 'Adoração',           variant: 'purple' as const })
+    if (c.procissao)           flags.push({ label: 'Procissão',          variant: 'blue'   as const })
+    if (c.via_sacra)           flags.push({ label: 'Via-Sacra',          variant: 'wine'   as const })
+    if (c.exequias)            flags.push({ label: 'Exéquias',           variant: 'gray'   as const })
+    if (c.vigilia_pascal)      flags.push({ label: 'Vigília Pascal',     variant: 'gold'   as const })
+    if (c.paixao_senhor)       flags.push({ label: 'Paixão do Senhor',   variant: 'red'    as const })
+    if (c.ordenacao)           flags.push({ label: 'Ordenação',          variant: 'purple' as const })
     return flags
   }
 
@@ -478,14 +601,12 @@ export default function Celebracoes() {
             {/* Shared flags */}
             <div>
               <p className="label mb-2">Características (compartilhadas por todas)</p>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-0 bg-gray-50 rounded-xl p-4">
-                <Toggle label="Possui Bispo" checked={watchedValues.possui_bispo} onChange={(v) => setValue('possui_bispo', v)} />
-                <Toggle label="Celebração das 6h" checked={watchedValues.celebracao_6h} onChange={(v) => setValue('celebracao_6h', v)} />
-                <Toggle label="Celebração da Palavra" checked={watchedValues.celebracao_palavra} onChange={(v) => setValue('celebracao_palavra', v)} />
-                <Toggle label="Celebração Solene" checked={watchedValues.celebracao_solene} onChange={(v) => setValue('celebracao_solene', v)} />
-                <Toggle label="Casamento" checked={watchedValues.casamento} onChange={(v) => setValue('casamento', v)} />
-                <Toggle label="Batismo" checked={watchedValues.batismo} onChange={(v) => setValue('batismo', v)} />
-                <Toggle label="Crisma" checked={watchedValues.crisma} onChange={(v) => setValue('crisma', v)} />
+              <div className="bg-gray-50 rounded-xl p-4">
+                <FlagsChips
+                  values={watchedValues}
+                  onChange={(key, v) => setValue(key as keyof FormData, v)}
+                  exclude={['celebracao_noite']}
+                />
               </div>
             </div>
 
@@ -540,15 +661,14 @@ export default function Celebracoes() {
 
             <div>
               <p className="label mb-2">Características da Celebração</p>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-0 bg-gray-50 rounded-xl p-4">
-                <Toggle label="Celebração Noturna" checked={watchedValues.celebracao_noite} onChange={(v) => setValue('celebracao_noite', v)} />
-                <Toggle label="Possui Bispo" checked={watchedValues.possui_bispo} onChange={(v) => setValue('possui_bispo', v)} />
-                <Toggle label="Celebração das 6h" checked={watchedValues.celebracao_6h} onChange={(v) => setValue('celebracao_6h', v)} />
-                <Toggle label="Celebração da Palavra" checked={watchedValues.celebracao_palavra} onChange={(v) => setValue('celebracao_palavra', v)} />
-                <Toggle label="Celebração Solene" checked={watchedValues.celebracao_solene} onChange={(v) => setValue('celebracao_solene', v)} />
-                <Toggle label="Casamento" checked={watchedValues.casamento} onChange={(v) => setValue('casamento', v)} />
-                <Toggle label="Batismo" checked={watchedValues.batismo} onChange={(v) => setValue('batismo', v)} />
-                <Toggle label="Crisma" checked={watchedValues.crisma} onChange={(v) => setValue('crisma', v)} />
+              <div className="bg-gray-50 rounded-xl p-4">
+                <FlagsChips
+                  values={watchedValues}
+                  onChange={(key, v) => {
+                    setValue(key as keyof FormData, v)
+                    if (key === 'celebracao_6h' && v) setValue('horario', '06:00')
+                  }}
+                />
               </div>
             </div>
 
@@ -617,6 +737,7 @@ export default function Celebracoes() {
             </button>
           )}
         </div>
+        <InativosToggle mostrarInativos={mostrarInativos} onChange={setMostrarInativos} count={inativos.length} />
       </div>
 
       {/* Card rows list */}
@@ -679,7 +800,7 @@ export default function Celebracoes() {
                       </div>
                     </td>
                     <td className="px-5 py-4">
-                      <Badge variant="wine" size="sm">{c.periodo_liturgico}</Badge>
+                      <Badge variant={getPeriodoBadgeVariant(c.periodo_liturgico)} size="sm">{c.periodo_liturgico}</Badge>
                     </td>
                     <td className="px-5 py-4 hidden lg:table-cell">
                       <div className="flex flex-wrap gap-1">
@@ -706,36 +827,13 @@ export default function Celebracoes() {
                       )}
                     </td>
                     <td className="px-5 py-4">
-                      <div className="flex items-center justify-end gap-1">
-                        {!c.escala && (
-                          <Link
-                            to={`/escalas/nova?celebracao_id=${c.id}`}
-                            className="text-xs font-semibold px-3 py-1.5 bg-wine-900 text-white rounded-lg hover:bg-wine-800 transition-colors"
-                          >
-                            Criar Escala
-                          </Link>
-                        )}
-                        {c.escala && (
-                          <Link
-                            to={`/escalas/${c.escala.id}`}
-                            className="text-xs font-semibold px-3 py-1.5 bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors"
-                          >
-                            Ver Escala
-                          </Link>
-                        )}
+                      <div className="flex items-center justify-end">
                         <button
-                          onClick={() => openEdit(c)}
+                          onClick={() => setMenuTarget(c)}
                           className="p-2 text-gray-400 hover:text-wine-900 hover:bg-wine-50 rounded-lg transition-colors"
-                          title="Editar"
+                          title="Ações"
                         >
-                          <Pencil size={15} />
-                        </button>
-                        <button
-                          onClick={() => setDeleteTarget(c)}
-                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Inativar"
-                        >
-                          <Trash2 size={15} />
+                          <MoreVertical size={18} />
                         </button>
                       </div>
                     </td>
@@ -780,38 +878,21 @@ export default function Celebracoes() {
                         <span className="flex items-center gap-1 text-xs text-gray-500">
                           <Clock size={11} />{c.horario}
                         </span>
-                        <Badge variant="wine" size="sm">{c.periodo_liturgico}</Badge>
+                        <Badge variant={getPeriodoBadgeVariant(c.periodo_liturgico)} size="sm">{c.periodo_liturgico}</Badge>
                         {flags.slice(0, 2).map(({ label, variant }) => (
                           <Badge key={label} variant={variant} size="sm">{label}</Badge>
                         ))}
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
-                    {!c.escala && (
-                      <Link
-                        to={`/escalas/nova?celebracao_id=${c.id}`}
-                        className="text-xs font-semibold px-3 py-1.5 bg-wine-900 text-white rounded-lg hover:bg-wine-800 transition-colors"
-                      >
-                        Criar Escala
-                      </Link>
-                    )}
-                    {c.escala && (
-                      <Link
-                        to={`/escalas/${c.escala.id}`}
-                        className="text-xs font-semibold px-3 py-1.5 bg-green-100 text-green-800 rounded-lg"
-                      >
-                        Ver Escala
-                      </Link>
-                    )}
-                    <div className="ml-auto flex gap-1">
-                      <button onClick={() => openEdit(c)} className="p-2 text-gray-400 hover:text-wine-900 hover:bg-wine-50 rounded-lg transition-colors">
-                        <Pencil size={15} />
-                      </button>
-                      <button onClick={() => setDeleteTarget(c)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
+                  <div className="flex items-center justify-end mt-3 pt-3 border-t border-gray-100">
+                    <button
+                      onClick={() => setMenuTarget(c)}
+                      className="p-2 text-gray-400 hover:text-wine-900 hover:bg-wine-50 rounded-lg transition-colors"
+                      title="Ações"
+                    >
+                      <MoreVertical size={18} />
+                    </button>
                   </div>
                 </div>
               )
@@ -829,6 +910,33 @@ export default function Celebracoes() {
         confirmLabel="Inativar"
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      {/* Actions Drawer */}
+      <ActionsDrawer
+        isOpen={!!menuTarget}
+        onClose={() => setMenuTarget(null)}
+        title={menuTarget ? formatData(menuTarget.data) : ''}
+        subtitle={menuTarget ? `${menuTarget.horario.substring(0, 5)} · ${menuTarget.periodo_liturgico}` : ''}
+        actions={menuTarget ? [
+          ...(!menuTarget.escala ? [{
+            label: 'Criar Escala',
+            icon: <Calendar size={18} />,
+            onClick: () => navigate(`/escalas/nova?celebracao_id=${menuTarget.id}`),
+            variant: 'success' as const,
+          }] : [{
+            label: 'Ver Escala',
+            icon: <CheckCircle2 size={18} />,
+            onClick: () => navigate(`/escalas/${menuTarget.escala!.id}`),
+            variant: 'success' as const,
+          }]),
+          {
+            label: 'Editar',
+            icon: <Pencil size={18} />,
+            onClick: () => openEdit(menuTarget),
+            separator: true,
+          },
+        ] : []}
       />
 
       {/* Modal: reutilizar última escala */}

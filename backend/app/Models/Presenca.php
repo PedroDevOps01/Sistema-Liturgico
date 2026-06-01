@@ -14,6 +14,7 @@ class Presenca extends Model
         'status',
         'status_confirmacao',
         'observacao',
+        'substituto_id',
     ];
 
     protected function casts(): array
@@ -26,5 +27,10 @@ class Presenca extends Model
     public function escalaItem(): BelongsTo
     {
         return $this->belongsTo(EscalaItem::class, 'escala_item_id');
+    }
+
+    public function substituto(): BelongsTo
+    {
+        return $this->belongsTo(Cerimoniario::class, 'substituto_id');
     }
 }

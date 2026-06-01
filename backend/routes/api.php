@@ -29,6 +29,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Cerimoniários
     Route::apiResource('cerimoniarios', CerimoniarioController::class);
     Route::get('cerimoniarios/{id}/disponibilidade', [CerimoniarioController::class, 'disponibilidade']);
+    Route::get('cerimoniarios/{id}/dashboard', [CerimoniarioController::class, 'dashboard']);
     Route::patch('cerimoniarios/{cerimoniario}/toggle-ativo', [CerimoniarioController::class, 'toggleAtivo']);
 
     // Celebrações
@@ -39,6 +40,7 @@ Route::middleware('auth:sanctum')->group(function () {
         ->parameters(['celebracoes' => 'celebracao']);
 
     // Escalas
+    Route::get('historico', [EscalaController::class, 'historico']);
     Route::post('escalas/gerar-estrutura', [EscalaController::class, 'gerarEstrutura']);
     Route::get('escalas/ultima', [EscalaController::class, 'ultima']);
     Route::get('escalas/conflitos-data', [EscalaController::class, 'conflitosData']);
@@ -69,4 +71,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Relatório de presenças
     Route::get('relatorios/presencas', [\App\Http\Controllers\API\RelatorioController::class, 'presencas']);
+
+    // Treinamentos
+    Route::get('treinamentos/{treinamento}/convite', [\App\Http\Controllers\API\TreinamentoController::class, 'convite']);
+    Route::put('treinamentos/{treinamento}/presencas/{cerimoniario}', [\App\Http\Controllers\API\TreinamentoController::class, 'updatePresenca']);
+    Route::apiResource('treinamentos', \App\Http\Controllers\API\TreinamentoController::class);
 });

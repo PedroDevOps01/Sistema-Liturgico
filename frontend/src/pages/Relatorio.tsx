@@ -49,6 +49,18 @@ interface PorCelebracao {
   sem_registro: number
 }
 
+interface Substituicao {
+  data: string
+  horario: string
+  periodo_liturgico: string
+  escala_id: number
+  cerimoniario_id: number
+  cerimoniario_nome: string
+  substituto_id: number | null
+  substituto_nome: string | null
+  funcao: string
+}
+
 interface RelatorioData {
   periodo: { inicio: string; fim: string }
   totais: Totais
@@ -56,6 +68,7 @@ interface RelatorioData {
   por_celebracao: PorCelebracao[]
   top_faltas: PorCerimoniario[]
   top_presenca: PorCerimoniario[]
+  substituicoes: Substituicao[]
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -117,7 +130,7 @@ function StatCard({ label, value, total, icon: Icon, colorClass, textClass, bgCl
 export default function Relatorio() {
   const [data, setData] = useState<RelatorioData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'cerimoniario' | 'celebracao'>('cerimoniario')
+  const [tab, setTab] = useState<'cerimoniario' | 'celebracao' | 'substituicoes'>('cerimoniario')
 
   // Date filter
   const [inicio, setInicio] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
@@ -177,7 +190,7 @@ export default function Relatorio() {
               { label: 'Últimos 6 meses', months: 6 },
             ].map(({ label, months }) => (
               <button key={months} onClick={() => setPreset(months)}
-                      className="px-3 py-2 text-xs font-semibold rounded-lg border border-orange-200 text-wine-700 hover:bg-wine-50 transition-colors">
+                      className="px-3 py-2 text-xs font-semibold rounded-lg border border-wine-200 text-wine-700 hover:bg-wine-50 transition-colors">
                 {label}
               </button>
             ))}
@@ -202,8 +215,8 @@ export default function Relatorio() {
           {/* ── Summary cards ── */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <div className="card p-4 col-span-2 sm:col-span-3 lg:col-span-1 flex items-center gap-3"
-                 style={{ borderLeft: '4px solid #c2410c' }}>
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-orange-50">
+                 style={{ borderLeft: '4px solid rgb(var(--w-700))' }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-wine-50">
                 <Users size={20} className="text-wine-700" />
               </div>
               <div>
@@ -237,7 +250,7 @@ export default function Relatorio() {
                     {data.top_presenca.map((c, i) => (
                       <div key={c.id} className="flex items-center gap-3">
                         <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                             style={{ background: i === 0 ? 'linear-gradient(135deg,#ea580c,#c2410c)' : '#d1d5db' }}>
+                             style={{ background: i === 0 ? 'linear-gradient(135deg, var(--theme-btn-to), var(--theme-btn-from))' : '#d1d5db' }}>
                           {i + 1}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -281,13 +294,14 @@ export default function Relatorio() {
           <div className="card overflow-hidden">
             <div className="flex border-b border-gray-100">
               {([
-                { key: 'cerimoniario', label: 'Por Cerimoniário', icon: Users },
-                { key: 'celebracao',  label: 'Por Celebração',   icon: BarChart2 },
+                { key: 'cerimoniario',  label: 'Por Cerimoniário', icon: Users },
+                { key: 'celebracao',   label: 'Por Celebração',   icon: BarChart2 },
+                { key: 'substituicoes', label: 'Substituições',   icon: RefreshCw },
               ] as const).map(({ key, label, icon: Icon }) => (
                 <button key={key} onClick={() => setTab(key)}
                         className={`flex items-center gap-2 px-5 py-3.5 text-sm font-semibold transition-colors border-b-2 ${
                           tab === key
-                            ? 'text-wine-700 border-wine-600 bg-orange-50/50'
+                            ? 'text-wine-700 border-wine-600 bg-wine-50/50'
                             : 'text-gray-500 border-transparent hover:text-gray-700 hover:bg-gray-50'
                         }`}>
                   <Icon size={15} /> {label}
@@ -306,7 +320,7 @@ export default function Relatorio() {
                 ) : (
                   <table className="w-full text-sm">
                     <thead>
-                      <tr style={{ background: 'linear-gradient(135deg,#7c2d12,#c2410c)' }} className="text-white">
+                      <tr style={{ background: 'linear-gradient(135deg, var(--theme-mid), var(--theme-to))' }} className="text-white">
                         <th className="text-left px-4 py-3 font-semibold">Cerimoniário</th>
                         <th className="text-center px-3 py-3 font-semibold">Escalado</th>
                         <th className="text-center px-3 py-3 font-semibold text-green-200">Serviu</th>
@@ -320,7 +334,7 @@ export default function Relatorio() {
                     <tbody>
                       {data.por_cerimoniario.map((c, i) => (
                         <tr key={c.id}
-                            className={`border-t border-gray-100 hover:bg-orange-50/30 transition-colors ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                            className={`border-t border-gray-100 hover:bg-wine-50/30 transition-colors ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                           <td className="px-4 py-3 font-semibold text-gray-900">{c.nome}</td>
                           <td className="text-center px-3 py-3 text-gray-600">{c.total}</td>
                           <td className="text-center px-3 py-3 font-bold text-green-600">{c.serviu}</td>
@@ -361,7 +375,7 @@ export default function Relatorio() {
                 ) : (
                   <table className="w-full text-sm">
                     <thead>
-                      <tr style={{ background: 'linear-gradient(135deg,#7c2d12,#c2410c)' }} className="text-white">
+                      <tr style={{ background: 'linear-gradient(135deg, var(--theme-mid), var(--theme-to))' }} className="text-white">
                         <th className="text-left px-4 py-3 font-semibold">Celebração</th>
                         <th className="text-left px-4 py-3 font-semibold hidden md:table-cell">Período</th>
                         <th className="text-center px-3 py-3 font-semibold">Total</th>
@@ -374,7 +388,7 @@ export default function Relatorio() {
                     <tbody>
                       {data.por_celebracao.map((c, i) => (
                         <tr key={`${c.celebracao_id}-${c.escala_id}`}
-                            className={`border-t border-gray-100 hover:bg-orange-50/30 transition-colors ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                            className={`border-t border-gray-100 hover:bg-wine-50/30 transition-colors ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                           <td className="px-4 py-3">
                             <div className="font-semibold text-gray-900">{formatDataShort(c.data)}</div>
                             <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
@@ -396,6 +410,52 @@ export default function Relatorio() {
                                 {pct(c.serviu, c.total)}%
                               </span>
                             </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+            {/* ── Substituições ── */}
+            {tab === 'substituicoes' && (
+              <div className="overflow-x-auto">
+                {(!data.substituicoes || data.substituicoes.length === 0) ? (
+                  <div className="py-16 text-center text-gray-400">
+                    <RefreshCw size={36} className="mx-auto mb-2 opacity-30" />
+                    <p>Nenhuma substituição registrada no período</p>
+                  </div>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr style={{ background: 'linear-gradient(135deg, var(--theme-mid), var(--theme-to))' }} className="text-white">
+                        <th className="text-left px-4 py-3 font-semibold">Celebração</th>
+                        <th className="text-left px-4 py-3 font-semibold">Função</th>
+                        <th className="text-left px-4 py-3 font-semibold">Cerimoniário</th>
+                        <th className="text-left px-4 py-3 font-semibold">Substituído por</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.substituicoes.map((s, i) => (
+                        <tr key={i} className={`border-t border-gray-100 hover:bg-wine-50/30 transition-colors ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                          <td className="px-4 py-3">
+                            <div className="font-semibold text-gray-900">{formatDataShort(s.data)}</div>
+                            <div className="text-xs text-gray-500 mt-0.5">{formatHorario(s.horario)} · {s.periodo_liturgico}</div>
+                          </td>
+                          <td className="px-4 py-3 text-gray-600 text-xs">{s.funcao}</td>
+                          <td className="px-4 py-3">
+                            <span className="font-medium text-gray-800">{s.cerimoniario_nome}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {s.substituto_nome ? (
+                              <div className="flex items-center gap-1.5">
+                                <RefreshCw size={12} className="text-amber-500 flex-shrink-0" />
+                                <span className="font-semibold text-amber-700">{s.substituto_nome}</span>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 text-xs italic">Não informado</span>
+                            )}
                           </td>
                         </tr>
                       ))}

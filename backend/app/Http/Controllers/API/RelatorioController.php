@@ -106,6 +106,34 @@ class RelatorioController extends Controller
             ->take(5)
             ->values();
 
+        // ── Substituições detalhadas ────────────────────────────────────
+        $substituicoes = DB::table('presencas as p')
+            ->join('escala_itens as ei', 'ei.id', '=', 'p.escala_item_id')
+            ->join('escalas as e',       'e.id',  '=', 'ei.escala_id')
+            ->join('celebracoes as cel', 'cel.id', '=', 'e.celebracao_id')
+            ->join('cerimoniarios as c_orig', 'c_orig.id', '=', 'ei.cerimoniario_id')
+            ->leftJoin('cerimoniarios as c_sub', 'c_sub.id', '=', 'p.substituto_id')
+            ->where('p.status', 'substituido')
+            ->whereBetween('cel.data', [$inicio, $fim])
+            ->where('cel.ativo', true)
+            ->where('e.ativo', true)
+            ->whereNull('cel.deleted_at')
+            ->whereNull('e.deleted_at')
+            ->select(
+                'cel.data',
+                'cel.horario',
+                'cel.periodo_liturgico',
+                'e.id as escala_id',
+                'c_orig.id as cerimoniario_id',
+                'c_orig.nome as cerimoniario_nome',
+                'c_sub.id as substituto_id',
+                'c_sub.nome as substituto_nome',
+                DB::raw("COALESCE(ei.funcao_label, 'Função') as funcao")
+            )
+            ->orderByDesc('cel.data')
+            ->orderBy('cel.horario')
+            ->get();
+
         return response()->json([
             'data' => [
                 'periodo'          => ['inicio' => $inicio, 'fim' => $fim],
@@ -114,6 +142,7 @@ class RelatorioController extends Controller
                 'por_celebracao'   => $porCelebracao,
                 'top_faltas'       => $topFaltas,
                 'top_presenca'     => $topPresenca,
+                'substituicoes'    => $substituicoes,
             ],
             'message' => 'Relatório gerado com sucesso.',
         ]);

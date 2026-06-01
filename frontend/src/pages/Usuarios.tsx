@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Pencil, ToggleLeft, ToggleRight, KeyRound, UserCog } from 'lucide-react'
+import { Plus, Pencil, ToggleLeft, ToggleRight, KeyRound, UserCog, Eye, EyeOff, MoreVertical } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
 import type { User } from '../types'
 import Modal from '../components/common/Modal'
+import ActionsDrawer from '../components/common/ActionsDrawer'
+import InativosToggle from '../components/common/InativosToggle'
 import PageHeader from '../components/common/PageHeader'
 import Badge from '../components/common/Badge'
 import { SkeletonRow } from '../components/common/LoadingSpinner'
@@ -60,6 +62,12 @@ export default function Usuarios() {
   const [resetModalOpen, setResetModalOpen] = useState(false)
   const [editing, setEditing] = useState<User | null>(null)
   const [resetTarget, setResetTarget] = useState<User | null>(null)
+  const [menuTarget, setMenuTarget] = useState<User | null>(null)
+  const [mostrarInativos, setMostrarInativos] = useState(false)
+  const [showCreatePw, setShowCreatePw] = useState(false)
+  const [showCreatePwConf, setShowCreatePwConf] = useState(false)
+  const [showResetPw, setShowResetPw] = useState(false)
+  const [showResetPwConf, setShowResetPwConf] = useState(false)
 
   const createForm = useForm<CreateData>({ resolver: zodResolver(createSchema) })
   const editForm = useForm<EditData>({ resolver: zodResolver(editSchema) })
@@ -67,7 +75,7 @@ export default function Usuarios() {
 
   const loadList = useCallback(async () => {
     try {
-      const r = await api.get<User[]>('/users')
+      const r = await api.get<User[]>('/users?todos=1')
       setList(r.data)
     } catch {
       toast.error('Erro ao carregar usuários')
@@ -137,7 +145,9 @@ export default function Usuarios() {
     setResetModalOpen(true)
   }
 
-  const ativos = list.filter((u) => u.ativo).length
+  const ativos   = list.filter((u) => u.ativo).length
+  const inativos  = list.filter((u) => !u.ativo).length
+  const filtered  = list.filter((u) => mostrarInativos || u.ativo)
 
   return (
     <div className="space-y-6">
@@ -151,6 +161,11 @@ export default function Usuarios() {
           </button>
         }
       />
+
+      {/* Filter */}
+      <div className="flex justify-end">
+        <InativosToggle mostrarInativos={mostrarInativos} onChange={setMostrarInativos} count={inativos} />
+      </div>
 
       {/* Table */}
       <div className="card overflow-hidden">
@@ -166,7 +181,7 @@ export default function Usuarios() {
           <tbody>
             {loading ? (
               Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} cols={4} />)
-            ) : list.length === 0 ? (
+            ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={4} className="text-center py-16">
                   <div className="flex flex-col items-center gap-3">
@@ -182,10 +197,10 @@ export default function Usuarios() {
                 </td>
               </tr>
             ) : (
-              list.map((u) => (
+              filtered.map((u) => (
                 <tr
                   key={u.id}
-                  className="border-t border-gray-100 hover:bg-gray-50 transition-colors duration-150"
+                  className={`border-t border-gray-100 transition-colors duration-150 ${u.ativo ? 'hover:bg-gray-50' : 'bg-gray-50/60 opacity-60'}`}
                 >
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
@@ -204,29 +219,13 @@ export default function Usuarios() {
                     </Badge>
                   </td>
                   <td className="px-5 py-4">
-                    <div className="flex items-center justify-end gap-1">
+                    <div className="flex items-center justify-end">
                       <button
-                        onClick={() => openEdit(u)}
-                        className="p-2 text-gray-400 hover:text-wine-900 hover:bg-wine-50 rounded-lg transition-all duration-200"
-                        title="Editar"
+                        onClick={() => setMenuTarget(u)}
+                        className="p-2 text-gray-400 hover:text-wine-900 hover:bg-wine-50 rounded-lg transition-colors"
+                        title="Ações"
                       >
-                        <Pencil size={16} />
-                      </button>
-                      <button
-                        onClick={() => openReset(u)}
-                        className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all duration-200"
-                        title="Redefinir Senha"
-                      >
-                        <KeyRound size={16} />
-                      </button>
-                      <button
-                        onClick={() => toggleAtivo(u)}
-                        className={`p-2 rounded-lg transition-all duration-200 ${
-                          u.ativo ? 'text-green-500 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-100'
-                        }`}
-                        title={u.ativo ? 'Desativar' : 'Ativar'}
-                      >
-                        {u.ativo ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
+                        <MoreVertical size={18} />
                       </button>
                     </div>
                   </td>
@@ -256,14 +255,26 @@ export default function Usuarios() {
           </div>
           <div>
             <label className="label">Senha *</label>
-            <input {...createForm.register('password')} type="password" className="input-field" />
+            <div className="relative">
+              <input {...createForm.register('password')} type={showCreatePw ? 'text' : 'password'} className="input-field pr-11" />
+              <button type="button" onClick={() => setShowCreatePw((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                {showCreatePw ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
             {createForm.formState.errors.password && (
               <p className="text-red-600 text-sm mt-1">{createForm.formState.errors.password.message}</p>
             )}
           </div>
           <div>
             <label className="label">Confirmar Senha *</label>
-            <input {...createForm.register('password_confirmation')} type="password" className="input-field" />
+            <div className="relative">
+              <input {...createForm.register('password_confirmation')} type={showCreatePwConf ? 'text' : 'password'} className="input-field pr-11" />
+              <button type="button" onClick={() => setShowCreatePwConf((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                {showCreatePwConf ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
             {createForm.formState.errors.password_confirmation && (
               <p className="text-red-600 text-sm mt-1">{createForm.formState.errors.password_confirmation.message}</p>
             )}
@@ -314,14 +325,26 @@ export default function Usuarios() {
           </div>
           <div>
             <label className="label">Nova Senha *</label>
-            <input {...resetForm.register('password')} type="password" className="input-field" />
+            <div className="relative">
+              <input {...resetForm.register('password')} type={showResetPw ? 'text' : 'password'} className="input-field pr-11" />
+              <button type="button" onClick={() => setShowResetPw((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                {showResetPw ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
             {resetForm.formState.errors.password && (
               <p className="text-red-600 text-sm mt-1">{resetForm.formState.errors.password.message}</p>
             )}
           </div>
           <div>
             <label className="label">Confirmar Nova Senha *</label>
-            <input {...resetForm.register('password_confirmation')} type="password" className="input-field" />
+            <div className="relative">
+              <input {...resetForm.register('password_confirmation')} type={showResetPwConf ? 'text' : 'password'} className="input-field pr-11" />
+              <button type="button" onClick={() => setShowResetPwConf((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                {showResetPwConf ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
             {resetForm.formState.errors.password_confirmation && (
               <p className="text-red-600 text-sm mt-1">{resetForm.formState.errors.password_confirmation.message}</p>
             )}
@@ -334,6 +357,24 @@ export default function Usuarios() {
           </div>
         </form>
       </Modal>
+
+      <ActionsDrawer
+        isOpen={!!menuTarget}
+        onClose={() => setMenuTarget(null)}
+        title={menuTarget?.nome ?? ''}
+        subtitle={`@${menuTarget?.usuario ?? ''} · ${menuTarget?.ativo ? 'Ativo' : 'Inativo'}`}
+        actions={menuTarget ? [
+          { label: 'Editar', icon: <Pencil size={18} />, onClick: () => openEdit(menuTarget) },
+          { label: 'Redefinir Senha', icon: <KeyRound size={18} />, onClick: () => openReset(menuTarget), variant: 'warning' as const },
+          {
+            label: menuTarget.ativo ? 'Desativar' : 'Ativar',
+            icon: menuTarget.ativo ? <ToggleRight size={18} /> : <ToggleLeft size={18} />,
+            onClick: () => toggleAtivo(menuTarget),
+            variant: menuTarget.ativo ? 'warning' as const : 'success' as const,
+            separator: true,
+          },
+        ] : []}
+      />
     </div>
   )
 }

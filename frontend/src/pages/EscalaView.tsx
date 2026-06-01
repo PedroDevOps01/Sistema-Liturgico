@@ -16,23 +16,13 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
-import type { Escala, EscalaItem } from '../types'
+import type { Cerimoniario, Escala, EscalaItem } from '../types'
 import Badge from '../components/common/Badge'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import { formatDataLong, formatHorario } from '../lib/dateUtils'
+import { getPeriodoBadgeVariant } from '../lib/liturgico'
 
-// Status 1: confirmação prévia (antes da celebração)
-const CONFIRMACAO_OPTIONS = [
-  {
-    value: 'confirmado' as const,
-    label: 'Confirmado',
-    icon: <CheckCircle size={13} />,
-    activeClass: 'bg-green-600 text-white border-green-600',
-    hoverClass: 'hover:bg-green-50 hover:text-green-700 hover:border-green-300',
-  },
-]
-
-// Status 2: resultado real (após a celebração)
+// Resultado real (após a celebração) — só exibido se confirmado
 const PRESENCA_OPTIONS = [
   {
     value: 'serviu' as const,
@@ -94,6 +84,7 @@ export default function EscalaView() {
   const navigate = useNavigate()
   const [escala, setEscala] = useState<Escala | null>(null)
   const [loading, setLoading] = useState(true)
+  const [cerimoniarios, setCerimoniarios] = useState<Cerimoniario[]>([])
   const printRef = useRef<HTMLDivElement>(null)
 
   const loadEscala = useCallback(async () => {
@@ -109,27 +100,58 @@ export default function EscalaView() {
 
   useEffect(() => { loadEscala() }, [loadEscala])
 
-  async function handleConfirmacao(item: EscalaItem, value: 'confirmado' | null) {
+  useEffect(() => {
+    api.get<Cerimoniario[]>('/cerimoniarios').then((r) => setCerimoniarios(r.data)).catch(() => null)
+  }, [])
+
+  // Marca como confirmado (não faz nada se já está)
+  async function handleSetConfirmado(item: EscalaItem) {
+    if (item.presenca?.status_confirmacao === 'confirmado') return
     try {
-      // Toggle: se já está confirmado e clicar de novo, limpa
-      const novo = item.presenca?.status_confirmacao === value ? null : value
-      await api.put(`/escala-itens/${item.id}/presenca`, { status_confirmacao: novo })
-      toast.success(novo ? 'Confirmado!' : 'Confirmação removida')
+      await api.put(`/escala-itens/${item.id}/presenca`, { status_confirmacao: 'confirmado' })
+      toast.success('Presença confirmada!')
       loadEscala()
     } catch {
-      toast.error('Erro ao registrar confirmação')
+      toast.error('Erro ao confirmar presença')
     }
   }
 
-  async function handlePresenca(item: EscalaItem, value: 'serviu' | 'faltou' | 'substituido' | 'justificado') {
+  // Marca como "não confirmou" — limpa tudo (cria registro com nulls se ainda não existe)
+  async function handleSetNaoConfirmado(item: EscalaItem) {
+    // Idempotente: se já está sem confirmação, não refaz a chamada
+    if (item.presenca && item.presenca.status_confirmacao !== 'confirmado') return
     try {
-      // Toggle: se já está com esse status e clicar de novo, limpa
-      const novo = item.presenca?.status === value ? null : value
-      await api.put(`/escala-itens/${item.id}/presenca`, { status: novo })
-      toast.success(novo ? 'Presença registrada!' : 'Status removido')
+      await api.put(`/escala-itens/${item.id}/presenca`, {
+        status_confirmacao: null,
+        status: null,
+        substituto_id: null,
+      })
+      toast.success('Marcado como não confirmado')
       loadEscala()
     } catch {
-      toast.error('Erro ao registrar presença')
+      toast.error('Erro ao registrar')
+    }
+  }
+
+  // Alterna o resultado (toggle: clicar no mesmo limpa; só disponível se confirmado)
+  async function handlePresenca(item: EscalaItem, value: 'serviu' | 'faltou' | 'substituido' | 'justificado') {
+    const novo = item.presenca?.status === value ? null : value
+    try {
+      await api.put(`/escala-itens/${item.id}/presenca`, { status: novo })
+      toast.success(novo ? 'Resultado registrado!' : 'Resultado removido')
+      loadEscala()
+    } catch {
+      toast.error('Erro ao registrar resultado')
+    }
+  }
+
+  async function handleSubstituto(item: EscalaItem, substitutoId: number | null) {
+    try {
+      await api.put(`/escala-itens/${item.id}/presenca`, { substituto_id: substitutoId })
+      toast.success(substitutoId ? 'Substituto registrado!' : 'Substituto removido')
+      loadEscala()
+    } catch {
+      toast.error('Erro ao registrar substituto')
     }
   }
 
@@ -272,7 +294,7 @@ export default function EscalaView() {
               </div>
             </div>
             <div className="flex flex-wrap gap-1.5 ml-auto">
-              <Badge variant="wine" size="sm">{celebracao.periodo_liturgico}</Badge>
+              <Badge variant={getPeriodoBadgeVariant(celebracao.periodo_liturgico)} size="sm">{celebracao.periodo_liturgico}</Badge>
               {celebracao.celebracao_noite && <Badge variant="blue" size="sm">Noite</Badge>}
               {celebracao.possui_bispo && <Badge variant="purple" size="sm">Bispo</Badge>}
               {celebracao.casamento && <Badge variant="gold" size="sm">Casamento</Badge>}
@@ -327,50 +349,116 @@ export default function EscalaView() {
                         <span className="text-gray-400 italic font-normal text-sm">Não atribuído</span>
                       )}
                     </div>
+                    {/* Substituto display */}
+                    {statusPresenca === 'substituido' && item.presenca?.substituto && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <RotateCcw size={11} className="text-amber-500 flex-shrink-0" />
+                        <span className="text-xs text-amber-700 font-medium">
+                          {item.presenca.substituto.nome}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Two-status controls */}
+                  {/* Controles de confirmação e resultado */}
                   {item.cerimoniario && (
                     <div className="flex-shrink-0 flex flex-col gap-2 items-end">
-                      {/* Row 1: Confirmação */}
+
+                      {/* Passo 1 — sempre visível: Confirmou? */}
                       <div className="flex items-center gap-1">
-                        <span className="text-[10px] text-gray-400 mr-1 hidden sm:block">Confirmou?</span>
-                        {CONFIRMACAO_OPTIONS.map((opt) => (
-                          <button
-                            key={opt.value}
-                            onClick={() => handleConfirmacao(item, opt.value)}
-                            title={opt.label}
-                            className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold border transition-all duration-200 active:scale-95 ${
-                              confirmacao === opt.value
-                                ? opt.activeClass
-                                : `border-gray-200 text-gray-400 ${opt.hoverClass}`
-                            }`}
-                          >
-                            {opt.icon}
-                            <span className="hidden sm:inline">{opt.label}</span>
-                          </button>
-                        ))}
+                        <span className="text-[10px] text-gray-400 mr-1 hidden sm:block">Confirmação:</span>
+
+                        {/* Confirmou */}
+                        <button
+                          onClick={() => handleSetConfirmado(item)}
+                          title="Confirmou presença"
+                          className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold border transition-all duration-200 active:scale-95 ${
+                            confirmacao === 'confirmado'
+                              ? 'bg-green-600 text-white border-green-600'
+                              : 'border-gray-200 text-gray-400 hover:bg-green-50 hover:text-green-700 hover:border-green-300'
+                          }`}
+                        >
+                          <CheckCircle size={13} />
+                          <span className="hidden sm:inline">Confirmou</span>
+                        </button>
+
+                        {/* Não Confirmou */}
+                        <button
+                          onClick={() => handleSetNaoConfirmado(item)}
+                          title="Não confirmou presença"
+                          className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold border transition-all duration-200 active:scale-95 ${
+                            item.presenca && confirmacao !== 'confirmado'
+                              ? 'bg-red-500 text-white border-red-500'
+                              : 'border-gray-200 text-gray-400 hover:bg-red-50 hover:text-red-600 hover:border-red-300'
+                          }`}
+                        >
+                          <XCircle size={13} />
+                          <span className="hidden sm:inline">Não confirmou</span>
+                        </button>
                       </div>
 
-                      {/* Row 2: Resultado pós-celebração */}
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] text-gray-400 mr-1 hidden sm:block">Resultado:</span>
-                        {PRESENCA_OPTIONS.map((opt) => (
-                          <button
-                            key={opt.value}
-                            onClick={() => handlePresenca(item, opt.value)}
-                            title={opt.label}
-                            className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold border transition-all duration-200 active:scale-95 ${
-                              statusPresenca === opt.value
-                                ? opt.activeClass
-                                : `border-gray-200 text-gray-400 ${opt.hoverClass}`
-                            }`}
+                      {/* Passo 2a — confirmou: resultado completo */}
+                      {confirmacao === 'confirmado' && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-gray-400 mr-1 hidden sm:block">Resultado:</span>
+                          {PRESENCA_OPTIONS.map((opt) => (
+                            <button
+                              key={opt.value}
+                              onClick={() => handlePresenca(item, opt.value)}
+                              title={opt.label}
+                              className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold border transition-all duration-200 active:scale-95 ${
+                                statusPresenca === opt.value
+                                  ? opt.activeClass
+                                  : `border-gray-200 text-gray-400 ${opt.hoverClass}`
+                              }`}
+                            >
+                              {opt.icon}
+                              <span className="hidden sm:inline">{opt.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Passo 2b — não confirmou: justificou ou foi substituído? */}
+                      {item.presenca && confirmacao !== 'confirmado' && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-gray-400 mr-1 hidden sm:block">Motivo:</span>
+                          {PRESENCA_OPTIONS.filter((o) => o.value === 'justificado' || o.value === 'substituido').map((opt) => (
+                            <button
+                              key={opt.value}
+                              onClick={() => handlePresenca(item, opt.value)}
+                              title={opt.label}
+                              className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold border transition-all duration-200 active:scale-95 ${
+                                statusPresenca === opt.value
+                                  ? opt.activeClass
+                                  : `border-gray-200 text-gray-400 ${opt.hoverClass}`
+                              }`}
+                            >
+                              {opt.icon}
+                              <span className="hidden sm:inline">{opt.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Passo 3 — substituído (confirmado ou não): quem serviu? */}
+                      {statusPresenca === 'substituido' && (
+                        <div className="flex items-center gap-1.5">
+                          <RotateCcw size={11} className="text-amber-500 flex-shrink-0" />
+                          <select
+                            value={item.presenca?.substituto_id ?? ''}
+                            onChange={(e) => handleSubstituto(item, e.target.value ? Number(e.target.value) : null)}
+                            className="text-xs border-2 border-amber-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:border-amber-400 text-gray-700 cursor-pointer max-w-[160px]"
                           >
-                            {opt.icon}
-                            <span className="hidden sm:inline">{opt.label}</span>
-                          </button>
-                        ))}
-                      </div>
+                            <option value="">— Quem serviu? —</option>
+                            {cerimoniarios
+                              .filter((c) => c.id !== item.cerimoniario_id)
+                              .map((c) => (
+                                <option key={c.id} value={c.id}>{c.nome}</option>
+                              ))}
+                          </select>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

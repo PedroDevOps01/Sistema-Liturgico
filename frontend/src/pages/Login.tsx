@@ -66,8 +66,7 @@ export default function Login() {
   const isSuccess = status === 'success'
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4"
-         style={{ background: 'linear-gradient(135deg, #431407 0%, #7c2d12 35%, #c2410c 65%, #f97316 100%)' }}>
+    <div className="min-h-screen flex items-center justify-center p-4 sidebar-gradient">
       <div className="w-full max-w-sm">
 
         {/* Logo / Header */}
@@ -75,16 +74,16 @@ export default function Login() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-xl shadow-orange-900/30"
                style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)' }}>
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2v20M2 12h20" stroke="#7c2d12" strokeWidth="3.5" strokeLinecap="round"/>
+              <path d="M12 2v20M2 12h20" style={{ stroke: 'rgb(var(--w-900))' }} strokeWidth="3.5" strokeLinecap="round"/>
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-white drop-shadow">Escala Litúrgica</h1>
-          <p className="text-orange-200/70 mt-1 text-sm">Sistema de Gestão Litúrgica</p>
+          <p className="text-wine-200/70 mt-1 text-sm">Sistema de Gestão Litúrgica</p>
         </div>
 
         {/* Card */}
         <div className="bg-white rounded-2xl overflow-hidden"
-             style={{ boxShadow: '0 20px 60px rgba(67, 20, 7, 0.4)' }}>
+             style={{ boxShadow: '0 20px 60px rgb(var(--w-950) / 0.4)' }}>
 
           {/* Success state */}
           {isSuccess ? (
@@ -185,7 +184,7 @@ export default function Login() {
           )}
         </div>
 
-        <p className="text-center mt-6 text-orange-200/50 text-xs">
+        <p className="text-center mt-6 text-wine-200/50 text-xs">
           © {new Date().getFullYear()} Escala Litúrgica · Sistema de Gestão
         </p>
       </div>

@@ -2,11 +2,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Plus, Eye, Pencil, FileDown, MessageCircle,
-  Trash2, Calendar, Search, Clock, X,
+  Calendar, Search, Clock, X, MoreVertical, ToggleLeft, Trash2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
+import { getPeriodoBadgeVariant } from '../lib/liturgico'
 import type { Escala } from '../types'
+import ActionsDrawer from '../components/common/ActionsDrawer'
+import InativosToggle from '../components/common/InativosToggle'
 import PageHeader from '../components/common/PageHeader'
 import Badge from '../components/common/Badge'
 import ConfirmDialog from '../components/common/ConfirmDialog'
@@ -29,11 +32,13 @@ export default function Escalas() {
   const [list, setList] = useState<Escala[]>([])
   const [loading, setLoading] = useState(true)
   const [deleteTarget, setDeleteTarget] = useState<Escala | null>(null)
+  const [menuTarget, setMenuTarget] = useState<Escala | null>(null)
+  const [mostrarInativos, setMostrarInativos] = useState(false)
   const [search, setSearch] = useState('')
 
   const loadList = useCallback(async () => {
     try {
-      const r = await api.get<Escala[]>('/escalas')
+      const r = await api.get<Escala[]>('/escalas?todos=1')
       setList(r.data)
     } catch {
       toast.error('Erro ao carregar escalas')
@@ -82,7 +87,9 @@ async function handleDownloadPdf(escala: Escala) {
     }
   }
 
+  const inativos = list.filter((e) => !e.ativo)
   const filtered = list.filter((e) => {
+    if (!mostrarInativos && !e.ativo) return false
     if (!search) return true
     const term = search.toLowerCase()
     const dateStr = e.celebracao ? formatDataShort(e.celebracao.data).toLowerCase() : ''
@@ -115,22 +122,25 @@ async function handleDownloadPdf(escala: Escala) {
       />
 
       {/* Filter bar */}
-      <div className="relative max-w-md">
-        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por data, período..."
-          className="input-field pl-10 pr-10"
-        />
-        {search && (
-          <button
-            onClick={() => setSearch('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-          >
-            <X size={16} />
-          </button>
-        )}
+      <div className="flex gap-3 flex-wrap items-center">
+        <div className="relative flex-1 min-w-[200px] max-w-md">
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por data, período..."
+            className="input-field pl-10 pr-10"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+        <InativosToggle mostrarInativos={mostrarInativos} onChange={setMostrarInativos} count={inativos.length} />
       </div>
 
       {loading ? (
@@ -209,48 +219,20 @@ async function handleDownloadPdf(escala: Escala) {
                   </td>
                   <td className="px-5 py-4 hidden md:table-cell">
                     {escala.celebracao?.periodo_liturgico ? (
-                      <Badge variant="wine" size="sm">{escala.celebracao.periodo_liturgico}</Badge>
+                      <Badge variant={getPeriodoBadgeVariant(escala.celebracao.periodo_liturgico)} size="sm">{escala.celebracao.periodo_liturgico}</Badge>
                     ) : <span className="text-gray-400">—</span>}
                   </td>
                   <td className="px-5 py-4 hidden lg:table-cell text-gray-500 text-sm">
                     {formatDatetime(escala.created_at)}
                   </td>
                   <td className="px-5 py-4">
-                    <div className="flex items-center justify-end gap-0.5">
+                    <div className="flex items-center justify-end">
                       <button
-                        onClick={() => navigate(`/escalas/${escala.id}`)}
-                        className="p-2 text-gray-400 hover:text-wine-900 hover:bg-wine-50 rounded-lg transition-all duration-200"
-                        title="Visualizar"
+                        onClick={() => setMenuTarget(escala)}
+                        className="p-2 text-gray-400 hover:text-wine-900 hover:bg-wine-50 rounded-lg transition-colors"
+                        title="Ações"
                       >
-                        <Eye size={16} />
-                      </button>
-                      <button
-                        onClick={() => navigate(`/escalas/${escala.id}/editar`)}
-                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
-                        title="Editar"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDownloadPdf(escala)}
-                        className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all duration-200"
-                        title="Baixar PDF"
-                      >
-                        <FileDown size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleWhatsApp(escala)}
-                        className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all duration-200"
-                        title="WhatsApp"
-                      >
-                        <MessageCircle size={16} />
-                      </button>
-<button
-                        onClick={() => setDeleteTarget(escala)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
-                        title="Inativar"
-                      >
-                        <Trash2 size={16} />
+                        <MoreVertical size={18} />
                       </button>
                     </div>
                   </td>
@@ -264,10 +246,24 @@ async function handleDownloadPdf(escala: Escala) {
       <ConfirmDialog
         isOpen={!!deleteTarget}
         title="Inativar Escala"
-        message="Tem certeza que deseja inativar esta escala? Esta ação não pode ser desfeita."
+        message="Tem certeza que deseja inativar esta escala?"
         confirmLabel="Inativar"
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ActionsDrawer
+        isOpen={!!menuTarget}
+        onClose={() => setMenuTarget(null)}
+        title={menuTarget?.celebracao ? formatDataShort(menuTarget.celebracao.data) : `Escala #${menuTarget?.id}`}
+        subtitle={menuTarget?.celebracao ? `${formatHorario(menuTarget.celebracao.horario)} · ${menuTarget.celebracao.periodo_liturgico}` : ''}
+        actions={menuTarget ? [
+          { label: 'Visualizar', icon: <Eye size={18} />, onClick: () => navigate(`/escalas/${menuTarget.id}`) },
+          { label: 'Editar', icon: <Pencil size={18} />, onClick: () => navigate(`/escalas/${menuTarget.id}/editar`) },
+          { label: 'Baixar PDF', icon: <FileDown size={18} />, onClick: () => handleDownloadPdf(menuTarget) },
+          { label: 'Enviar WhatsApp', icon: <MessageCircle size={18} />, onClick: () => handleWhatsApp(menuTarget), separator: true },
+          { label: 'Inativar', icon: <ToggleLeft size={18} />, onClick: () => setDeleteTarget(menuTarget), variant: 'warning' as const, separator: true },
+        ] : []}
       />
     </div>
   )

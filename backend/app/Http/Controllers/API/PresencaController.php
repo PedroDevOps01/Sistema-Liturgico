@@ -16,27 +16,34 @@ class PresencaController extends Controller
             'status'              => 'nullable|in:confirmado,serviu,faltou,substituido,justificado',
             'status_confirmacao'  => 'nullable|in:confirmado',
             'observacao'          => 'nullable|string',
+            'substituto_id'       => 'nullable|exists:cerimoniarios,id',
         ]);
 
-        // Allow clearing a status by passing null
-        $data = array_filter([
-            'status'             => $validated['status']             ?? null,
-            'status_confirmacao' => $validated['status_confirmacao'] ?? null,
-            'observacao'         => $validated['observacao']         ?? null,
-        ], fn ($v) => $v !== null);
+        $data = [];
 
-        // Use key existence to know if the field was sent
         if (array_key_exists('status', $validated)) {
             $data['status'] = $validated['status'];
+            // Limpa o substituto quando o status muda para algo diferente de substituido
+            if ($validated['status'] !== 'substituido') {
+                $data['substituto_id'] = null;
+            }
         }
         if (array_key_exists('status_confirmacao', $validated)) {
             $data['status_confirmacao'] = $validated['status_confirmacao'];
+        }
+        if (array_key_exists('observacao', $validated) && $validated['observacao'] !== null) {
+            $data['observacao'] = $validated['observacao'];
+        }
+        if (array_key_exists('substituto_id', $validated)) {
+            $data['substituto_id'] = $validated['substituto_id'];
         }
 
         $presenca = Presenca::updateOrCreate(
             ['escala_item_id' => $item->id],
             $data
         );
+
+        $presenca->load('substituto');
 
         return response()->json([
             'data'    => $presenca,

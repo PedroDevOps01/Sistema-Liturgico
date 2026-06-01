@@ -12,7 +12,10 @@ class CelebracaoController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Celebracao::with('escala')->where('ativo', true);
+        $query = Celebracao::with('escala');
+        if (! $request->boolean('todos')) {
+            $query->where('ativo', true);
+        }
 
         if ($request->filled('data')) {
             $query->where('data', $request->data);

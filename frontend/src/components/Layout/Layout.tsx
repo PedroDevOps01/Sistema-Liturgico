@@ -42,7 +42,7 @@ export default function Layout() {
       )}
 
       {/* Sidebar - Desktop */}
-      <div className="hidden lg:flex flex-shrink-0">
+      <div className="hidden lg:flex flex-shrink-0 isolate">
         <Sidebar />
       </div>
 

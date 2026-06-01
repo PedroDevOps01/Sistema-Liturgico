@@ -19,6 +19,7 @@ export interface Cerimoniario {
   disponivel_semana_noite: boolean
   disponivel_sabado: boolean
   indisponivel_temporario: boolean
+  experiente: boolean
 }
 
 export interface Funcao {
@@ -43,6 +44,14 @@ export interface Celebracao {
   casamento: boolean
   batismo: boolean
   crisma: boolean
+  primeira_eucaristia: boolean
+  adoracao_santissimo: boolean
+  procissao: boolean
+  via_sacra: boolean
+  exequias: boolean
+  vigilia_pascal: boolean
+  paixao_senhor: boolean
+  ordenacao: boolean
   final_de_semana: boolean
   weekend_group_id?: string
   observacao?: string
@@ -81,6 +90,8 @@ export interface Presenca {
   /** Status real pós-celebração */
   status?: 'serviu' | 'faltou' | 'substituido' | 'justificado' | null
   observacao?: string
+  substituto_id?: number | null
+  substituto?: Cerimoniario | null
 }
 
 export interface Dashboard {

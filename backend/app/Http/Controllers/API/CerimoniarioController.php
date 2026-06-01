@@ -13,7 +13,10 @@ class CerimoniarioController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Cerimoniario::query()->where('ativo', true);
+        $query = Cerimoniario::query();
+        if (! $request->boolean('todos')) {
+            $query->where('ativo', true);
+        }
 
         if ($request->filled('search')) {
             $query->where('nome', 'ilike', '%' . $request->search . '%');
@@ -42,6 +45,7 @@ class CerimoniarioController extends Controller
             'disponivel_semana_noite' => 'boolean',
             'disponivel_sabado' => 'boolean',
             'indisponivel_temporario' => 'boolean',
+            'experiente' => 'boolean',
         ]);
 
         $cerimoniario = Cerimoniario::create($validated);
@@ -75,6 +79,7 @@ class CerimoniarioController extends Controller
             'disponivel_semana_noite' => 'sometimes|boolean',
             'disponivel_sabado' => 'sometimes|boolean',
             'indisponivel_temporario' => 'sometimes|boolean',
+            'experiente' => 'sometimes|boolean',
         ]);
 
         $cerimoniario->update($validated);
@@ -103,6 +108,146 @@ class CerimoniarioController extends Controller
         return response()->json([
             'data' => Cerimoniario::find($cerimoniario->id),
             'message' => $novoAtivo ? 'Cerimoniário ativado.' : 'Cerimoniário desativado.',
+        ]);
+    }
+
+    public function dashboard(int $id): JsonResponse
+    {
+        $cerimoniario = Cerimoniario::findOrFail($id);
+        $anoAtual = now()->year;
+        $hoje = now()->toDateString();
+
+        $totalEscalado = DB::table('escala_itens as ei')
+            ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
+            ->join('celebracoes as cel', 'cel.id', '=', 'e.celebracao_id')
+            ->where('ei.cerimoniario_id', $id)
+            ->where('e.ativo', true)
+            ->where('cel.ativo', true)
+            ->whereNull('e.deleted_at')
+            ->whereNull('cel.deleted_at')
+            ->count();
+
+        $statusStats = DB::table('presencas as p')
+            ->join('escala_itens as ei', 'ei.id', '=', 'p.escala_item_id')
+            ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
+            ->join('celebracoes as cel', 'cel.id', '=', 'e.celebracao_id')
+            ->where('ei.cerimoniario_id', $id)
+            ->where('e.ativo', true)
+            ->where('cel.ativo', true)
+            ->whereNull('e.deleted_at')
+            ->whereNull('cel.deleted_at')
+            ->select('p.status', DB::raw('COUNT(*) as total'))
+            ->groupBy('p.status')
+            ->get()
+            ->keyBy('status');
+
+        $serviu      = (int) ($statusStats->get('serviu')?->total      ?? 0);
+        $faltou      = (int) ($statusStats->get('faltou')?->total      ?? 0);
+        $substituido = (int) ($statusStats->get('substituido')?->total ?? 0);
+        $justificado = (int) ($statusStats->get('justificado')?->total ?? 0);
+        $taxaPresenca = ($serviu + $faltou) > 0
+            ? round($serviu / ($serviu + $faltou) * 100)
+            : null;
+
+        $funcoes = DB::table('escala_itens as ei')
+            ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
+            ->join('celebracoes as cel', 'cel.id', '=', 'e.celebracao_id')
+            ->leftJoin('funcoes as f', 'f.id', '=', 'ei.funcao_id')
+            ->where('ei.cerimoniario_id', $id)
+            ->where('e.ativo', true)
+            ->where('cel.ativo', true)
+            ->whereNull('e.deleted_at')
+            ->whereNull('cel.deleted_at')
+            ->select(
+                DB::raw("COALESCE(f.titulo, ei.funcao_label, 'Sem função') as titulo"),
+                DB::raw('COUNT(*) as total')
+            )
+            ->groupBy(DB::raw("COALESCE(f.titulo, ei.funcao_label, 'Sem função')"))
+            ->orderByDesc('total')
+            ->take(6)
+            ->get();
+
+        $historico = DB::table('escala_itens as ei')
+            ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
+            ->join('celebracoes as cel', 'cel.id', '=', 'e.celebracao_id')
+            ->leftJoin('funcoes as f', 'f.id', '=', 'ei.funcao_id')
+            ->leftJoin('presencas as p', 'p.escala_item_id', '=', 'ei.id')
+            ->where('ei.cerimoniario_id', $id)
+            ->where('e.ativo', true)
+            ->where('cel.ativo', true)
+            ->whereNull('e.deleted_at')
+            ->whereNull('cel.deleted_at')
+            ->where('cel.data', '<', $hoje)
+            ->select(
+                'e.id as escala_id',
+                'cel.data',
+                'cel.horario',
+                'cel.periodo_liturgico',
+                DB::raw("COALESCE(f.titulo, ei.funcao_label) as funcao"),
+                'p.status',
+                'p.status_confirmacao'
+            )
+            ->orderByDesc('cel.data')
+            ->take(15)
+            ->get();
+
+        $proximas = DB::table('escala_itens as ei')
+            ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
+            ->join('celebracoes as cel', 'cel.id', '=', 'e.celebracao_id')
+            ->leftJoin('funcoes as f', 'f.id', '=', 'ei.funcao_id')
+            ->leftJoin('presencas as p', 'p.escala_item_id', '=', 'ei.id')
+            ->where('ei.cerimoniario_id', $id)
+            ->where('e.ativo', true)
+            ->where('cel.ativo', true)
+            ->whereNull('e.deleted_at')
+            ->whereNull('cel.deleted_at')
+            ->where('cel.data', '>=', $hoje)
+            ->select(
+                'e.id as escala_id',
+                'cel.data',
+                'cel.horario',
+                'cel.periodo_liturgico',
+                DB::raw("COALESCE(f.titulo, ei.funcao_label) as funcao"),
+                'p.status_confirmacao'
+            )
+            ->orderBy('cel.data')
+            ->take(6)
+            ->get();
+
+        $mensais = DB::table('escala_itens as ei')
+            ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
+            ->join('celebracoes as cel', 'cel.id', '=', 'e.celebracao_id')
+            ->where('ei.cerimoniario_id', $id)
+            ->where('e.ativo', true)
+            ->where('cel.ativo', true)
+            ->whereNull('e.deleted_at')
+            ->whereNull('cel.deleted_at')
+            ->whereYear('cel.data', $anoAtual)
+            ->select(
+                DB::raw('EXTRACT(MONTH FROM cel.data)::int as mes'),
+                DB::raw('COUNT(*) as total')
+            )
+            ->groupBy(DB::raw('EXTRACT(MONTH FROM cel.data)::int'))
+            ->orderBy('mes')
+            ->get();
+
+        return response()->json([
+            'data' => [
+                'cerimoniario' => $cerimoniario,
+                'stats' => [
+                    'total_escalado' => $totalEscalado,
+                    'serviu'         => $serviu,
+                    'faltou'         => $faltou,
+                    'substituido'    => $substituido,
+                    'justificado'    => $justificado,
+                    'taxa_presenca'  => $taxaPresenca,
+                ],
+                'funcoes'   => $funcoes,
+                'historico' => $historico,
+                'proximas'  => $proximas,
+                'mensais'   => $mensais,
+                'ano'       => $anoAtual,
+            ],
         ]);
     }
 

@@ -2,11 +2,14 @@ import { useEffect, useState, useCallback } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Search, Pencil, ToggleLeft, ToggleRight, Trash2, Users, X } from 'lucide-react'
+import { Plus, Search, Pencil, ToggleLeft, ToggleRight, Trash2, Users, X, LayoutDashboard, MoreVertical } from 'lucide-react'
 import { formatPhone } from '../lib/dateUtils'
 import toast from 'react-hot-toast'
+import { useNavigate } from 'react-router-dom'
 import api from '../lib/api'
 import type { Cerimoniario } from '../types'
+import ActionsDrawer from '../components/common/ActionsDrawer'
+import InativosToggle from '../components/common/InativosToggle'
 import Modal from '../components/common/Modal'
 import ConfirmDialog from '../components/common/ConfirmDialog'
 import PageHeader from '../components/common/PageHeader'
@@ -31,6 +34,7 @@ const schema = z.object({
   disponivel_semana_noite: z.boolean(),
   disponivel_sabado: z.boolean(),
   indisponivel_temporario: z.boolean(),
+  experiente: z.boolean(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -52,6 +56,7 @@ const defaultValues: FormData = {
   disponivel_semana_noite: false,
   disponivel_sabado: true,
   indisponivel_temporario: false,
+  experiente: false,
 }
 
 function ToggleField({
@@ -107,6 +112,7 @@ function AvailabilityDots({ c }: { c: Cerimoniario }) {
 }
 
 export default function Cerimoniarios() {
+  const navigate = useNavigate()
   const [list, setList] = useState<Cerimoniario[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -114,6 +120,8 @@ export default function Cerimoniarios() {
   const [bulkModalOpen, setBulkModalOpen] = useState(false)
   const [editing, setEditing] = useState<Cerimoniario | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Cerimoniario | null>(null)
+  const [menuTarget, setMenuTarget] = useState<Cerimoniario | null>(null)
+  const [mostrarInativos, setMostrarInativos] = useState(false)
 
   const { register, handleSubmit, reset, watch, setValue, formState: { errors, isSubmitting } } =
     useForm<FormData>({ resolver: zodResolver(schema), defaultValues })
@@ -126,7 +134,7 @@ export default function Cerimoniarios() {
 
   const loadList = useCallback(async () => {
     try {
-      const r = await api.get<Cerimoniario[]>('/cerimoniarios')
+      const r = await api.get<Cerimoniario[]>('/cerimoniarios?todos=1')
       setList(r.data)
     } catch {
       toast.error('Erro ao carregar cerimoniários')
@@ -211,7 +219,9 @@ export default function Cerimoniarios() {
     }
   }
 
+  const inativos = list.filter((c) => !c.ativo)
   const filtered = list.filter((c) =>
+    (mostrarInativos || c.ativo) &&
     c.nome.toLowerCase().includes(search.toLowerCase())
   )
 
@@ -236,8 +246,9 @@ export default function Cerimoniarios() {
         }
       />
 
-      {/* Search */}
-      <div className="relative max-w-md">
+      {/* Search + filtro inativos */}
+      <div className="flex gap-3 flex-wrap items-center">
+      <div className="relative flex-1 min-w-[200px] max-w-md">
         <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
           value={search}
@@ -253,6 +264,12 @@ export default function Cerimoniarios() {
             <X size={16} />
           </button>
         )}
+      </div>
+      <InativosToggle
+        mostrarInativos={mostrarInativos}
+        onChange={setMostrarInativos}
+        count={inativos.length}
+      />
       </div>
 
       {/* Desktop Table */}
@@ -294,7 +311,7 @@ export default function Cerimoniarios() {
               filtered.map((c) => (
                 <tr
                   key={c.id}
-                  className="border-t border-gray-100 hover:bg-gray-50 transition-colors duration-150"
+                  className={`border-t border-gray-100 transition-colors duration-150 ${c.ativo ? 'hover:bg-gray-50' : 'bg-gray-50/60 opacity-60'}`}
                 >
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
@@ -307,6 +324,9 @@ export default function Cerimoniarios() {
                         <div className="font-semibold text-gray-900 text-sm">{c.nome}</div>
                         {c.observacao && (
                           <div className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">{c.observacao}</div>
+                        )}
+                        {c.experiente && (
+                          <Badge variant="gold" size="sm">Experiente</Badge>
                         )}
                         {c.indisponivel_temporario && (
                           <Badge variant="red" size="sm">Temp. Indisp.</Badge>
@@ -326,31 +346,13 @@ export default function Cerimoniarios() {
                     </Badge>
                   </td>
                   <td className="px-5 py-4">
-                    <div className="flex items-center justify-end gap-1">
+                    <div className="flex items-center justify-end">
                       <button
-                        onClick={() => openEdit(c)}
-                        className="p-2 text-gray-500 hover:text-wine-900 hover:bg-wine-50 rounded-lg transition-all duration-200"
-                        title="Editar"
+                        onClick={() => setMenuTarget(c)}
+                        className="p-2 text-gray-400 hover:text-wine-900 hover:bg-wine-50 rounded-lg transition-colors"
+                        title="Ações"
                       >
-                        <Pencil size={16} />
-                      </button>
-                      <button
-                        onClick={() => toggleAtivo(c)}
-                        className={`p-2 rounded-lg transition-all duration-200 ${
-                          c.ativo
-                            ? 'text-green-600 hover:bg-green-50'
-                            : 'text-gray-400 hover:bg-gray-100'
-                        }`}
-                        title={c.ativo ? 'Desativar' : 'Ativar'}
-                      >
-                        {c.ativo ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
-                      </button>
-                      <button
-                        onClick={() => setDeleteTarget(c)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
-                        title="Inativar"
-                      >
-                        <Trash2 size={16} />
+                        <MoreVertical size={18} />
                       </button>
                     </div>
                   </td>
@@ -377,7 +379,7 @@ export default function Cerimoniarios() {
           </div>
         ) : (
           filtered.map((c) => (
-            <div key={c.id} className="card p-4">
+            <div key={c.id} className={`card p-4 ${!c.ativo ? 'opacity-60' : ''}`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-wine-900 flex items-center justify-center flex-shrink-0">
@@ -396,29 +398,13 @@ export default function Cerimoniarios() {
               </div>
               <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
                 <AvailabilityDots c={c} />
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => openEdit(c)}
-                    className="p-2 text-gray-500 hover:text-wine-900 hover:bg-wine-50 rounded-lg transition-colors"
-                    title="Editar"
-                  >
-                    <Pencil size={16} />
-                  </button>
-                  <button
-                    onClick={() => toggleAtivo(c)}
-                    className={`p-2 rounded-lg transition-colors ${c.ativo ? 'text-green-600 hover:bg-green-50' : 'text-gray-400'}`}
-                    title={c.ativo ? 'Desativar' : 'Ativar'}
-                  >
-                    {c.ativo ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-                  </button>
-                  <button
-                    onClick={() => setDeleteTarget(c)}
-                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Inativar"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+                <button
+                  onClick={() => setMenuTarget(c)}
+                  className="p-2 text-gray-400 hover:text-wine-900 hover:bg-wine-50 rounded-lg transition-colors"
+                  title="Ações"
+                >
+                  <MoreVertical size={18} />
+                </button>
               </div>
             </div>
           ))
@@ -490,6 +476,11 @@ export default function Cerimoniarios() {
                 label="Indisponível Temporário"
                 checked={watchedFields.indisponivel_temporario}
                 onChange={(v) => setValue('indisponivel_temporario', v)}
+              />
+              <ToggleField
+                label="Experiente"
+                checked={watchedFields.experiente}
+                onChange={(v) => setValue('experiente', v)}
               />
             </div>
           </div>
@@ -565,6 +556,33 @@ export default function Cerimoniarios() {
         confirmLabel="Inativar"
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      {/* Actions Drawer */}
+      <ActionsDrawer
+        isOpen={!!menuTarget}
+        onClose={() => setMenuTarget(null)}
+        title={menuTarget?.nome ?? ''}
+        subtitle={menuTarget?.ativo ? 'Ativo' : 'Inativo'}
+        actions={menuTarget ? [
+          {
+            label: 'Ver Dashboard',
+            icon: <LayoutDashboard size={18} />,
+            onClick: () => navigate(`/cerimoniarios/${menuTarget.id}`),
+          },
+          {
+            label: 'Editar',
+            icon: <Pencil size={18} />,
+            onClick: () => openEdit(menuTarget),
+          },
+          {
+            label: menuTarget.ativo ? 'Desativar' : 'Ativar',
+            icon: menuTarget.ativo ? <ToggleRight size={18} /> : <ToggleLeft size={18} />,
+            onClick: () => toggleAtivo(menuTarget),
+            variant: menuTarget.ativo ? 'warning' as const : 'success' as const,
+            separator: true,
+          },
+        ] : []}
       />
     </div>
   )

@@ -55,34 +55,38 @@ const FUNCOES_LABELS = [
 ]
 
 function buildStructure(c: Celebracao): Omit<EscalaItem, 'id'>[] {
-  const all: Omit<EscalaItem, 'id'>[] = []
+  const base: Omit<EscalaItem, 'id'>[] = []
 
-  all.push({ funcao_label: 'Cerimoniário - Mestre', ordem: 0 })
+  base.push({ funcao_label: 'Cerimoniário - Mestre', ordem: 0 })
 
-  const isSpecial = c.celebracao_6h || c.celebracao_palavra || c.celebracao_solene || c.casamento || c.batismo || c.crisma
+  const isSpecial = c.celebracao_6h || c.celebracao_palavra || c.celebracao_solene
+    || c.casamento || c.batismo || c.crisma
+    || c.primeira_eucaristia || c.adoracao_santissimo || c.procissao
+    || c.via_sacra || c.exequias || c.vigilia_pascal || c.paixao_senhor || c.ordenacao
 
   if (!isSpecial) {
     for (let i = 1; i <= 4; i++) {
-      all.push({ funcao_label: `Cerimoniário - Auxiliar ${i}`, ordem: all.length })
-    }
-    if (c.celebracao_noite) {
-      all.push({ funcao_label: 'Turiferário', ordem: all.length })
+      base.push({ funcao_label: `Cerimoniário - Auxiliar ${i}`, ordem: base.length })
     }
   }
 
-  if (c.possui_bispo) {
-    all.push({ funcao_label: 'Môr',    ordem: all.length })
-    all.push({ funcao_label: 'Mitra',  ordem: all.length })
-    all.push({ funcao_label: 'Bácula', ordem: all.length })
+  // Noturno sempre adiciona Turiferário (independente de ser especial ou não)
+  if (c.celebracao_noite) {
+    base.push({ funcao_label: 'Turiferário', ordem: base.length })
   }
 
-  // Trim/pad to exactly qtd_cerimoniarios
-  const qty = c.qtd_cerimoniarios ?? all.length
-  const result = all.slice(0, qty)
-
-  // If qty > generated items, add blank rows
+  // Trimma/completa até qtd_cerimoniarios
+  const qty = c.qtd_cerimoniarios ?? base.length
+  const result = base.slice(0, qty)
   while (result.length < qty) {
     result.push({ funcao_label: '', ordem: result.length })
+  }
+
+  // Bispo adiciona Môr, Mitra e Bácula ALÉM do qtd base
+  if (c.possui_bispo) {
+    result.push({ funcao_label: 'Môr',    ordem: result.length })
+    result.push({ funcao_label: 'Mitra',  ordem: result.length })
+    result.push({ funcao_label: 'Bácula', ordem: result.length })
   }
 
   return result.map((item, i) => ({ ...item, ordem: i }))
@@ -466,7 +470,7 @@ export default function EscalaForm() {
           id: number
           celebracao_id: number
           celebracao: Celebracao
-          itens: EscalaItem[]
+          escala_itens: EscalaItem[]
           observacao?: string
         }>(`/escalas/${id}`)
         const escala = escalaR.data
@@ -475,12 +479,21 @@ export default function EscalaForm() {
         setSelectedCelebracaoId(escala.celebracao_id)
         setSelectedCelebracao(escala.celebracao)
 
-        const loadedItems: EscalaItem[] = (escala.itens || []).map((item) => ({
+        const loadedItems: EscalaItem[] = (escala.escala_itens || []).map((item) => ({
           ...item,
           id: item.id?.toString() || crypto.randomUUID(),
-          cerimoniario: cerR.data.find((c) => c.id === item.cerimoniario_id),
+          // fallback to embedded cerimoniario for inactive members not in active list
+          cerimoniario: cerR.data.find((c) => c.id === item.cerimoniario_id) ?? item.cerimoniario,
         }))
         setItems(loadedItems)
+
+        // Load conflict map for this escala's date
+        try {
+          const confR = await api.get<Record<number, Array<{ horario: string; periodo_liturgico: string }>>>(
+            `/escalas/conflitos-data?data=${escala.celebracao.data.substring(0, 10)}&escala_id=${id}`
+          )
+          setConflictMap(confR.data ?? {})
+        } catch { /* ignore */ }
       }
     } catch {
       toast.error('Erro ao carregar dados')
