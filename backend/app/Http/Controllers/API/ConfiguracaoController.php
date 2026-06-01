@@ -44,15 +44,17 @@ class ConfiguracaoController extends Controller
     public function uploadLogo(Request $request): JsonResponse
     {
         $request->validate([
-            'logo_base64' => 'required|string',
+            'logo_base64' => 'nullable|string',
         ]);
 
         $configuracao = $this->getOrCreate();
         $configuracao->update(['logo_base64' => $request->logo_base64]);
 
+        $msg = $request->logo_base64 ? 'Logo salvo com sucesso.' : 'Logo removido com sucesso.';
+
         return response()->json([
             'data' => ['logo_base64' => $request->logo_base64],
-            'message' => 'Logo salvo com sucesso.',
+            'message' => $msg,
         ]);
     }
 }
