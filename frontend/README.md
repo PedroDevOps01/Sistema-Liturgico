@@ -1,4 +1,4 @@
-# Frontend — Sistema de Escalas Litúrgicas
+# Frontend — Ministério dos Acólitos
 
 React 18 + TypeScript + Vite + TailwindCSS
 

@@ -1,6 +1,6 @@
-# Sistema de Escalas Litúrgicas
+# Ministério dos Acólitos
 
-Sistema web para gerenciamento de escalas litúrgicas de cerimoniários e acólitos de celebrações da Igreja Católica.
+Sistema web para gerenciamento do ministério de cerimoniários e acólitos: escalas, presenças, treinamentos, relatórios e estatísticas de celebrações da Igreja Católica.
 
 ---
 
@@ -76,6 +76,7 @@ npm run dev                   # http://localhost:5173
 - Cadastro individual e **em massa** (várias linhas de uma vez)
 - Disponibilidade por turno: domingo manhã/tarde/noite, semana manhã/tarde/noite, sábado
 - Flag de indisponibilidade temporária
+- Flag de **cerimoniário experiente** (destacado em listagens e relatórios)
 - Soft delete — excluídos somem da lista permanentemente
 - Exibição de telefone com máscara `(XX) XXXXX-XXXX`
 
@@ -83,7 +84,7 @@ npm run dev                   # http://localhost:5173
 - Cadastro individual ou **em lote para final de semana**
 - Flag "Repetir mesmo dia" no cadastro em lote
 - Detecção automática de celebração noturna (horário ≥ 17h)
-- Flags disponíveis: Possui Bispo/Arcebispo · Celebração das 6h · Celebração da Palavra · Celebração Solene · Casamento · Batismo · Crisma
+- Flags disponíveis: Possui Bispo/Arcebispo · Celebração das 6h · Celebração da Palavra · Celebração Solene · Casamento · Batismo · Crisma · Primeira Eucaristia · Adoração ao Santíssimo · Procissão · Via-Sacra · Exéquias · Vigília Pascal · Paixão do Senhor · Ordenação
 - Soft delete
 
 ### Escalas
@@ -129,6 +130,24 @@ npm run dev                   # http://localhost:5173
 ### Presença
 - Registro pós-celebração por cerimoniário
 - Status: Confirmado · Serviu normalmente · Faltou · Substituído · Justificado
+- Campo de substituto vinculado ao status "Substituído"
+
+### Treinamentos
+- Cadastro de treinamentos com data, horário, tema, local, período litúrgico e observação
+- Funções litúrgicas alvo (JSON) para direcionar o treinamento
+- Registro de presença por cerimoniário com status individual
+- Geração de convite formatado para WhatsApp
+
+### Relatórios e Estatísticas
+- **Relatório de Presenças**: total de serviços, faltas, substituições e justificativas por cerimoniário — considera apenas escalas ativas
+- **Estatísticas gerais**: ranking dos que mais serviram (somente escalas ativas, via `status = 'serviu'`), participações mensais, faltas por cerimoniário
+- **Top presenças** e **substituições** por período
+
+### Chat Inteligente (Consulta Rápida)
+- Interface de chat com respostas em linguagem natural
+- Reconhece perguntas sobre: ranking de serviços, escalas, celebrações, cerimoniários, treinamentos, presenças e funções litúrgicas
+- Ranking "Quem mais serviu" baseado em `status = 'serviu'` nas escalas ativas (consistente com o relatório de presenças)
+- Consultas disponíveis: próximas escalas, escalas da semana/mês, casamentos, batismos, cerimoniários ativos/inativos/experientes/indisponíveis, presenças pendentes, ausências e muito mais
 
 ### Telão / Sacristia
 - Tela em tela cheia para exibição em TV ou projetor
@@ -155,7 +174,9 @@ npm run dev                   # http://localhost:5173
 | `celebracoes` | Celebrações com flags e agrupamento de final de semana |
 | `escalas` | Escalas vinculadas a uma celebração |
 | `escala_itens` | Linhas da escala (função + cerimoniário) |
-| `presencas` | Presença pós-celebração |
+| `presencas` | Presença pós-celebração (com campo de substituto) |
+| `treinamentos` | Treinamentos com tema, local, período litúrgico e funções alvo |
+| `treinamento_presencas` | Presença individual por cerimoniário em cada treinamento |
 | `historico_escalas` | Auditoria de criação/edição/exclusão |
 | `configuracoes` | Dados e logo da paróquia |
 
@@ -182,7 +203,7 @@ Todas as tabelas principais usam **soft delete** (`deleted_at`).
 ## Variáveis de Ambiente (backend `.env`)
 
 ```env
-APP_NAME="Escala Litúrgica"
+APP_NAME="Ministério dos Acólitos"
 APP_URL=http://localhost:8000
 
 DB_CONNECTION=pgsql

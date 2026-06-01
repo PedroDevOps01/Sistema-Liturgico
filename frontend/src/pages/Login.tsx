@@ -23,7 +23,7 @@ export default function Login() {
   const [errorMessage, setErrorMessage] = useState('')
   const [successName, setSuccessName] = useState('')
 
-  useEffect(() => { document.title = 'Login · Escala Litúrgica' }, [])
+  useEffect(() => { document.title = 'Login · Ministério dos Acólitos' }, [])
 
   const {
     register,
@@ -86,7 +86,7 @@ export default function Login() {
             {/* Texto */}
             <div className="text-center">
               <p className="text-white/50 text-xs font-bold tracking-[0.22em] uppercase mb-2">
-                ✦ Antes morrer do que pecar ✦
+                Antes morrer do que pecar
               </p>
               <h2 className="text-white text-2xl font-extrabold drop-shadow mb-1">
                 Bem-vindo, {successName}!
@@ -137,14 +137,14 @@ export default function Login() {
           </div>
 
           <h1 className="text-4xl font-extrabold text-white mb-3 tracking-tight drop-shadow-lg">
-            Escala Litúrgica
+            Ministério dos Acólitos
           </h1>
 
           {/* Frase em destaque */}
           <div className="mb-12 px-6 py-3 rounded-2xl"
                style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)' }}>
             <p className="text-white font-bold tracking-[0.18em] uppercase text-sm drop-shadow">
-              ✦ Antes morrer do que pecar ✦
+              Antes morrer do que pecar
             </p>
           </div>
 
@@ -277,7 +277,7 @@ export default function Login() {
 
           {/* Rodapé */}
           <p className="text-center mt-8 text-gray-600 font-bold text-xs">
-            © {new Date().getFullYear()} Escala Litúrgica · Sistema de Gestão
+            © {new Date().getFullYear()} Ministério dos Acólitos · Sistema de Gestão
           </p>
         </div>
       </div>

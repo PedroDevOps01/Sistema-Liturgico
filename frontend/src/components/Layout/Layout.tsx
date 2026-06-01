@@ -19,7 +19,7 @@ function getCurrentLabel(pathname: string): string {
   if (pathname.startsWith('/escalas/nova')) return 'Nova Escala'
   if (pathname.match(/^\/escalas\/\d+\/editar$/)) return 'Editar Escala'
   if (pathname.match(/^\/escalas\/\d+$/)) return 'Visualizar Escala'
-  return routeLabels[pathname] ?? 'Escala Litúrgica'
+  return routeLabels[pathname] ?? 'Ministério dos Acólitos'
 }
 
 export default function Layout() {
@@ -29,7 +29,7 @@ export default function Layout() {
 
   // Update document title on route change
   useEffect(() => {
-    document.title = `${pageLabel} · Escala Litúrgica`
+    document.title = `${pageLabel} · Ministério dos Acólitos`
   }, [pageLabel])
 
   return (

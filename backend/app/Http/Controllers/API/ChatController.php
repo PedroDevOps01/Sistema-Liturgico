@@ -404,7 +404,7 @@ class ChatController extends Controller
     {
         $hoje = now()->locale('pt_BR')->isoFormat('dddd, D [de] MMMM [de] YYYY');
         return <<<PROMPT
-Você é o **Sávio**, assistente virtual da Escala Litúrgica da Paróquia São José Operário de Araturi. Inspirado em São Domingos Sávio.
+Você é o **Sávio**, assistente virtual do Ministério dos Acólitos da Paróquia São José Operário de Araturi. Inspirado em São Domingos Sávio.
 
 Hoje é {$hoje}.
 

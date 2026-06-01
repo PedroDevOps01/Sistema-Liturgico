@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\ChatController;
+use App\Http\Controllers\API\ConsultaRapidaController;
 use App\Http\Controllers\API\CelebracaoController;
 use App\Http\Controllers\API\CerimoniarioController;
 use App\Http\Controllers\API\ConfiguracaoController;
@@ -19,6 +20,7 @@ Route::post('/login', [AuthController::class, 'login']);
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/consulta', [ConsultaRapidaController::class, 'consultar']);
     Route::post('/chat', [ChatController::class, 'chat']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);

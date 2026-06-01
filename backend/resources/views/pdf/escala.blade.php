@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Escala Litúrgica</title>
+    <title>Ministério dos Acólitos</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -172,7 +172,7 @@
     @endif
     <div class="info-right">
         <div class="nome-paroquia">{{ $configuracao ? $configuracao->nome_paroquia : 'Paróquia' }}</div>
-        <div class="titulo-doc">Escala Litúrgica</div>
+        <div class="titulo-doc">Ministério dos Acólitos</div>
         <div><span class="badge-periodo">{{ strtoupper($escala->celebracao->periodo_liturgico) }}</span></div>
     </div>
 </div>

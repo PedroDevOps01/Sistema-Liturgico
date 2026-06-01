@@ -79,7 +79,7 @@ export default function Telao() {
               <Cross size={22} className="text-gold-400" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-black text-black leading-tight">Escala Litúrgica</h1>
+              <h1 className="text-xl sm:text-2xl font-black text-black leading-tight">Ministério dos Acólitos</h1>
               <p className="text-black/70 text-sm capitalize font-medium">
                 {format(currentTime, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
               </p>
@@ -196,7 +196,7 @@ export default function Telao() {
       {/* Footer */}
       <footer className="border-t border-white/5 px-8 py-3 text-center flex-shrink-0">
         <p className="text-white/20 text-xs">
-          Sistema de Escalas Litúrgicas — Que Deus abençoe a todos os que servem!
+          Ministério dos Acólitos — Que Deus abençoe a todos os que servem!
         </p>
       </footer>
     </div>

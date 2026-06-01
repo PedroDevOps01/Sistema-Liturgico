@@ -75,7 +75,7 @@ export default function Sidebar({ onCloseMobile }: SidebarProps) {
           <Cross size={20} className="text-wine-900" />
         </div>
         <div>
-          <div className="font-bold text-base leading-tight text-white">Escala Litúrgica</div>
+          <div className="font-bold text-base leading-tight text-white">Ministério dos Acólitos</div>
           <div className="text-orange-200/60 text-xs">Sistema de Gestão</div>
         </div>
       </div>
