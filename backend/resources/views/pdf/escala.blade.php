@@ -222,12 +222,13 @@
     {{-- Team rows ── --}}
     @foreach($escala->escalaItens->sortBy('ordem') as $item)
         @php
-            $raw  = $item->funcao_label ?? ($item->funcao ? $item->funcao->titulo : 'Função');
-            $abbr = pdfAbbr($raw);
-            $nome = $item->cerimoniario ? $item->cerimoniario->nome : null;
+            $raw    = $item->funcao_label ?? ($item->funcao ? $item->funcao->titulo : 'Função');
+            $abbr   = pdfAbbr($raw);
+            $nome   = $item->cerimoniario ? $item->cerimoniario->nome : null;
+            $mestre = $item->cerimoniario && $item->cerimoniario->mestre;
         @endphp
         <div class="team-row">
-            <span class="team-label">{{ $abbr }}:</span>
+            <span class="team-label">@if($mestre)M - @endif{{ $abbr }}:</span>
             @if($nome)
                 <span class="team-name">{{ $nome }}</span>
             @else

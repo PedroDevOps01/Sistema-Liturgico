@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Plus, Eye, Pencil, FileDown, MessageCircle,
-  Calendar, Search, Clock, X, MoreVertical, ToggleLeft, ToggleRight, Trash2,
+  Calendar, Search, Clock, X, MoreVertical, ToggleLeft, ToggleRight,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/api'

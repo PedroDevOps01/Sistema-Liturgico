@@ -25,6 +25,10 @@ import Calendario from './pages/Calendario'
 import Relatorio from './pages/Relatorio'
 import Historico from './pages/Historico'
 import Treinamentos from './pages/Treinamentos'
+import Portal from './pages/Portal'
+import PortalConfig from './pages/PortalConfig'
+import Confirmar from './pages/Confirmar'
+import Interessados from './pages/Interessados'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated()) {
@@ -59,6 +63,8 @@ export default function App() {
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<Login />} />
+        <Route path="/portal" element={<Portal />} />
+        <Route path="/confirmar/:token" element={<Confirmar />} />
 
         {/* Telão - standalone, no sidebar */}
         <Route
@@ -92,6 +98,8 @@ export default function App() {
           <Route path="/relatorio" element={<Relatorio />} />
           <Route path="/historico" element={<Historico />} />
           <Route path="/treinamentos" element={<Treinamentos />} />
+          <Route path="/portal-config" element={<PortalConfig />} />
+          <Route path="/interessados" element={<Interessados />} />
         </Route>
 
         {/* Fallback */}

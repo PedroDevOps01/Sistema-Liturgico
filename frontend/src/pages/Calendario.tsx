@@ -134,7 +134,7 @@ export default function Calendario() {
 
     const r = await api.get<{
       celebracao?: { data: string; horario: string; periodo_liturgico: string }
-      escala_itens?: { funcao_label?: string; funcao?: { titulo: string }; cerimoniario?: { nome: string } }[]
+      escala_itens?: { funcao_label?: string; funcao?: { titulo: string }; cerimoniario?: { nome: string; mestre?: boolean } }[]
     }[]>(`/escalas?data_inicio=${start}&data_fim=${end}`).catch(() => null)
 
     if (!r?.data?.length) return null
@@ -161,9 +161,10 @@ export default function Calendario() {
           lines.push(`${d} — ${periodo}`)
           lines.push(`Missa às ${hStr}`)
           ;(e.escala_itens ?? []).forEach(item => {
-            const label = item.funcao_label ?? item.funcao?.titulo ?? 'Função'
-            const nome  = item.cerimoniario?.nome ?? 'A escalar'
-            lines.push(`${abreviarFuncao(label)}: ${nome}`)
+            const label  = item.funcao_label ?? item.funcao?.titulo ?? 'Função'
+            const nome   = item.cerimoniario?.nome ?? 'A escalar'
+            const prefix = item.cerimoniario?.mestre ? 'M - ' : ''
+            lines.push(`${prefix}${abreviarFuncao(label)}: ${nome}`)
           })
           lines.push('')
         })

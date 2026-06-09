@@ -4,9 +4,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Plus, Search, Pencil, Trash2, Calendar, Clock, CheckCircle2, XCircle, Moon, X, Copy, MoreVertical, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Plus, Search, Pencil, Calendar, Clock, CheckCircle2, XCircle, Moon, X, Copy, MoreVertical, ToggleLeft, ToggleRight } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import api from '../lib/api'
 import { getPeriodoLiturgico, getPeriodoBadgeVariant } from '../lib/liturgico'
 import type { Celebracao, Escala } from '../types'
@@ -33,24 +33,68 @@ type FlagKey =
   | 'celebracao_solene' | 'casamento' | 'batismo' | 'crisma'
   | 'primeira_eucaristia' | 'adoracao_santissimo' | 'procissao' | 'via_sacra'
   | 'exequias' | 'vigilia_pascal' | 'paixao_senhor' | 'ordenacao'
+  | 'santa_missa' | 'missa_crismal' | 'corpus_christi' | 'missa_pontifical'
 
-const FLAG_OPTIONS: { key: FlagKey; label: string }[] = [
-  { key: 'celebracao_solene',   label: 'Celebração Solene' },
-  { key: 'possui_bispo',        label: 'Possui Bispo' },
-  { key: 'celebracao_palavra',  label: 'Celebração da Palavra' },
-  { key: 'celebracao_6h',       label: 'Missa das 6h' },
-  { key: 'casamento',           label: 'Casamento' },
-  { key: 'batismo',             label: 'Batismo' },
-  { key: 'crisma',              label: 'Crisma' },
-  { key: 'primeira_eucaristia', label: 'Primeira Eucaristia' },
-  { key: 'adoracao_santissimo', label: 'Adoração ao Santíssimo' },
-  { key: 'procissao',           label: 'Procissão' },
-  { key: 'via_sacra',           label: 'Via-Sacra' },
-  { key: 'exequias',            label: 'Exéquias' },
-  { key: 'vigilia_pascal',      label: 'Vigília Pascal' },
-  { key: 'paixao_senhor',       label: 'Paixão do Senhor' },
-  { key: 'ordenacao',           label: 'Ordenação' },
+const FLAG_OPTIONS: { key: FlagKey; label: string; group?: string }[] = [
+  // Tipo da celebração
+  { key: 'santa_missa',         label: 'Santa Missa',           group: 'tipo' },
+  { key: 'celebracao_palavra',  label: 'Celebração da Palavra',  group: 'tipo' },
+  { key: 'celebracao_solene',   label: 'Celebração Solene',      group: 'tipo' },
+  { key: 'missa_pontifical',    label: 'Missa Pontifical',        group: 'tipo' },
+  { key: 'missa_crismal',       label: 'Missa Crismal',           group: 'tipo' },
+  // Sacramento / Rito especial
+  { key: 'casamento',           label: 'Casamento',               group: 'rito' },
+  { key: 'batismo',             label: 'Batismo',                 group: 'rito' },
+  { key: 'crisma',              label: 'Crisma',                  group: 'rito' },
+  { key: 'primeira_eucaristia', label: 'Primeira Eucaristia',     group: 'rito' },
+  { key: 'ordenacao',           label: 'Ordenação',               group: 'rito' },
+  { key: 'exequias',            label: 'Exéquias',                group: 'rito' },
+  // Devoções / Outros
+  { key: 'adoracao_santissimo', label: 'Adoração ao Santíssimo',  group: 'devocao' },
+  { key: 'procissao',           label: 'Procissão',               group: 'devocao' },
+  { key: 'corpus_christi',      label: 'Corpus Christi',          group: 'devocao' },
+  { key: 'via_sacra',           label: 'Via-Sacra',              group: 'devocao' },
+  // Datas solenes
+  { key: 'vigilia_pascal',      label: 'Vigília Pascal',          group: 'solene' },
+  { key: 'paixao_senhor',       label: 'Paixão do Senhor',        group: 'solene' },
+  // Características
+  { key: 'possui_bispo',        label: 'Possui Bispo',            group: 'carac' },
+  { key: 'celebracao_6h',       label: 'Missa das 6h',            group: 'carac' },
 ]
+
+const COR_LITURGICA_OPTIONS = [
+  { value: '', label: 'Automático', dot: 'bg-gray-300' },
+  { value: 'branco', label: 'Branco – Natal, Páscoa, Maria, Confessores', dot: 'bg-white border border-gray-300' },
+  { value: 'vermelho', label: 'Vermelho – Pentecostes, Mártires, Apóstolos', dot: 'bg-red-600' },
+  { value: 'roxo', label: 'Roxo – Advento, Quaresma, Finados', dot: 'bg-purple-700' },
+  { value: 'verde', label: 'Verde – Tempo Comum', dot: 'bg-green-600' },
+  { value: 'rosa', label: 'Rosa – Gaudete (3º Advento) / Laetare (4ª Quaresma)', dot: 'bg-pink-400' },
+  { value: 'dourado', label: 'Dourado – Grandes Solenidades', dot: 'bg-amber-400' },
+  { value: 'preto', label: 'Preto – Missas de Réquiem (tradicional)', dot: 'bg-gray-900' },
+]
+
+function getCorLiturgicaAutomatica(periodo_liturgico: string, flags: Partial<Record<FlagKey, boolean>>): string {
+  if (flags.paixao_senhor || flags.missa_crismal || flags.crisma) return 'vermelho'
+  if (flags.vigilia_pascal || flags.casamento || flags.batismo || flags.primeira_eucaristia || flags.ordenacao || flags.corpus_christi) return 'branco'
+  if (flags.exequias) return 'roxo'
+  switch (periodo_liturgico) {
+    case 'Advento': case 'Quaresma': return 'roxo'
+    case 'Tempo do Natal': case 'Tempo Pascal': return 'branco'
+    case 'Pentecostes': case 'Tríduo Pascal': return 'vermelho'
+    case 'Tempo Comum': return 'verde'
+    default: return 'verde'
+  }
+}
+
+const COR_DOT: Record<string, string> = {
+  branco: 'bg-white border border-gray-400',
+  vermelho: 'bg-red-600',
+  roxo: 'bg-purple-700',
+  verde: 'bg-green-600',
+  rosa: 'bg-pink-400',
+  dourado: 'bg-amber-400',
+  preto: 'bg-gray-900',
+}
 
 const schema = z.object({
   data: z.string().min(1, 'Data é obrigatória'),
@@ -73,6 +117,11 @@ const schema = z.object({
   vigilia_pascal: z.boolean(),
   paixao_senhor: z.boolean(),
   ordenacao: z.boolean(),
+  santa_missa: z.boolean(),
+  missa_crismal: z.boolean(),
+  corpus_christi: z.boolean(),
+  missa_pontifical: z.boolean(),
+  cor_liturgica: z.string().optional(),
   observacao: z.string().optional(),
 })
 
@@ -99,6 +148,11 @@ const defaultFormValues: FormData = {
   vigilia_pascal: false,
   paixao_senhor: false,
   ordenacao: false,
+  santa_missa: false,
+  missa_crismal: false,
+  corpus_christi: false,
+  missa_pontifical: false,
+  cor_liturgica: '',
   observacao: '',
 }
 
@@ -314,6 +368,11 @@ export default function Celebracoes() {
         vigilia_pascal:       watchedData.vigilia_pascal       ?? false,
         paixao_senhor:        watchedData.paixao_senhor        ?? false,
         ordenacao:            watchedData.ordenacao            ?? false,
+        santa_missa:          watchedData.santa_missa          ?? false,
+        missa_crismal:        watchedData.missa_crismal        ?? false,
+        corpus_christi:       watchedData.corpus_christi       ?? false,
+        missa_pontifical:     watchedData.missa_pontifical     ?? false,
+        cor_liturgica:        watchedData.cor_liturgica        ?? '',
         qtd_cerimoniarios:    watchedData.qtd_cerimoniarios    ?? 6,
         observacao:           watchedData.observacao           ?? '',
         final_de_semana:      true,
@@ -357,7 +416,7 @@ export default function Celebracoes() {
 
   function openEdit(c: Celebracao) {
     setEditing(c)
-    reset({ ...c, data: toDateInputValue(c.data), horario: c.horario.substring(0, 5), observacao: c.observacao ?? '', qtd_cerimoniarios: c.qtd_cerimoniarios })
+    reset({ ...c, data: toDateInputValue(c.data), horario: c.horario.substring(0, 5), observacao: c.observacao ?? '', qtd_cerimoniarios: c.qtd_cerimoniarios, santa_missa: c.santa_missa ?? false, missa_crismal: c.missa_crismal ?? false, corpus_christi: c.corpus_christi ?? false, missa_pontifical: c.missa_pontifical ?? false, cor_liturgica: c.cor_liturgica ?? '' })
     setFinalDeSemana(false)
     setQtdCelebracoes(4)
     setBatchForms([])
@@ -389,6 +448,11 @@ export default function Celebracoes() {
           vigilia_pascal:      data.vigilia_pascal,
           paixao_senhor:       data.paixao_senhor,
           ordenacao:           data.ordenacao,
+          santa_missa:         data.santa_missa,
+          missa_crismal:       data.missa_crismal,
+          corpus_christi:      data.corpus_christi,
+          missa_pontifical:    data.missa_pontifical,
+          cor_liturgica:       data.cor_liturgica,
           qtd_cerimoniarios:   data.qtd_cerimoniarios,
           observacao:          data.observacao,
           final_de_semana:     true,
@@ -482,6 +546,9 @@ export default function Celebracoes() {
 
   function getCelebrationFlags(c: Celebracao) {
     const flags = []
+    if (c.santa_missa)         flags.push({ label: 'Santa Missa',        variant: 'wine'   as const })
+    if (c.missa_pontifical)    flags.push({ label: 'Pontifical',          variant: 'purple' as const })
+    if (c.missa_crismal)       flags.push({ label: 'Crismal',             variant: 'red'    as const })
     if (c.celebracao_noite)    flags.push({ label: 'Noite',              variant: 'blue'   as const })
     if (c.possui_bispo)        flags.push({ label: 'Bispo',              variant: 'purple' as const })
     if (c.celebracao_solene)   flags.push({ label: 'Solene',             variant: 'wine'   as const })
@@ -492,6 +559,7 @@ export default function Celebracoes() {
     if (c.crisma)              flags.push({ label: 'Crisma',             variant: 'purple' as const })
     if (c.primeira_eucaristia) flags.push({ label: '1ª Eucaristia',      variant: 'gold'   as const })
     if (c.adoracao_santissimo) flags.push({ label: 'Adoração',           variant: 'purple' as const })
+    if (c.corpus_christi)      flags.push({ label: 'Corpus Christi',     variant: 'gold'   as const })
     if (c.procissao)           flags.push({ label: 'Procissão',          variant: 'blue'   as const })
     if (c.via_sacra)           flags.push({ label: 'Via-Sacra',          variant: 'wine'   as const })
     if (c.exequias)            flags.push({ label: 'Exéquias',           variant: 'gray'   as const })
@@ -499,6 +567,12 @@ export default function Celebracoes() {
     if (c.paixao_senhor)       flags.push({ label: 'Paixão do Senhor',   variant: 'red'    as const })
     if (c.ordenacao)           flags.push({ label: 'Ordenação',          variant: 'purple' as const })
     return flags
+  }
+
+  function getCorLiturgicaDisplay(c: Celebracao): string {
+    const manual = c.cor_liturgica
+    if (manual) return manual
+    return getCorLiturgicaAutomatica(c.periodo_liturgico, c as Partial<Record<FlagKey, boolean>>)
   }
 
   const isNight = horario && Number(horario.split(':')[0]) >= 17
@@ -671,7 +745,7 @@ export default function Celebracoes() {
 
             <div>
               <p className="label mb-2">Características da Celebração</p>
-              <div className="bg-gray-50 rounded-xl p-4">
+              <div className="bg-gray-50 rounded-xl p-4 space-y-3">
                 <FlagsChips
                   values={watchedValues}
                   onChange={(key, v) => {
@@ -679,6 +753,38 @@ export default function Celebracoes() {
                     if (key === 'celebracao_6h' && v) setValue('horario', '06:00')
                   }}
                 />
+              </div>
+            </div>
+
+            {/* Cor Litúrgica */}
+            <div>
+              <label className="label mb-1">Cor Litúrgica</label>
+              <p className="text-xs text-gray-400 mb-2">
+                Automático detecta a cor pelo período. Altere para dias solenes específicos conforme CNBB/Vaticano.
+              </p>
+              <div className="grid grid-cols-1 gap-1.5">
+                {COR_LITURGICA_OPTIONS.map(opt => {
+                  const isSelected = (watchedValues.cor_liturgica ?? '') === opt.value
+                  const autoColor = opt.value === '' ? getCorLiturgicaAutomatica(watchedValues.periodo_liturgico, watchedValues) : null
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setValue('cor_liturgica', opt.value)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-xl border text-sm transition-colors ${
+                        isSelected
+                          ? 'border-wine-700 bg-wine-50 text-wine-900 font-semibold'
+                          : 'border-gray-200 hover:border-wine-300 text-gray-700'
+                      }`}
+                    >
+                      <span className={`w-4 h-4 rounded-full flex-shrink-0 ${opt.dot}`} />
+                      <span className="flex-1 text-left">{opt.label}</span>
+                      {opt.value === '' && autoColor && (
+                        <span className={`w-3 h-3 rounded-full ${COR_DOT[autoColor] ?? 'bg-gray-300'}`} title={`Automático: ${autoColor}`} />
+                      )}
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
@@ -811,7 +917,13 @@ export default function Celebracoes() {
                       </div>
                     </td>
                     <td className="px-5 py-4">
-                      <Badge variant={getPeriodoBadgeVariant(c.periodo_liturgico)} size="sm">{c.periodo_liturgico}</Badge>
+                      <div className="flex items-center gap-2">
+                        <span
+                          title={`Cor litúrgica: ${getCorLiturgicaDisplay(c)}`}
+                          className={`w-3 h-3 rounded-full flex-shrink-0 ${COR_DOT[getCorLiturgicaDisplay(c)] ?? 'bg-gray-300'}`}
+                        />
+                        <Badge variant={getPeriodoBadgeVariant(c.periodo_liturgico)} size="sm">{c.periodo_liturgico}</Badge>
+                      </div>
                     </td>
                     <td className="px-5 py-4 hidden lg:table-cell">
                       <div className="flex flex-wrap gap-1">

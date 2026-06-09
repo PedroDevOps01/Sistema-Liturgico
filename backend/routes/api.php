@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\API\AuthController;
+use App\Http\Controllers\API\BuscaController;
 use App\Http\Controllers\API\ChatController;
+use App\Http\Controllers\API\ConfirmacaoController;
 use App\Http\Controllers\API\ConsultaRapidaController;
 use App\Http\Controllers\API\CelebracaoController;
 use App\Http\Controllers\API\CerimoniarioController;
@@ -11,12 +13,18 @@ use App\Http\Controllers\API\DashboardController;
 use App\Http\Controllers\API\EscalaController;
 use App\Http\Controllers\API\EstatisticasController;
 use App\Http\Controllers\API\FuncaoController;
+use App\Http\Controllers\API\InteressadoController;
 use App\Http\Controllers\API\PresencaController;
 use App\Http\Controllers\API\UserController;
+use App\Http\Controllers\API\PortalStatsController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/portal-stats', PortalStatsController::class);
+Route::post('/interessados', [InteressadoController::class, 'store']);
+Route::get('/confirmar/{token}', [ConfirmacaoController::class, 'show']);
+Route::post('/confirmar/{token}', [ConfirmacaoController::class, 'update']);
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -24,6 +32,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/chat', [ChatController::class, 'chat']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+
+    // Busca global
+    Route::get('/busca', [BuscaController::class, 'index']);
+
+    // Interessados
+    Route::get('interessados', [InteressadoController::class, 'index']);
+    Route::patch('interessados/{interessado}/marcar-lido', [InteressadoController::class, 'marcarLido']);
+    Route::delete('interessados/{interessado}', [InteressadoController::class, 'destroy']);
 
     // Users
     Route::apiResource('users', UserController::class);
@@ -46,6 +62,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Escalas
     Route::get('historico', [EscalaController::class, 'historico']);
+    Route::get('escalas/sugerir', [EscalaController::class, 'sugerir']);
     Route::post('escalas/gerar-estrutura', [EscalaController::class, 'gerarEstrutura']);
     Route::patch('escalas/{escala}/toggle-ativo', [EscalaController::class, 'toggleAtivo']);
     Route::get('escalas/ultima', [EscalaController::class, 'ultima']);

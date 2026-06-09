@@ -16,6 +16,8 @@ class EscalaItem extends Model
         'funcao_id',
         'funcao_label',
         'ordem',
+        'token_confirmacao',
+        'status_confirmacao',
     ];
 
     protected function casts(): array

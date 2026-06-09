@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import ChatWidget from '../ChatWidget'
-import { Menu, X, Cross } from 'lucide-react'
+import SearchModal from '../SearchModal'
+import { Menu, X, Cross, Search } from 'lucide-react'
 
 const routeLabels: Record<string, string> = {
   '/': 'Dashboard',
@@ -13,6 +14,7 @@ const routeLabels: Record<string, string> = {
   '/usuarios': 'Usuários',
   '/telao': 'Telão',
   '/configuracoes': 'Configurações',
+  '/interessados': 'Interessados',
 }
 
 function getCurrentLabel(pathname: string): string {
@@ -23,14 +25,28 @@ function getCurrentLabel(pathname: string): string {
 }
 
 export default function Layout() {
-  const [mobileOpen, setMobileOpen] = useState(false)
-  const location = useLocation()
+  const [mobileOpen, setMobileOpen]   = useState(false)
+  const [searchOpen, setSearchOpen]   = useState(false)
+  const location  = useLocation()
   const pageLabel = getCurrentLabel(location.pathname)
 
-  // Update document title on route change
   useEffect(() => {
     document.title = `${pageLabel} · Ministério dos Acólitos`
   }, [pageLabel])
+
+  const openSearch = useCallback(() => setSearchOpen(true), [])
+
+  // Ctrl+K / Cmd+K global shortcut
+  useEffect(() => {
+    function handler(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        openSearch()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [openSearch])
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
@@ -44,7 +60,7 @@ export default function Layout() {
 
       {/* Sidebar - Desktop */}
       <div className="hidden lg:flex flex-shrink-0 isolate">
-        <Sidebar />
+        <Sidebar onOpenSearch={openSearch} />
       </div>
 
       {/* Sidebar - Mobile */}
@@ -53,7 +69,7 @@ export default function Layout() {
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <Sidebar onCloseMobile={() => setMobileOpen(false)} />
+        <Sidebar onCloseMobile={() => setMobileOpen(false)} onOpenSearch={openSearch} />
       </div>
 
       {/* Main Content */}
@@ -67,12 +83,19 @@ export default function Layout() {
           >
             {mobileOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-1">
             <div className="w-7 h-7 bg-gold-500 rounded-full flex items-center justify-center">
               <Cross size={14} className="text-black" />
             </div>
             <span className="font-bold text-base">{pageLabel}</span>
           </div>
+          <button
+            onClick={openSearch}
+            className="p-2 rounded-xl hover:bg-white/10 transition-colors"
+            aria-label="Buscar"
+          >
+            <Search size={20} />
+          </button>
         </header>
 
         {/* Page Content */}
@@ -84,6 +107,7 @@ export default function Layout() {
       </div>
 
       <ChatWidget />
+      <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   )
 }

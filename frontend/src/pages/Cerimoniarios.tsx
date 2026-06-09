@@ -35,6 +35,7 @@ const schema = z.object({
   disponivel_sabado: z.boolean(),
   indisponivel_temporario: z.boolean(),
   experiente: z.boolean(),
+  mestre: z.boolean(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -57,6 +58,15 @@ const defaultValues: FormData = {
   disponivel_sabado: true,
   indisponivel_temporario: false,
   experiente: false,
+  mestre: false,
+}
+
+function maskPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '').substring(0, 11)
+  if (digits.length <= 2) return digits.length ? `(${digits}` : ''
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
 }
 
 function ToggleField({
@@ -153,7 +163,7 @@ export default function Cerimoniarios() {
 
   function openEdit(c: Cerimoniario) {
     setEditing(c)
-    reset({ ...c, numero: c.numero ?? '', observacao: c.observacao ?? '' })
+    reset({ ...c, numero: c.numero ?? '', observacao: c.observacao ?? '', mestre: c.mestre ?? false })
     setModalOpen(true)
   }
 
@@ -325,7 +335,10 @@ export default function Cerimoniarios() {
                         {c.observacao && (
                           <div className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">{c.observacao}</div>
                         )}
-                        {c.experiente && (
+                        {c.mestre && (
+                          <Badge variant="gold" size="sm">★ Mestre</Badge>
+                        )}
+                        {c.experiente && !c.mestre && (
                           <Badge variant="gold" size="sm">Experiente</Badge>
                         )}
                         {c.indisponivel_temporario && (
@@ -426,12 +439,46 @@ export default function Cerimoniarios() {
           </div>
           <div>
             <label className="label">Número / Contato</label>
-            <input {...register('numero')} className="input-field" placeholder="(11) 99999-9999" />
+            <input
+              {...register('numero')}
+              className="input-field"
+              placeholder="(11) 99999-9999"
+              inputMode="numeric"
+              onChange={e => {
+                const masked = maskPhone(e.target.value)
+                e.target.value = masked
+                register('numero').onChange(e)
+              }}
+            />
             {errors.numero && <p className="text-red-600 text-sm mt-1">{errors.numero.message}</p>}
           </div>
           <div>
             <label className="label">Observação</label>
             <textarea {...register('observacao')} rows={2} className="input-field resize-none" />
+          </div>
+
+          {/* Perfil — Experiente e Mestre separados da disponibilidade */}
+          <div>
+            <p className="label mb-1">Perfil do Acólito</p>
+            <p className="text-xs text-gray-400 mb-2">Classificação definida pela coordenação</p>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-0 bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <ToggleField
+                label="Experiente"
+                checked={watchedFields.experiente}
+                onChange={(v) => setValue('experiente', v)}
+              />
+              <ToggleField
+                label="Mestre"
+                checked={watchedFields.mestre}
+                onChange={(v) => setValue('mestre', v)}
+              />
+            </div>
+            {watchedFields.mestre && (
+              <p className="text-xs text-amber-700 mt-1.5 flex items-center gap-1">
+                <span className="text-amber-500">★</span>
+                Mestre: selecionado pela coordenação para formação aprofundada
+              </p>
+            )}
           </div>
 
           <div>
@@ -472,15 +519,16 @@ export default function Cerimoniarios() {
                 checked={watchedFields.disponivel_sabado}
                 onChange={(v) => setValue('disponivel_sabado', v)}
               />
+            </div>
+          </div>
+
+          <div>
+            <p className="label mb-2">Situação Atual</p>
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
               <ToggleField
                 label="Indisponível Temporário"
                 checked={watchedFields.indisponivel_temporario}
                 onChange={(v) => setValue('indisponivel_temporario', v)}
-              />
-              <ToggleField
-                label="Experiente"
-                checked={watchedFields.experiente}
-                onChange={(v) => setValue('experiente', v)}
               />
             </div>
           </div>

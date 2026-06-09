@@ -27,6 +27,7 @@ class Cerimoniario extends Model
         'disponivel_sabado',
         'indisponivel_temporario',
         'experiente',
+        'mestre',
     ];
 
     protected function casts(): array
@@ -42,6 +43,7 @@ class Cerimoniario extends Model
             'disponivel_sabado' => 'boolean',
             'indisponivel_temporario' => 'boolean',
             'experiente' => 'boolean',
+            'mestre' => 'boolean',
         ];
     }
 

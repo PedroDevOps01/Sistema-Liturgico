@@ -46,6 +46,7 @@ class CerimoniarioController extends Controller
             'disponivel_sabado' => 'boolean',
             'indisponivel_temporario' => 'boolean',
             'experiente' => 'boolean',
+            'mestre' => 'boolean',
         ]);
 
         $cerimoniario = Cerimoniario::create($validated);
@@ -80,6 +81,7 @@ class CerimoniarioController extends Controller
             'disponivel_sabado' => 'sometimes|boolean',
             'indisponivel_temporario' => 'sometimes|boolean',
             'experiente' => 'sometimes|boolean',
+            'mestre' => 'sometimes|boolean',
         ]);
 
         $cerimoniario->update($validated);

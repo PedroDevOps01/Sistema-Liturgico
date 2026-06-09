@@ -4,7 +4,7 @@ import { ptBR } from 'date-fns/locale'
 import {
   Plus, ChevronDown, ChevronUp, Pencil, Trash2,
   MessageCircle, Send, CheckCircle2, XCircle, AlertCircle,
-  MinusCircle, GraduationCap, Users, TrendingUp, Calendar,
+  MinusCircle, GraduationCap, Users, TrendingUp,
   Search, X,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -101,7 +101,7 @@ function FuncoesChips({ selected, onChange }: { selected: string[]; onChange: (v
 
 function TreinamentoCard({
   t,
-  cerimoniarios,
+  cerimoniarios: _cerimoniarios,
   onEdit,
   onDelete,
   onReload,

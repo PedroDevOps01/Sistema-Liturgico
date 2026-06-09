@@ -20,6 +20,7 @@ export interface Cerimoniario {
   disponivel_sabado: boolean
   indisponivel_temporario: boolean
   experiente: boolean
+  mestre: boolean
 }
 
 export interface Funcao {
@@ -52,6 +53,11 @@ export interface Celebracao {
   vigilia_pascal: boolean
   paixao_senhor: boolean
   ordenacao: boolean
+  santa_missa: boolean
+  missa_crismal: boolean
+  corpus_christi: boolean
+  missa_pontifical: boolean
+  cor_liturgica?: string
   final_de_semana: boolean
   weekend_group_id?: string
   observacao?: string
@@ -80,6 +86,18 @@ export interface EscalaItem {
   funcao_label?: string
   ordem: number
   presenca?: Presenca
+  token_confirmacao?: string
+  status_confirmacao?: 'confirmado' | 'recusado' | null
+}
+
+export interface Interessado {
+  id: number
+  nome: string
+  telefone?: string
+  email?: string
+  mensagem?: string
+  lido: boolean
+  created_at: string
 }
 
 export interface Presenca {

@@ -34,6 +34,7 @@ import {
   Clock,
   AlertCircle,
   CheckCircle2,
+  Sparkles,
 } from 'lucide-react'
 import api from '../lib/api'
 import type { Celebracao, Cerimoniario, EscalaItem } from '../types'
@@ -406,7 +407,8 @@ export default function EscalaForm() {
   const [escalaId, setEscalaId] = useState<number | null>(null)
   const [observacao, setObservacao] = useState('')
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [saving, setSaving]         = useState(false)
+  const [sugerindo, setSugerindo]   = useState(false)
   const [saveAttempted, setSaveAttempted] = useState(false)
   const [conflictMap, setConflictMap] = useState<Record<number, Array<{ horario: string; periodo_liturgico: string }>>>({})
 
@@ -570,6 +572,33 @@ export default function EscalaForm() {
 
   function handleRemoveItem(itemId: string) {
     setItems((prev) => prev.filter((i) => i.id !== itemId))
+  }
+
+  async function handleSugerir() {
+    if (!selectedCelebracaoId) return
+    setSugerindo(true)
+    try {
+      const r = await api.get<Array<{ slot: number; funcao_label: string; cerimoniario: Cerimoniario | null }>>(
+        `/escalas/sugerir?celebracao_id=${selectedCelebracaoId}`
+      )
+      const suggestions = r.data
+      setItems(prev => prev.map((item, idx) => {
+        const sug = suggestions.find(s => s.slot === idx)
+        if (sug?.cerimoniario) {
+          return {
+            ...item,
+            cerimoniario_id: sug.cerimoniario.id,
+            cerimoniario: sug.cerimoniario,
+          }
+        }
+        return item
+      }))
+      toast.success('Sugestão aplicada! Ajuste conforme necessário.')
+    } catch {
+      toast.error('Erro ao gerar sugestão')
+    } finally {
+      setSugerindo(false)
+    }
   }
 
   function handleAddRow() {
@@ -792,13 +821,24 @@ export default function EscalaForm() {
                 {items.length} {items.length === 1 ? 'função' : 'funções'}
               </span>
             </h2>
-            <button
-              onClick={handleAddRow}
-              className="flex items-center gap-1.5 text-wine-700 hover:text-wine-900 font-semibold text-sm py-1.5 px-3 rounded-lg hover:bg-wine-50 transition-all duration-200"
-            >
-              <Plus size={16} />
-              Adicionar
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSugerir}
+                disabled={sugerindo}
+                className="flex items-center gap-1.5 text-amber-700 hover:text-amber-900 font-semibold text-sm py-1.5 px-3 rounded-lg hover:bg-amber-50 border border-amber-200 transition-all duration-200 disabled:opacity-60"
+                title="Sugerir acólitos automaticamente por disponibilidade e rotatividade"
+              >
+                {sugerindo ? <span className="animate-spin text-xs">↻</span> : <Sparkles size={14} />}
+                {sugerindo ? 'Sugerindo...' : 'Sugerir'}
+              </button>
+              <button
+                onClick={handleAddRow}
+                className="flex items-center gap-1.5 text-wine-700 hover:text-wine-900 font-semibold text-sm py-1.5 px-3 rounded-lg hover:bg-wine-50 transition-all duration-200"
+              >
+                <Plus size={16} />
+                Adicionar
+              </button>
+            </div>
           </div>
 
           {/* Legend */}

@@ -13,6 +13,7 @@ import {
   RotateCcw,
   MinusCircle,
   Copy,
+  MessageCircle,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
@@ -70,8 +71,8 @@ function buildWhatsAppText(escala: Escala): string {
   const itensWA = escala.escala_itens ?? escala.itens ?? []
   for (const item of itensWA) {
     if (item.funcao_label && item.cerimoniario) {
-      lines.push(`${item.funcao_label}:`)
-      lines.push(item.cerimoniario.nome)
+      const prefix = item.cerimoniario.mestre ? 'M - ' : ''
+      lines.push(`${prefix}${item.funcao_label}: ${item.cerimoniario.nome}`)
       lines.push('')
     }
   }
@@ -344,9 +345,45 @@ export default function EscalaView() {
                     <div className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-0.5">
                       {item.funcao_label || item.funcao?.titulo}
                     </div>
-                    <div className="font-bold text-gray-900">
-                      {item.cerimoniario?.nome || (
-                        <span className="text-gray-400 italic font-normal text-sm">Não atribuído</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-gray-900">
+                        {item.cerimoniario?.nome || (
+                          <span className="text-gray-400 italic font-normal text-sm">Não atribuído</span>
+                        )}
+                      </span>
+                      {item.cerimoniario && item.token_confirmacao && (
+                        <>
+                          {item.status_confirmacao === 'confirmado' && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+                              ✓ Confirmado
+                            </span>
+                          )}
+                          {item.status_confirmacao === 'recusado' && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">
+                              ✗ Recusou
+                            </span>
+                          )}
+                          {!item.status_confirmacao && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-500">
+                              ? Pendente
+                            </span>
+                          )}
+                          {item.cerimoniario.numero && (
+                            <button
+                              onClick={() => {
+                                const num = item.cerimoniario!.numero!.replace(/\D/g, '')
+                                const full = num.startsWith('55') ? num : `55${num}`
+                                const link = `${window.location.origin}/confirmar/${item.token_confirmacao}`
+                                const msg = `Olá ${item.cerimoniario!.nome}! Você foi escalado(a) para *${item.funcao_label || 'sua função'}*.\n\nConfirme sua presença: ${link}`
+                                window.open(`https://wa.me/${full}?text=${encodeURIComponent(msg)}`, '_blank')
+                              }}
+                              className="inline-flex items-center gap-1 rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-green-700 transition-colors"
+                              title="Enviar link de confirmação por WhatsApp"
+                            >
+                              <MessageCircle size={10} /> Confirmar
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                     {/* Substituto display */}

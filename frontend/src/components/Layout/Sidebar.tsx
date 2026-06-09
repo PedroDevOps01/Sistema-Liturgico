@@ -12,6 +12,9 @@ import {
   Cross,
   History,
   GraduationCap,
+  Globe,
+  Heart,
+  Search,
 } from 'lucide-react'
 import { removeToken, removeUser, getUser } from '../../lib/auth'
 import api from '../../lib/api'
@@ -34,13 +37,17 @@ const navItems = [
   // ── Administração ────────────
   { label: 'Usuários',      icon: UserCog,         to: '/usuarios' },
   { label: 'Configurações', icon: Settings,        to: '/configuracoes' },
+  // ── Portal ────────────────────
+  { label: 'Portal Público', icon: Globe,          to: '/portal-config' },
+  { label: 'Interessados',   icon: Heart,          to: '/interessados' },
 ]
 
 interface SidebarProps {
   onCloseMobile?: () => void
+  onOpenSearch?: () => void
 }
 
-export default function Sidebar({ onCloseMobile }: SidebarProps) {
+export default function Sidebar({ onCloseMobile, onOpenSearch }: SidebarProps) {
   const navigate = useNavigate()
   const user = getUser()
 
@@ -80,8 +87,18 @@ export default function Sidebar({ onCloseMobile }: SidebarProps) {
         </div>
       </div>
 
+      {/* Search button */}
+      <button
+        onClick={onOpenSearch}
+        className="mx-3 mt-3 flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-orange-100/60 transition-all hover:bg-white/10 hover:text-white"
+      >
+        <Search size={15} className="flex-shrink-0" />
+        <span className="flex-1 text-left">Buscar...</span>
+        <kbd className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-orange-100/40">⌃K</kbd>
+      </button>
+
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
         {navItems.map(({ label, icon: Icon, to }) => (
           <NavLink
             key={to}

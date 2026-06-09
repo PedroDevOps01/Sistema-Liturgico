@@ -4,11 +4,13 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\Celebracao;
+use App\Models\Cerimoniario;
 use App\Models\Escala;
 use App\Models\EscalaItem;
 use App\Models\Funcao;
 use App\Models\Configuracao;
 use App\Models\HistoricoEscala;
+use Illuminate\Support\Str;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -90,11 +92,13 @@ class EscalaController extends Controller
             if (! empty($validated['itens'])) {
                 foreach ($validated['itens'] as $index => $item) {
                     EscalaItem::create([
-                        'escala_id' => $escala->id,
-                        'cerimoniario_id' => $item['cerimoniario_id'] ?? null,
-                        'funcao_id' => $item['funcao_id'] ?? null,
-                        'funcao_label' => $item['funcao_label'] ?? null,
-                        'ordem' => $item['ordem'] ?? $index,
+                        'escala_id'           => $escala->id,
+                        'cerimoniario_id'     => $item['cerimoniario_id'] ?? null,
+                        'funcao_id'           => $item['funcao_id'] ?? null,
+                        'funcao_label'        => $item['funcao_label'] ?? null,
+                        'ordem'               => $item['ordem'] ?? $index,
+                        'token_confirmacao'   => ! empty($item['cerimoniario_id']) ? Str::random(40) : null,
+                        'status_confirmacao'  => null,
                     ]);
                 }
             }
@@ -179,19 +183,37 @@ class EscalaController extends Controller
 
                 foreach ($validated['itens'] as $index => $item) {
                     if (! empty($item['id'])) {
+                        $existing = EscalaItem::find($item['id']);
+                        $newCerId = $item['cerimoniario_id'] ?? null;
+                        // Regenera token se cerimoniário mudou; limpa se removido
+                        $token = $existing?->token_confirmacao;
+                        $statusConf = $existing?->status_confirmacao;
+                        if ($newCerId && $newCerId !== $existing?->cerimoniario_id) {
+                            $token = Str::random(40);
+                            $statusConf = null;
+                        } elseif (! $newCerId) {
+                            $token = null;
+                            $statusConf = null;
+                        } elseif (! $token) {
+                            $token = Str::random(40);
+                        }
                         EscalaItem::where('id', $item['id'])->update([
-                            'cerimoniario_id' => $item['cerimoniario_id'] ?? null,
-                            'funcao_id' => $item['funcao_id'] ?? null,
-                            'funcao_label' => $item['funcao_label'] ?? null,
-                            'ordem' => $item['ordem'] ?? $index,
+                            'cerimoniario_id'    => $newCerId,
+                            'funcao_id'          => $item['funcao_id'] ?? null,
+                            'funcao_label'       => $item['funcao_label'] ?? null,
+                            'ordem'              => $item['ordem'] ?? $index,
+                            'token_confirmacao'  => $token,
+                            'status_confirmacao' => $statusConf,
                         ]);
                     } else {
                         EscalaItem::create([
-                            'escala_id' => $escala->id,
-                            'cerimoniario_id' => $item['cerimoniario_id'] ?? null,
-                            'funcao_id' => $item['funcao_id'] ?? null,
-                            'funcao_label' => $item['funcao_label'] ?? null,
-                            'ordem' => $item['ordem'] ?? $index,
+                            'escala_id'          => $escala->id,
+                            'cerimoniario_id'    => $item['cerimoniario_id'] ?? null,
+                            'funcao_id'          => $item['funcao_id'] ?? null,
+                            'funcao_label'       => $item['funcao_label'] ?? null,
+                            'ordem'              => $item['ordem'] ?? $index,
+                            'token_confirmacao'  => ! empty($item['cerimoniario_id']) ? Str::random(40) : null,
+                            'status_confirmacao' => null,
                         ]);
                     }
                 }
@@ -253,6 +275,127 @@ class EscalaController extends Controller
         ]);
     }
 
+    public function sugerir(Request $request): JsonResponse
+    {
+        $request->validate(['celebracao_id' => 'required|exists:celebracoes,id']);
+
+        $celebracao = Celebracao::findOrFail($request->celebracao_id);
+        $data       = $celebracao->data; // Carbon instance
+        $hora       = (int) substr($celebracao->horario, 0, 2);
+
+        $isManha = $hora < 12;
+        $isTarde = $hora >= 12 && $hora < 18;
+        $isNoite = $hora >= 18;
+        $isDomingo = $data->dayOfWeek === 0;
+        $isSabado  = $data->dayOfWeek === 6;
+
+        $todos = Cerimoniario::where('ativo', true)
+            ->where('indisponivel_temporario', false)
+            ->get();
+
+        $disponiveis = $todos->filter(function ($c) use ($isDomingo, $isSabado, $isManha, $isTarde, $isNoite) {
+            if ($isDomingo) {
+                if ($isManha) return $c->disponivel_domingo_manha;
+                if ($isTarde) return $c->disponivel_domingo_tarde;
+                return $c->disponivel_domingo_noite;
+            }
+            if ($isSabado) return $c->disponivel_sabado;
+            if ($isManha)  return $c->disponivel_semana_manha;
+            if ($isTarde)  return $c->disponivel_semana_tarde;
+            return $c->disponivel_semana_noite;
+        });
+
+        // Exclui quem já está em escala na mesma data
+        $jaEscaladosIds = DB::table('escala_itens as ei')
+            ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
+            ->join('celebracoes as c', 'c.id', '=', 'e.celebracao_id')
+            ->where('c.data', $data->toDateString())
+            ->where('c.ativo', true)
+            ->whereNull('c.deleted_at')
+            ->whereNotNull('ei.cerimoniario_id')
+            ->pluck('ei.cerimoniario_id')
+            ->unique();
+
+        $disponiveis = $disponiveis->reject(fn ($c) => $jaEscaladosIds->contains($c->id));
+
+        // Score por rotatividade: quem serviu há mais tempo vem primeiro
+        $ultimoServico = DB::table('escala_itens as ei')
+            ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
+            ->join('celebracoes as c', 'c.id', '=', 'e.celebracao_id')
+            ->whereIn('ei.cerimoniario_id', $disponiveis->pluck('id'))
+            ->where('c.data', '<', $data->toDateString())
+            ->select('ei.cerimoniario_id', DB::raw('MAX(c.data) as ultimo'))
+            ->groupBy('ei.cerimoniario_id')
+            ->get()
+            ->keyBy('cerimoniario_id');
+
+        $scored = $disponiveis->map(function ($c) use ($ultimoServico, $data) {
+            $last = $ultimoServico->get($c->id);
+            $dias = $last ? $data->diffInDays(\Carbon\Carbon::parse($last->ultimo)) : 9999;
+            return ['cerimoniario' => $c, 'score' => $dias];
+        })->sortByDesc('score')->values();
+
+        // Slot 0 (Mestre): prefere quem tem flag mestre=true
+        $mestres = $scored->filter(fn ($s) => $s['cerimoniario']->mestre);
+        $normais = $scored->filter(fn ($s) => ! $s['cerimoniario']->mestre);
+        $pool    = $mestres->merge($normais)->values();
+
+        // Monta estrutura de slots
+        $estrutura = $this->buildEstruturaSimples($celebracao);
+
+        $sugestoes = [];
+        foreach ($estrutura as $idx => $slot) {
+            $sug = $pool->get($idx);
+            $sugestoes[] = [
+                'slot'         => $idx,
+                'funcao_label' => $slot['funcao_label'],
+                'cerimoniario' => $sug ? $sug['cerimoniario'] : null,
+            ];
+        }
+
+        return response()->json([
+            'data'    => $sugestoes,
+            'message' => 'Sugestão gerada com sucesso.',
+        ]);
+    }
+
+    private function buildEstruturaSimples(Celebracao $celebracao): array
+    {
+        $estrutura = [['funcao_label' => 'Cerimoniário - Mestre', 'ordem' => 0]];
+
+        $especial = $celebracao->celebracao_6h || $celebracao->celebracao_palavra
+            || $celebracao->celebracao_solene || $celebracao->casamento
+            || $celebracao->batismo || $celebracao->crisma
+            || $celebracao->primeira_eucaristia || $celebracao->adoracao_santissimo
+            || $celebracao->procissao || $celebracao->via_sacra
+            || $celebracao->exequias || $celebracao->vigilia_pascal
+            || $celebracao->paixao_senhor || $celebracao->ordenacao;
+
+        if (! $especial) {
+            for ($i = 1; $i <= 4; $i++) {
+                $estrutura[] = ['funcao_label' => "Cerimoniário - Auxiliar {$i}", 'ordem' => count($estrutura)];
+            }
+        }
+        if ($celebracao->celebracao_noite) {
+            $estrutura[] = ['funcao_label' => 'Turiferário', 'ordem' => count($estrutura)];
+        }
+
+        $qtd = $celebracao->qtd_cerimoniarios ?? count($estrutura);
+        if ($qtd > 0) {
+            if (count($estrutura) > $qtd) $estrutura = array_slice($estrutura, 0, $qtd);
+            while (count($estrutura) < $qtd) {
+                $estrutura[] = ['funcao_label' => '', 'ordem' => count($estrutura)];
+            }
+        }
+        if ($celebracao->possui_bispo) {
+            foreach (['Môr', 'Mitra', 'Bácula'] as $f) {
+                $estrutura[] = ['funcao_label' => $f, 'ordem' => count($estrutura)];
+            }
+        }
+
+        return $estrutura;
+    }
+
     public function gerarEstrutura(Request $request): JsonResponse
     {
         $request->validate([
@@ -295,10 +438,17 @@ class EscalaController extends Controller
             $estrutura[] = ['funcao_id' => 6, 'ordem' => count($estrutura)];
         }
 
-        // Respeita qtd_cerimoniarios para a base (antes de adicionar bispo)
+        // Respeita qtd_cerimoniarios: reduz se exceder, preenche se faltar
         $qtd = $celebracao->qtd_cerimoniarios ?? count($estrutura);
-        if ($qtd > 0 && $qtd < count($estrutura)) {
-            $estrutura = array_slice($estrutura, 0, $qtd);
+        if ($qtd > 0) {
+            // Reduz se a estrutura tiver mais itens que o desejado
+            if (count($estrutura) > $qtd) {
+                $estrutura = array_slice($estrutura, 0, $qtd);
+            }
+            // Preenche com funções vazias se a estrutura tiver menos itens
+            while (count($estrutura) < $qtd) {
+                $estrutura[] = ['funcao_id' => null, 'funcao_label' => '', 'ordem' => count($estrutura)];
+            }
         }
 
         // Bispo adiciona Môr, Mitra e Bácula ALÉM do qtd base
@@ -314,15 +464,16 @@ class EscalaController extends Controller
         }
         unset($item);
 
-        // Load funcao data
-        $funcaoIds = collect($estrutura)->pluck('funcao_id')->toArray();
-        $funcoes = Funcao::whereIn('id', $funcaoIds)->get()->keyBy('id');
+        // Load funcao data (ignora nulls)
+        $funcaoIds = collect($estrutura)->pluck('funcao_id')->filter()->unique()->toArray();
+        $funcoes = count($funcaoIds) ? Funcao::whereIn('id', $funcaoIds)->get()->keyBy('id') : collect();
 
         $resultado = collect($estrutura)->map(function ($item) use ($funcoes) {
+            $funcaoId = $item['funcao_id'] ?? null;
             return [
-                'funcao_id'      => $item['funcao_id'],
-                'funcao'         => $funcoes[$item['funcao_id']] ?? null,
-                'funcao_label'   => null,
+                'funcao_id'      => $funcaoId,
+                'funcao'         => $funcaoId ? ($funcoes[$funcaoId] ?? null) : null,
+                'funcao_label'   => $item['funcao_label'] ?? null,
                 'cerimoniario_id'=> null,
                 'cerimoniario'   => null,
                 'ordem'          => $item['ordem'],
@@ -390,7 +541,8 @@ class EscalaController extends Controller
             $rawLabel = $item->funcao_label ?? ($item->funcao ? $item->funcao->titulo : null);
             $label    = $rawLabel ? $this->abbreviateFuncao($rawLabel) : 'Função';
             $nome     = $item->cerimoniario ? $item->cerimoniario->nome : 'A escalar';
-            $linhas[] = "{$label}: {$nome}";
+            $prefix   = ($item->cerimoniario && $item->cerimoniario->mestre) ? 'M - ' : '';
+            $linhas[] = "{$prefix}{$label}: {$nome}";
         }
 
         if ($escala->observacao) {
