@@ -22,6 +22,14 @@ class ConfiguracaoController extends Controller
         ]);
     }
 
+    public function showPortalConfig(): JsonResponse
+    {
+        $cfg = $this->getOrCreate();
+        return response()->json([
+            'data' => $cfg->portal_config,
+        ]);
+    }
+
     public function update(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -30,6 +38,7 @@ class ConfiguracaoController extends Controller
             'endereco'        => 'nullable|string',
             'telefone'        => 'nullable|string|max:50',
             'nome_coordenador'=> 'nullable|string|max:255',
+            'portal_config'   => 'nullable|array',
         ]);
 
         $configuracao = $this->getOrCreate();

@@ -17,11 +17,13 @@ use App\Http\Controllers\API\InteressadoController;
 use App\Http\Controllers\API\PresencaController;
 use App\Http\Controllers\API\UserController;
 use App\Http\Controllers\API\PortalStatsController;
+use App\Http\Controllers\API\PortalImageController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/portal-stats', PortalStatsController::class);
+Route::get('/portal-config', [ConfiguracaoController::class, 'showPortalConfig']);
 Route::post('/interessados', [InteressadoController::class, 'store']);
 Route::get('/confirmar/{token}', [ConfirmacaoController::class, 'show']);
 Route::post('/confirmar/{token}', [ConfirmacaoController::class, 'update']);
@@ -82,6 +84,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('configuracoes', [ConfiguracaoController::class, 'show']);
     Route::put('configuracoes', [ConfiguracaoController::class, 'update']);
     Route::post('configuracoes/logo', [ConfiguracaoController::class, 'uploadLogo']);
+
+    // Upload de imagens do portal
+    Route::post('portal-images', [PortalImageController::class, 'upload']);
+    Route::delete('portal-images', [PortalImageController::class, 'destroy']);
 
     // Presenças
     Route::put('escala-itens/{item}/presenca', [PresencaController::class, 'update']);

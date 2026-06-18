@@ -7,6 +7,7 @@ import {
   ListChecks,
   Bell,
   ChevronRight,
+  ChevronLeft,
   Star,
   Clock,
   CheckCircle2,
@@ -22,9 +23,12 @@ import {
   Award,
   Loader2,
   Send,
+  Images,
+  MessageSquare,
+  Link2,
 } from 'lucide-react'
 import logoGrupo from '../assets/logogrupo.png'
-import { loadPortalConfig } from './PortalConfig'
+import { loadPortalConfig, DEFAULT_PORTAL_CONFIG, type PortalConfig, type CarrosselSlide } from './PortalConfig'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -116,6 +120,259 @@ const steps = [
   { num: '04', icon: CheckCircle2,title: 'Acompanhamento',       desc: 'Presenças, treinamentos e histórico são acompanhados em tempo real pelo coordenador.' },
 ]
 
+/* ── Carousel ─────────────────────────────────────────── */
+type TemaColors = { from: string; to: string; mid: string; text: string; light: string; accent: string }
+
+function PortalCarousel({
+  slides,
+  variant,
+  tema,
+}: {
+  slides: CarrosselSlide[]
+  variant: 'principal' | 'servico'
+  tema: TemaColors
+}) {
+  const validSlides = slides.filter(s => s.imageUrl)
+  const [idx, setIdx] = useState(0)
+  const [paused, setPaused] = useState(false)
+
+  const [lightbox, setLightbox] = useState(false)
+  const n = validSlides.length
+  const prev = () => setIdx(i => (i - 1 + n) % n)
+  const next = () => setIdx(i => (i + 1) % n)
+  const slide = validSlides[idx]
+
+  useEffect(() => {
+    setIdx(0)
+  }, [n])
+
+  useEffect(() => {
+    if (paused || n <= 1) return
+    const id = setInterval(() => setIdx(i => (i + 1) % n), 5000)
+    return () => clearInterval(id)
+  }, [paused, n])
+
+  if (!slide) return null
+
+  if (variant === 'principal') {
+    return (
+      <>
+        <div
+          className="relative group rounded-3xl overflow-hidden shadow-2xl select-none cursor-zoom-in"
+          style={{ aspectRatio: '16/7' }}
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+          onClick={() => setLightbox(true)}
+        >
+          {/* Slides stack */}
+          {validSlides.map((s, i) => (
+            <div
+              key={i}
+              className="absolute inset-0 transition-opacity duration-700"
+              style={{ opacity: i === idx ? 1 : 0, zIndex: i === idx ? 10 : 0 }}
+            >
+              <img src={s.imageUrl} alt={s.titulo} className="w-full h-full object-cover" />
+            </div>
+          ))}
+
+          {/* Gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent z-20" />
+
+          {/* Text overlay */}
+          <div className="absolute bottom-0 inset-x-0 p-8 z-30">
+            {slide.titulo && (
+              <h3 className="text-2xl font-bold text-white drop-shadow-sm mb-1">{slide.titulo}</h3>
+            )}
+            {slide.descricao && (
+              <p className="text-white/75 text-sm max-w-2xl">{slide.descricao}</p>
+            )}
+          </div>
+
+          {/* Arrows */}
+          {n > 1 && (
+            <>
+              <button
+                onClick={prev}
+                className="absolute left-4 top-1/2 -translate-y-1/2 z-30 w-11 h-11 flex items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60 transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm"
+              >
+                <ChevronLeft size={22} />
+              </button>
+              <button
+                onClick={next}
+                className="absolute right-4 top-1/2 -translate-y-1/2 z-30 w-11 h-11 flex items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60 transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm"
+              >
+                <ChevronRight size={22} />
+              </button>
+            </>
+          )}
+
+          {/* Slide counter */}
+          {n > 1 && (
+            <div className="absolute top-5 left-5 z-30 bg-black/40 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm font-semibold">
+              {idx + 1} / {n}
+            </div>
+          )}
+        </div>
+
+        {/* Dots */}
+        {n > 1 && (
+          <div className="flex justify-center gap-2 mt-4">
+            {validSlides.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setIdx(i)}
+                className="h-1.5 rounded-full transition-all duration-300"
+                style={{
+                  width: i === idx ? 28 : 8,
+                  background: i === idx ? tema.mid : '#d1d5db',
+                }}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Lightbox */}
+        {lightbox && (
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-6"
+            style={{ background: 'rgba(0,0,0,0.92)' }}
+            onClick={() => setLightbox(false)}
+          >
+            <div className="relative max-w-6xl w-full flex items-center justify-center" onClick={e => e.stopPropagation()}>
+              <img
+                src={slide.imageUrl}
+                alt={slide.titulo}
+                className="max-w-full max-h-[90vh] rounded-2xl shadow-2xl object-contain"
+              />
+              {(slide.titulo || slide.descricao) && (
+                <div className="absolute inset-x-0 bottom-0 p-5 bg-gradient-to-t from-black/70 to-transparent rounded-b-2xl">
+                  {slide.titulo && <p className="text-white font-bold text-lg">{slide.titulo}</p>}
+                  {slide.descricao && <p className="text-white/70 text-sm mt-0.5">{slide.descricao}</p>}
+                </div>
+              )}
+              <button
+                onClick={() => setLightbox(false)}
+                className="absolute top-3 right-3 w-9 h-9 flex items-center justify-center bg-black/60 text-white rounded-full hover:bg-black/80 transition-colors"
+              >
+                <X size={18} />
+              </button>
+              {n > 1 && (
+                <>
+                  <button onClick={e => { e.stopPropagation(); prev() }} className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors">
+                    <ChevronLeft size={22} />
+                  </button>
+                  <button onClick={e => { e.stopPropagation(); next() }} className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors">
+                    <ChevronRight size={22} />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </>
+    )
+  }
+
+  /* variant === 'servico' ───────────────────────────────── */
+  return (
+    <div
+      className="relative group select-none"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+    >
+      <div className="overflow-hidden rounded-3xl shadow-xl border border-gray-100 bg-white">
+        {/* Image stack */}
+        <div className="relative overflow-hidden cursor-zoom-in" style={{ aspectRatio: '4/3' }} onClick={() => setLightbox(true)}>
+          {validSlides.map((s, i) => (
+            <div
+              key={i}
+              className="absolute inset-0 transition-opacity duration-700"
+              style={{ opacity: i === idx ? 1 : 0, zIndex: i === idx ? 10 : 0 }}
+            >
+              <img src={s.imageUrl} alt={s.titulo} className="w-full h-full object-cover" />
+            </div>
+          ))}
+          {/* Subtle tint overlay */}
+          <div className="absolute inset-0 z-20 pointer-events-none"
+            style={{ background: `linear-gradient(135deg, ${tema.from}18, transparent 60%)` }} />
+
+          {/* Arrows */}
+          {n > 1 && (
+            <>
+              <button
+                onClick={prev}
+                className="absolute left-3 top-1/2 -translate-y-1/2 z-30 w-10 h-10 flex items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-lg hover:shadow-xl transition-all opacity-0 group-hover:opacity-100"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <button
+                onClick={next}
+                className="absolute right-3 top-1/2 -translate-y-1/2 z-30 w-10 h-10 flex items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-lg hover:shadow-xl transition-all opacity-0 group-hover:opacity-100"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Text card */}
+        <div className="p-8">
+          {slide.titulo && (
+            <h3 className="text-xl font-bold text-gray-900 mb-2">{slide.titulo}</h3>
+          )}
+          {slide.descricao && (
+            <p className="text-gray-500 text-sm leading-relaxed">{slide.descricao}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Dots */}
+      {n > 1 && (
+        <div className="flex justify-center gap-2 mt-4">
+          {validSlides.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setIdx(i)}
+              className="h-1.5 rounded-full transition-all duration-300"
+              style={{
+                width: i === idx ? 28 : 8,
+                background: i === idx ? tema.mid : '#d1d5db',
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-6"
+          style={{ background: 'rgba(0,0,0,0.92)' }}
+          onClick={() => setLightbox(false)}
+        >
+          <div className="relative max-w-4xl w-full flex items-center justify-center" onClick={e => e.stopPropagation()}>
+            <img src={slide.imageUrl} alt={slide.titulo} className="max-w-full max-h-[90vh] rounded-2xl shadow-2xl object-contain" />
+            {(slide.titulo || slide.descricao) && (
+              <div className="absolute inset-x-0 bottom-0 p-5 bg-gradient-to-t from-black/70 to-transparent rounded-b-2xl">
+                {slide.titulo && <p className="text-white font-bold text-lg">{slide.titulo}</p>}
+                {slide.descricao && <p className="text-white/70 text-sm mt-0.5">{slide.descricao}</p>}
+              </div>
+            )}
+            <button onClick={() => setLightbox(false)} className="absolute top-3 right-3 w-9 h-9 flex items-center justify-center bg-black/60 text-white rounded-full hover:bg-black/80 transition-colors">
+              <X size={18} />
+            </button>
+            {n > 1 && (
+              <>
+                <button onClick={e => { e.stopPropagation(); prev() }} className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"><ChevronLeft size={22} /></button>
+                <button onClick={e => { e.stopPropagation(); next() }} className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"><ChevronRight size={22} /></button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ── Component ────────────────────────────────────────── */
 export default function Portal() {
   const [menuOpen, setMenuOpen]   = useState(false)
@@ -125,24 +382,43 @@ export default function Portal() {
   const [form, setForm]           = useState({ nome: '', telefone: '', mensagem: '' })
   const [enviando, setEnviando]   = useState(false)
   const [enviado, setEnviado]     = useState(false)
-  const config = loadPortalConfig()
+  const [config, setConfig]       = useState<PortalConfig>(loadPortalConfig)
   const tema = TEMA_COLORS[config.tema ?? 'wine'] ?? TEMA_COLORS.wine
 
-  const heroSection         = useVisible(0.05)
-  const statsSection        = useVisible(0.2)
-  const featuresSection     = useVisible(0.1)
-  const missionSection      = useVisible(0.1)
-  const stepsSection        = useVisible(0.1)
-  const liturgicalSection   = useVisible(0.1)
-  const testimonialsSection = useVisible(0.1)
-  const ctaSection          = useVisible(0.1)
+  const heroSection          = useVisible(0.05)
+  const statsSection         = useVisible(0.2)
+  const carrosselPrincipalSec = useVisible(0.1)
+  const featuresSection      = useVisible(0.1)
+  const missionSection       = useVisible(0.1)
+  const carrosselServicoSec  = useVisible(0.1)
+  const stepsSection         = useVisible(0.1)
+  const liturgicalSection    = useVisible(0.1)
+  const testimonialsSection  = useVisible(0.1)
+  const ctaSection           = useVisible(0.1)
+
+  const hasCarrosselPrincipal = (config.carrosselPrincipal ?? []).some(s => s.imageUrl)
+  const hasCarrosselServico   = (config.carrosselServico ?? []).some(s => s.imageUrl)
+  const hasSocial = config.instagramUrl || config.facebookUrl || config.youtubeUrl || config.whatsappUrl
 
   useEffect(() => {
-    document.title = `${config.nomeMinisterio} · Portal`
     const onScroll = () => setScrolled(window.scrollY > 48)
     window.addEventListener('scroll', onScroll, { passive: true })
     fetchPortalStats().then(data => { setStats(data); setStatsLoading(false) })
+    fetch('/api/portal-config')
+      .then(r => r.json())
+      .then(res => {
+        if (res?.data) {
+          const merged = { ...DEFAULT_PORTAL_CONFIG, ...res.data }
+          setConfig(merged)
+          localStorage.setItem('portal_config', JSON.stringify(merged))
+        }
+      })
+      .catch(() => { /* mantém cache local */ })
     return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  useEffect(() => {
+    document.title = `${config.nomeMinisterio} · Portal`
   }, [config.nomeMinisterio])
 
   async function handleInteresse(e: React.FormEvent) {
@@ -164,6 +440,12 @@ export default function Portal() {
   }
 
   const themeGradient = `linear-gradient(135deg, ${tema.from} 0%, ${tema.mid} 50%, ${tema.to} 100%)`
+
+  const whatsappHref = config.whatsappUrl
+    ? config.whatsappUrl.startsWith('http')
+      ? config.whatsappUrl
+      : `https://wa.me/${config.whatsappUrl.replace(/\D/g, '')}`
+    : null
 
   return (
     <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
@@ -465,11 +747,40 @@ export default function Portal() {
         </div>
       </section>
 
+      {/* ── Carrossel Principal ─────────────────────────── */}
+      {hasCarrosselPrincipal && (
+        <section ref={carrosselPrincipalSec.ref} className="py-20 bg-white">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className={`mb-10 text-center transition-all duration-700 ${carrosselPrincipalSec.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ background: tema.light, color: tema.text, outline: `1px solid ${tema.from}25` }}>
+                <Images size={14} />
+                Galeria do Ministério
+              </div>
+              <h2 className="text-4xl font-extrabold tracking-tight sm:text-5xl" style={{ color: tema.text }}>
+                Nossas Artes
+              </h2>
+              <p className="mx-auto mt-3 max-w-xl text-base text-gray-500">
+                Clique em qualquer imagem para ampliar e navegar pela galeria.
+              </p>
+            </div>
+            <div className={`transition-all duration-700 delay-100 ${carrosselPrincipalSec.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <PortalCarousel
+                slides={config.carrosselPrincipal ?? []}
+                variant="principal"
+                tema={tema}
+              />
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── Nossa Missão ───────────────────────────────── */}
       <section
         id="missao"
         ref={missionSection.ref}
         className="py-24 bg-white"
+        style={hasCarrosselPrincipal ? { borderTop: '1px solid #f3f4f6' } : {}}
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className={`grid gap-12 lg:grid-cols-2 lg:items-center transition-all duration-700 ${missionSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
@@ -511,15 +822,12 @@ export default function Portal() {
               <div className="relative rounded-3xl overflow-hidden shadow-2xl"
                 style={{ background: `linear-gradient(135deg, ${tema.light}, #fff)`, border: `1px solid ${tema.from}20` }}>
                 <div className="p-8 space-y-5">
-                  {/* Quote */}
                   <div className="relative">
                     <div className="text-6xl font-serif leading-none opacity-20" style={{ color: tema.from }}>"</div>
                     <p className="text-lg italic text-gray-700 -mt-4">
                       {config.frase_inspiradora || '"Servir é nossa missão, a liturgia é nossa vocação."'}
                     </p>
                   </div>
-
-                  {/* Values list */}
                   <div className="space-y-3 pt-2">
                     {[
                       'Formação litúrgica de qualidade',
@@ -537,8 +845,6 @@ export default function Portal() {
                   </div>
                 </div>
               </div>
-
-              {/* Decorative circle */}
               <div className="absolute -z-10 -top-8 -right-8 w-48 h-48 rounded-full opacity-10"
                 style={{ background: themeGradient }} />
               <div className="absolute -z-10 -bottom-6 -left-6 w-32 h-32 rounded-full opacity-10"
@@ -547,6 +853,38 @@ export default function Portal() {
           </div>
         </div>
       </section>
+
+      {/* ── Carrossel de Serviço ────────────────────────── */}
+      {hasCarrosselServico && (
+        <section
+          ref={carrosselServicoSec.ref}
+          className="py-20 border-t border-gray-100"
+          style={{ background: `linear-gradient(180deg, ${tema.light}60 0%, #fff 100%)` }}
+        >
+          <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+            <div className={`mb-10 text-center transition-all duration-700 ${carrosselServicoSec.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ background: tema.light, color: tema.text, outline: `1px solid ${tema.from}25` }}>
+                <Users size={14} />
+                Acólitos em Serviço
+              </div>
+              <h2 className="text-4xl font-extrabold tracking-tight sm:text-5xl" style={{ color: tema.text }}>
+                Nossa Equipe Atuando
+              </h2>
+              <p className="mx-auto mt-3 max-w-xl text-base text-gray-500">
+                Momentos de serviço, fé e dedicação dos nossos acólitos nas celebrações.
+              </p>
+            </div>
+            <div className={`transition-all duration-700 delay-100 ${carrosselServicoSec.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <PortalCarousel
+                slides={config.carrosselServico ?? []}
+                variant="servico"
+                tema={tema}
+              />
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── Features ───────────────────────────────────── */}
       <section id="funcionalidades" className="py-24" style={{ background: `linear-gradient(180deg, ${tema.light}80 0%, #fff 100%)` }}>
@@ -576,7 +914,6 @@ export default function Portal() {
                 >
                   <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 rounded-3xl"
                     style={{ background: `linear-gradient(135deg, ${tema.light}50, transparent)` }} />
-
                   <div className="relative">
                     <div className="mb-5 flex items-start justify-between">
                       <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${f.color} shadow-sm`}>
@@ -706,11 +1043,7 @@ export default function Portal() {
       </section>
 
       {/* ── Testimonials ───────────────────────────────── */}
-      <section
-        id="depoimentos"
-        ref={testimonialsSection.ref}
-        className="py-24 bg-white"
-      >
+      <section id="depoimentos" ref={testimonialsSection.ref} className="py-24 bg-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className={`mb-14 text-center transition-all duration-700 ${testimonialsSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
@@ -759,7 +1092,7 @@ export default function Portal() {
             style={{ boxShadow: `0 24px 48px ${tema.from}12`, border: `1px solid ${tema.from}20` }}>
             <div className="mb-5 inline-flex h-16 w-16 items-center justify-center rounded-3xl shadow-xl text-white"
               style={{ background: themeGradient }}>
-              <img src={logoGrupo} alt="Logo" className="h-10 w-10 object-contain" />
+              <img src={logoGrupo} alt="Logo" className="h-12 w-16 object-contain" />
             </div>
             <h2 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl" style={{ color: tema.text }}>
               Entre em contato
@@ -787,6 +1120,40 @@ export default function Portal() {
                   <Phone size={18} />
                   {config.telefoneContato}
                 </a>
+              )}
+
+              {/* Social links in contact */}
+              {hasSocial && (
+                <div className="flex flex-wrap justify-center gap-2 pt-2">
+                  {config.instagramUrl && (
+                    <a href={config.instagramUrl} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border-2 border-gray-100 text-sm font-semibold text-gray-500 hover:text-pink-600 hover:border-pink-200 hover:bg-pink-50 transition-all"
+                    >
+                      <Link2 size={13} /> Instagram
+                    </a>
+                  )}
+                  {config.facebookUrl && (
+                    <a href={config.facebookUrl} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border-2 border-gray-100 text-sm font-semibold text-gray-500 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-all"
+                    >
+                      <Link2 size={13} /> Facebook
+                    </a>
+                  )}
+                  {config.youtubeUrl && (
+                    <a href={config.youtubeUrl} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border-2 border-gray-100 text-sm font-semibold text-gray-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-all"
+                    >
+                      <Link2 size={13} /> YouTube
+                    </a>
+                  )}
+                  {whatsappHref && (
+                    <a href={whatsappHref} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border-2 border-gray-100 text-sm font-semibold text-gray-500 hover:text-green-600 hover:border-green-200 hover:bg-green-50 transition-all"
+                    >
+                      <MessageSquare size={13} /> WhatsApp
+                    </a>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -884,9 +1251,36 @@ export default function Portal() {
               <a href="#servir" className="hover:text-gray-700 transition-colors" style={{ color: tema.text }}>Quero Servir</a>
             </div>
 
-            <p className="text-xs text-gray-400">
-              © {new Date().getFullYear()} {config.nomeMinisterio}
-            </p>
+            {/* Social in footer */}
+            <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-end">
+              {config.instagramUrl && (
+                <a href={config.instagramUrl} target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-gray-400 hover:text-pink-500 transition-colors font-medium">
+                  Instagram
+                </a>
+              )}
+              {config.facebookUrl && (
+                <a href={config.facebookUrl} target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-gray-400 hover:text-blue-600 transition-colors font-medium">
+                  Facebook
+                </a>
+              )}
+              {config.youtubeUrl && (
+                <a href={config.youtubeUrl} target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-gray-400 hover:text-red-600 transition-colors font-medium">
+                  YouTube
+                </a>
+              )}
+              {whatsappHref && (
+                <a href={whatsappHref} target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-gray-400 hover:text-green-500 transition-colors font-medium">
+                  WhatsApp
+                </a>
+              )}
+              <p className="text-xs text-gray-400">
+                © {new Date().getFullYear()} {config.nomeMinisterio}
+              </p>
+            </div>
           </div>
         </div>
       </footer>

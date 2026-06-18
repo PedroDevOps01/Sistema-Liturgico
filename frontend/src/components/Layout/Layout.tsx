@@ -15,6 +15,10 @@ const routeLabels: Record<string, string> = {
   '/telao': 'Telão',
   '/configuracoes': 'Configurações',
   '/interessados': 'Interessados',
+  '/portal-config': 'Portal Público',
+  '/historico': 'Histórico',
+  '/treinamentos': 'Treinamentos',
+  '/relatorio': 'Relatório',
 }
 
 function getCurrentLabel(pathname: string): string {
@@ -25,8 +29,11 @@ function getCurrentLabel(pathname: string): string {
 }
 
 export default function Layout() {
-  const [mobileOpen, setMobileOpen]   = useState(false)
-  const [searchOpen, setSearchOpen]   = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => localStorage.getItem('sidebar_collapsed') === 'true'
+  )
   const location  = useLocation()
   const pageLabel = getCurrentLabel(location.pathname)
 
@@ -36,7 +43,6 @@ export default function Layout() {
 
   const openSearch = useCallback(() => setSearchOpen(true), [])
 
-  // Ctrl+K / Cmd+K global shortcut
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
@@ -48,6 +54,14 @@ export default function Layout() {
     return () => window.removeEventListener('keydown', handler)
   }, [openSearch])
 
+  function toggleSidebar() {
+    setSidebarCollapsed(prev => {
+      const next = !prev
+      localStorage.setItem('sidebar_collapsed', String(next))
+      return next
+    })
+  }
+
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Mobile overlay */}
@@ -58,22 +72,33 @@ export default function Layout() {
         />
       )}
 
-      {/* Sidebar - Desktop */}
-      <div className="hidden lg:flex flex-shrink-0 isolate">
-        <Sidebar onOpenSearch={openSearch} />
+      {/* Sidebar — Desktop */}
+      <div
+        className={`hidden lg:block flex-shrink-0 isolate transition-all duration-300 ease-in-out ${
+          sidebarCollapsed ? 'w-[76px]' : 'w-64'
+        }`}
+      >
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={toggleSidebar}
+          onOpenSearch={openSearch}
+        />
       </div>
 
-      {/* Sidebar - Mobile */}
+      {/* Sidebar — Mobile (full width, no collapse) */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 lg:hidden transition-transform duration-300 ${
+        className={`fixed inset-y-0 left-0 z-50 lg:hidden transition-transform duration-300 w-64 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <Sidebar onCloseMobile={() => setMobileOpen(false)} onOpenSearch={openSearch} />
+        <Sidebar
+          onCloseMobile={() => setMobileOpen(false)}
+          onOpenSearch={openSearch}
+        />
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Mobile Header */}
         <header className="lg:hidden flex items-center gap-3 px-4 py-3 text-white shadow-md flex-shrink-0 sidebar-gradient">
           <button

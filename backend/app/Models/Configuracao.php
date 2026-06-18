@@ -14,5 +14,10 @@ class Configuracao extends Model
         'endereco',
         'telefone',
         'nome_coordenador',
+        'portal_config',
+    ];
+
+    protected $casts = [
+        'portal_config' => 'array',
     ];
 }
