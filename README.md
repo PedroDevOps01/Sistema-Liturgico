@@ -31,6 +31,7 @@ cd backend
 composer install
 cp .env.example .env          # ajuste DB_DATABASE, DB_USERNAME
 php artisan migrate --seed    # cria tabelas e usuário master
+php artisan storage:link      # publica storage para uploads do portal
 php artisan serve --host=127.0.0.1 --port=8000
 ```
 
@@ -59,6 +60,21 @@ npm run dev                   # http://localhost:5173
 | Senha | `master123` |
 
 Portal público: http://localhost:5173/portal
+
+---
+
+## Deploy (Oracle Cloud / Ubuntu 24.04)
+
+```bash
+# Primeira vez — configura toda a infraestrutura
+bash deploy.sh
+
+# Atualizações — envia arquivos e reinicia serviços
+bash upload.sh <IP> update <chave-ssh>   # no Mac
+bash redeploy.sh                          # no servidor
+```
+
+**Requisitos do servidor:** Ubuntu 24.04 · PHP 8.4 · PostgreSQL 16 · Nginx · Node 20
 
 ---
 
@@ -124,26 +140,10 @@ Portal público: http://localhost:5173/portal
 - Token regenerado automaticamente se o cerimoniário for trocado
 
 ### Exportação
-- **Copiar para WhatsApp** — texto compacto formatado com prefixo `M -` para mestres:
-  ```
-  TEMPO COMUM
-  DIA 31/05 - Tempo Comum
-  Missa às 19h
-
-  Cerimoniário: M - Pedro Gabriel
-  1ª Aux: Gabriel Lustosa
-  2ª Aux: Lucas Aguiar
-  ...
-  ```
+- **Copiar para WhatsApp** — texto compacto formatado com prefixo `M -` para mestres
 - **Enviar no WhatsApp** — abre `wa.me` com o texto pronto
-- **PDF estilizado** — layout compacto com logo da paróquia, tabela de funções, prefixo `M -` para mestres e legenda:
-  ```
-  Nomenclatura do Serviço
-  1ª AUX: Lado direito (microfone)   2ª AUX: Lado esquerdo (missal)
-  3ª AUX: Leitores                   4ª AUX: Preces, intenções e avisos
-  5ª AUX: Turiferário (somente à noite)
-  ```
-- **Calendário mensal** — cópia de todas as escalas do mês com prefixo `M -` para mestres
+- **PDF estilizado** — layout compacto com logo da paróquia, tabela de funções e legenda
+- **Calendário mensal** — cópia de todas as escalas do mês
 
 ### Presença
 - Registro pós-celebração por cerimoniário
@@ -156,38 +156,53 @@ Portal público: http://localhost:5173/portal
 - Registro de presença por cerimoniário com status individual
 - Geração de convite formatado para WhatsApp
 
-### Relatórios e Estatísticas
-- **Relatório de Presenças**: total de serviços, faltas, substituições e justificativas por cerimoniário — considera apenas escalas ativas
-- **Estatísticas gerais**: ranking dos que mais serviram (somente escalas ativas, via `status = 'serviu'`), participações mensais, faltas por cerimoniário
+### Relatórios
+- Módulo próprio na sidebar
+- **Relatório de Presenças**: total de serviços, faltas, substituições e justificativas por cerimoniário
+- **Estatísticas gerais**: ranking dos que mais serviram, participações mensais, faltas por cerimoniário
 - **Top presenças** e **substituições** por período
 
-### Chat Inteligente (Consulta Rápida)
+### Chat — Consultas Rápidas
 - Interface de chat com respostas em linguagem natural
 - Reconhece perguntas sobre: ranking de serviços, escalas, celebrações, cerimoniários, treinamentos, presenças e funções litúrgicas
-- Ranking "Quem mais serviu" baseado em `status = 'serviu'` nas escalas ativas (consistente com o relatório de presenças)
 - Consultas disponíveis: próximas escalas, escalas da semana/mês, casamentos, batismos, cerimoniários ativos/inativos/experientes/indisponíveis, presenças pendentes, ausências e muito mais
 
 ### Busca Global (Ctrl+K)
 - Atalho `Ctrl+K` (ou `Cmd+K` no Mac) abre o modal de busca de qualquer página
-- Pesquisa simultânea em cerimoniários, celebrações e escalas
+- Pesquisa simultânea em cerimoniários, celebrações e escalas:
+  - **Acólito** — busca pelo nome
+  - **Celebração** — busca pelo período litúrgico ou data (`25/12`, `25/12/2026`)
+  - **Escala** — busca pelo período ou data da celebração associada
 - Navegação por teclado: ↑↓ para mover, Enter para ir, Esc para fechar
-- Busca com debounce de 280ms para evitar requisições desnecessárias
-- Resultados com ícone colorido por tipo e link direto para a página
+- Fecha o menu lateral ao navegar para o resultado
+- Exemplos de busca exibidos no estado vazio do modal
 
-### Portal Público
-- Página pública em `/portal` sem necessidade de login
-- Estatísticas em tempo real puxadas do banco de dados:
-  - Total de acólitos cadastrados
-  - Total de celebrações registradas
-  - Anos de serviço (calculado a partir da celebração mais antiga)
-  - Presença média percentual
-- Formulário **"Quero Servir"** para interessados enviarem nome, telefone, e-mail e mensagem
+### Portal Público (`/portal`)
+- Página pública sem necessidade de login
+- Configuração completa salva no banco de dados — qualquer dispositivo vê as mesmas alterações
+- **Carrossel Principal** (galeria do ministério) e **Carrossel de Serviço** (fotos de celebrações):
+  - Upload de imagens com compressão automática no cliente (máx 1400px, JPEG 82%)
+  - Imagens salvas no servidor em `storage/app/public/portal/`
+  - Avanço automático a cada 5 segundos, pause ao passar o mouse
+  - Lightbox ao clicar: fundo preto total, scroll bloqueado, navegação por setas
+- **8 temas de cor litúrgica** para o portal:
+  - Vinho/Borgonha, Azul Litúrgico, Verde Esperança, Roxo Advento
+  - Dourado Pascal, Branco Festivo, Vermelho Pentecostes, Rosa Gaudete
+- **Visibilidade de seções** — cada seção pode ser ocultada individualmente:
+  Estatísticas · Nossa Missão · Galeria Principal · Fotos de Serviço · Funcionalidades · Como Funciona · Próximas Celebrações · Depoimentos · Contato · Formulário
+- Estatísticas em tempo real puxadas do banco
+- Formulário **"Quero Servir"** para interessados
+
+### Configuração do Portal (`/portal-config`)
+- Edição de todos os textos, cores, redes sociais e carrossels
+- Salvo via `PUT /api/configuracoes` com campo `portal_config` (JSON) no banco
+- localStorage usado como cache para carregamento imediato
 
 ### Interessados
-- Administradores recebem as inscrições do portal na página `/interessados`
+- Administradores recebem as inscrições do portal em `/interessados`
 - Badge "NOVO" para inscrições não lidas
 - Ação de marcar como lido / não lido
-- Botão de WhatsApp direto para entrar em contato com o interessado
+- Botão de WhatsApp direto para entrar em contato
 - Exclusão com confirmação
 
 ### Usuários
@@ -196,8 +211,8 @@ Portal público: http://localhost:5173/portal
 
 ### Configurações
 - Nome da paróquia, endereço, telefone, coordenador
-- Logo salvo em **base64** diretamente no banco (sem storage externo)
-- Configurações do portal público
+- Logo salvo em **base64** no banco
+- Configurações gerais do portal
 
 ---
 
@@ -215,7 +230,7 @@ Portal público: http://localhost:5173/portal
 | `treinamentos` | Treinamentos com tema, local, período litúrgico e funções alvo |
 | `treinamento_presencas` | Presença individual por cerimoniário em cada treinamento |
 | `historico_escalas` | Auditoria de criação/edição/exclusão |
-| `configuracoes` | Dados, logo da paróquia e configurações do portal |
+| `configuracoes` | Dados, logo da paróquia e configurações do portal (JSON `portal_config`) |
 | `interessados` | Inscrições recebidas pelo formulário do portal público |
 
 Todas as tabelas principais usam **soft delete** (`deleted_at`).
@@ -253,6 +268,7 @@ DB_PASSWORD=
 
 SESSION_DRIVER=file
 CACHE_STORE=file
+FILESYSTEM_DISK=local
 SANCTUM_STATEFUL_DOMAINS=localhost:5173
 FRONTEND_URL=http://localhost:5173
 ```
