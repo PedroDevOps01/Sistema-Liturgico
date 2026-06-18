@@ -132,7 +132,7 @@ export default function Layout() {
       </div>
 
       <ChatWidget />
-      <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} onCloseMenu={() => setMobileOpen(false)} />
     </div>
   )
 }

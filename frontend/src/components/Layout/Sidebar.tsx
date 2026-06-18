@@ -36,6 +36,7 @@ interface Module {
   label: string
   icon: React.ElementType
   items: NavItem[]
+  standalone?: boolean
 }
 
 const modules: Module[] = [
@@ -73,9 +74,10 @@ const modules: Module[] = [
     ],
   },
   {
-    id: 'analise',
-    label: 'Análise',
+    id: 'relatorios',
+    label: 'Relatórios',
     icon: BarChart2,
+    standalone: true,
     items: [{ label: 'Relatório', icon: BarChart2, to: '/relatorio' }],
   },
   {
@@ -261,7 +263,7 @@ export default function Sidebar({
           /* Expanded: grouped by module */
           <div className="space-y-0.5">
             {modules.map((mod, modIdx) => {
-              const isSingle = mod.items.length === 1
+              const isSingle = mod.items.length === 1 && !mod.standalone
               return (
                 <div key={mod.id} className={modIdx > 0 ? 'pt-2' : ''}>
                   {!isSingle && (

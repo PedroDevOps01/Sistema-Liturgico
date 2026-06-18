@@ -49,7 +49,7 @@ sudo cp -r ~/Escala/frontend/dist/. ${APP_DIR}/frontend/dist/
 sudo chown -R www-data:www-data ${APP_DIR}/frontend/dist
 
 # Reinicia serviços
-sudo systemctl reload php8.3-fpm
+sudo systemctl reload php8.4-fpm
 sudo nginx -t && sudo systemctl reload nginx
 
 echo ""

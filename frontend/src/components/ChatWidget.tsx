@@ -245,7 +245,7 @@ export default function ChatWidget() {
         <div className="flex flex-shrink-0 bg-white border-b border-gray-100">
           {([
             { id: 'rapidas', icon: <LayoutGrid size={13} />, label: 'Consultas Rápidas' },
-            { id: 'livre',   icon: <Sparkles size={13} />,   label: 'Pergunta Livre' },
+            // { id: 'livre',   icon: <Sparkles size={13} />,   label: 'Pergunta Livre' },
           ] as const).map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition-all border-b-2 ${

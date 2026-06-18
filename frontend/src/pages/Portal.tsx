@@ -102,6 +102,9 @@ const TEMA_COLORS: Record<string, { from: string; to: string; mid: string; text:
   green:  { from: '#14532d', to: '#16a34a', mid: '#15803d', text: '#14532d', light: '#f0fdf4', accent: '#4ade80' },
   purple: { from: '#4c1d95', to: '#7c3aed', mid: '#6d28d9', text: '#4c1d95', light: '#f5f3ff', accent: '#c084fc' },
   gold:   { from: '#78350f', to: '#d97706', mid: '#92400e', text: '#78350f', light: '#fefce8', accent: '#fcd34d' },
+  white:  { from: '#94a3b8', to: '#cbd5e1', mid: '#94a3b8', text: '#334155', light: '#f8fafc', accent: '#e2e8f0' },
+  red:    { from: '#7f1d1d', to: '#dc2626', mid: '#b91c1c', text: '#7f1d1d', light: '#fef2f2', accent: '#fca5a5' },
+  rose:   { from: '#9d174d', to: '#ec4899', mid: '#be185d', text: '#9d174d', light: '#fdf2f8', accent: '#f9a8d4' },
 }
 
 const features = [
@@ -554,7 +557,7 @@ export default function Portal() {
                   {config.heroTitulo.split('Ministério').length > 1 ? (
                     <>
                       {config.heroTitulo.split('Ministério')[0]}
-                      <span style={{ background: `linear-gradient(135deg, ${tema.from} 0%, ${tema.to} 100%)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+                      <span style={{ background: `linear-gradient(135deg, ${tema.from} 0%, ${tema.to} 100%)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', display: 'inline-block' }}>
                         Ministério
                       </span>
                       {config.heroTitulo.split('Ministério')[1]}
@@ -715,7 +718,7 @@ export default function Portal() {
       </section>
 
       {/* ── Stats ──────────────────────────────────────── */}
-      <section
+      {(config.mostrarStats ?? true) && <section
         ref={statsSection.ref}
         className="relative overflow-hidden py-16"
         style={{ background: themeGradient }}
@@ -745,10 +748,10 @@ export default function Portal() {
             ))}
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* ── Carrossel Principal ─────────────────────────── */}
-      {hasCarrosselPrincipal && (
+      {(config.mostrarCarrosselPrincipal ?? true) && hasCarrosselPrincipal && (
         <section ref={carrosselPrincipalSec.ref} className="py-20 bg-white">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className={`mb-10 text-center transition-all duration-700 ${carrosselPrincipalSec.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
@@ -776,7 +779,7 @@ export default function Portal() {
       )}
 
       {/* ── Nossa Missão ───────────────────────────────── */}
-      <section
+      {(config.mostrarMissao ?? true) && <section
         id="missao"
         ref={missionSection.ref}
         className="py-24 bg-white"
@@ -852,10 +855,10 @@ export default function Portal() {
             </div>
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* ── Carrossel de Serviço ────────────────────────── */}
-      {hasCarrosselServico && (
+      {(config.mostrarCarrosselServico ?? true) && hasCarrosselServico && (
         <section
           ref={carrosselServicoSec.ref}
           className="py-20 border-t border-gray-100"
@@ -887,7 +890,7 @@ export default function Portal() {
       )}
 
       {/* ── Features ───────────────────────────────────── */}
-      <section id="funcionalidades" className="py-24" style={{ background: `linear-gradient(180deg, ${tema.light}80 0%, #fff 100%)` }}>
+      {(config.mostrarFuncionalidades ?? true) && <section id="funcionalidades" className="py-24" style={{ background: `linear-gradient(180deg, ${tema.light}80 0%, #fff 100%)` }}>
         <div ref={featuresSection.ref} className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className={`mb-16 text-center transition-all duration-700 ${featuresSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
@@ -932,10 +935,10 @@ export default function Portal() {
             })}
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* ── How it works ───────────────────────────────── */}
-      <section id="como-funciona" ref={stepsSection.ref} className="py-24 bg-white overflow-hidden">
+      {(config.mostrarComoFunciona ?? true) && <section id="como-funciona" ref={stepsSection.ref} className="py-24 bg-white overflow-hidden">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className={`mb-16 max-w-2xl transition-all duration-700 ${stepsSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
@@ -975,10 +978,10 @@ export default function Portal() {
             })}
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* ── Liturgical highlight banner ─────────────────── */}
-      <section ref={liturgicalSection.ref} className="py-20 bg-white">
+      {(config.mostrarCalendario ?? true) && <section ref={liturgicalSection.ref} className="py-20 bg-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="relative overflow-hidden rounded-[2.5rem] p-10 shadow-2xl lg:p-14"
             style={{ background: themeGradient }}>
@@ -1040,10 +1043,10 @@ export default function Portal() {
             </div>
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* ── Testimonials ───────────────────────────────── */}
-      <section id="depoimentos" ref={testimonialsSection.ref} className="py-24 bg-white">
+      {(config.mostrarDepoimentos ?? true) && <section id="depoimentos" ref={testimonialsSection.ref} className="py-24 bg-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className={`mb-14 text-center transition-all duration-700 ${testimonialsSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
@@ -1083,10 +1086,10 @@ export default function Portal() {
             ))}
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* ── Contact / CTA ──────────────────────────────── */}
-      <section id="contato" ref={ctaSection.ref} className="py-24" style={{ background: `linear-gradient(160deg, ${tema.light} 0%, #fff 100%)` }}>
+      {(config.mostrarContato ?? true) && <section id="contato" ref={ctaSection.ref} className="py-24" style={{ background: `linear-gradient(160deg, ${tema.light} 0%, #fff 100%)` }}>
         <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
           <div className={`overflow-hidden rounded-[2.5rem] bg-white p-12 shadow-xl transition-all duration-700 ${ctaSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
             style={{ boxShadow: `0 24px 48px ${tema.from}12`, border: `1px solid ${tema.from}20` }}>
@@ -1158,10 +1161,10 @@ export default function Portal() {
             </div>
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* ── Quero Servir ───────────────────────────────── */}
-      <section id="servir" className="py-24 bg-white border-t border-gray-100">
+      {(config.mostrarFormulario ?? true) && <section id="servir" className="py-24 bg-white border-t border-gray-100">
         <div className="mx-auto max-w-xl px-4 sm:px-6 lg:px-8 text-center">
           <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold mb-5"
             style={{ background: tema.light, color: tema.text }}>
@@ -1225,7 +1228,7 @@ export default function Portal() {
             </form>
           )}
         </div>
-      </section>
+      </section>}
 
       {/* ── Footer ─────────────────────────────────────── */}
       <footer className="border-t border-gray-100 bg-white py-10">

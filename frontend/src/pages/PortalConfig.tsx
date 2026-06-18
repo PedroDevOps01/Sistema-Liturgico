@@ -48,6 +48,16 @@ export interface PortalConfig {
   facebookUrl: string
   youtubeUrl: string
   whatsappUrl: string
+  mostrarStats: boolean
+  mostrarMissao: boolean
+  mostrarCarrosselPrincipal: boolean
+  mostrarCarrosselServico: boolean
+  mostrarFuncionalidades: boolean
+  mostrarComoFunciona: boolean
+  mostrarCalendario: boolean
+  mostrarDepoimentos: boolean
+  mostrarContato: boolean
+  mostrarFormulario: boolean
 }
 
 export const DEFAULT_PORTAL_CONFIG: PortalConfig = {
@@ -77,6 +87,16 @@ export const DEFAULT_PORTAL_CONFIG: PortalConfig = {
   facebookUrl: '',
   youtubeUrl: '',
   whatsappUrl: '',
+  mostrarStats: true,
+  mostrarMissao: true,
+  mostrarCarrosselPrincipal: true,
+  mostrarCarrosselServico: true,
+  mostrarFuncionalidades: true,
+  mostrarComoFunciona: true,
+  mostrarCalendario: true,
+  mostrarDepoimentos: true,
+  mostrarContato: true,
+  mostrarFormulario: true,
 }
 
 export function loadPortalConfig(): PortalConfig {
@@ -97,6 +117,9 @@ const TEMAS = [
   { value: 'green',  label: 'Verde Esperança',   dot: 'bg-emerald-700' },
   { value: 'purple', label: 'Roxo Advento',      dot: 'bg-violet-700' },
   { value: 'gold',   label: 'Dourado Pascal',    dot: 'bg-amber-500' },
+  { value: 'white',  label: 'Branco Festivo',    dot: 'bg-gray-200 border border-gray-300' },
+  { value: 'red',    label: 'Vermelho Pentecostes', dot: 'bg-red-600' },
+  { value: 'rose',   label: 'Rosa Gaudete',      dot: 'bg-pink-400' },
 ]
 
 function compressToBlob(file: File): Promise<Blob> {
@@ -664,6 +687,38 @@ export default function PortalConfig() {
                 </div>
               </div>
             ))}
+          </div>
+        </Section>
+
+        {/* ── Visibilidade das seções ───────────────────── */}
+        <Section icon={<Eye size={16} />} title="Visibilidade das Seções">
+          <p className="text-xs text-gray-500 mb-3">Ative ou desative cada seção do portal público.</p>
+          <div className="space-y-2">
+            {([
+              { key: 'mostrarStats',              label: 'Estatísticas' },
+              { key: 'mostrarMissao',             label: 'Nossa Missão' },
+              { key: 'mostrarCarrosselPrincipal', label: 'Galeria Principal' },
+              { key: 'mostrarCarrosselServico',   label: 'Fotos de Serviço' },
+              { key: 'mostrarFuncionalidades',    label: 'Funcionalidades' },
+              { key: 'mostrarComoFunciona',       label: 'Como Funciona' },
+              { key: 'mostrarCalendario',         label: 'Próximas Celebrações' },
+              { key: 'mostrarDepoimentos',        label: 'Depoimentos' },
+              { key: 'mostrarContato',            label: 'Contato / CTA' },
+              { key: 'mostrarFormulario',         label: 'Formulário "Quero Servir"' },
+            ] as { key: keyof PortalConfig; label: string }[]).map(({ key, label }) => {
+              const active = (config[key] ?? true) as boolean
+              return (
+                <div key={key} className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5">
+                  <span className="text-sm font-medium text-gray-700">{label}</span>
+                  <div
+                    onClick={() => update(key, !active)}
+                    className={`relative w-10 h-5 rounded-full cursor-pointer transition-colors duration-200 ${active ? 'bg-wine-600' : 'bg-gray-300'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${active ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </Section>
 

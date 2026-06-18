@@ -51,9 +51,9 @@ warn "[2/10] Instalando dependências..."
 sudo apt-get update -qq
 sudo apt-get install -y -qq \
   nginx \
-  php8.3 php8.3-fpm php8.3-cli php8.3-pgsql php8.3-mbstring \
-  php8.3-xml php8.3-curl php8.3-zip php8.3-bcmath php8.3-gd \
-  php8.3-intl php8.3-tokenizer php8.3-fileinfo \
+  php8.4 php8.4-fpm php8.4-cli php8.4-pgsql php8.4-mbstring \
+  php8.4-xml php8.4-curl php8.4-zip php8.4-bcmath php8.4-gd \
+  php8.4-intl php8.4-tokenizer php8.4-fileinfo \
   postgresql postgresql-contrib \
   git curl unzip ufw \
   certbot python3-certbot-nginx 2>/dev/null
@@ -101,7 +101,7 @@ sudo tee /etc/php/8.3/fpm/pool.d/www.conf > /dev/null <<'EOF'
 [www]
 user = www-data
 group = www-data
-listen = /run/php/php8.3-fpm.sock
+listen = /run/php/php8.4-fpm.sock
 listen.owner = www-data
 listen.group = www-data
 
@@ -116,8 +116,8 @@ php_admin_value[memory_limit] = 128M
 php_admin_value[upload_max_filesize] = 20M
 php_admin_value[post_max_size] = 20M
 EOF
-sudo systemctl enable php8.3-fpm --quiet
-sudo systemctl restart php8.3-fpm
+sudo systemctl enable php8.4-fpm --quiet
+sudo systemctl restart php8.4-fpm
 log "PHP-FPM configurado"
 
 # ── 5. Copiar projeto ─────────────────────────────────────────────────────────
@@ -235,7 +235,7 @@ server {
     # ── API Laravel ────────────────────────────────
     location ~ ^/(api|sanctum|up) {
         root ${APP_DIR}/backend/public;
-        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        fastcgi_pass unix:/run/php/php8.4-fpm.sock;
         fastcgi_param SCRIPT_FILENAME \$document_root/index.php;
         fastcgi_param SCRIPT_NAME /index.php;
         fastcgi_param REQUEST_URI \$request_uri;

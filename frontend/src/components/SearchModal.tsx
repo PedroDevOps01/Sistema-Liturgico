@@ -35,7 +35,7 @@ const TIPO_LABEL = {
   escala:       'Escala',
 }
 
-export default function SearchModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export default function SearchModal({ open, onClose, onCloseMenu }: { open: boolean; onClose: () => void; onCloseMenu?: () => void }) {
   const [query, setQuery]     = useState('')
   const [results, setResults] = useState<SearchData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -77,7 +77,7 @@ export default function SearchModal({ open, onClose }: { open: boolean; onClose:
     ? [...(results.cerimoniarios ?? []), ...(results.celebracoes ?? []), ...(results.escalas ?? [])]
     : []
 
-  function go(url: string) { navigate(url); onClose() }
+  function go(url: string) { navigate(url); onClose(); onCloseMenu?.() }
 
   function handleKey(e: React.KeyboardEvent) {
     if (e.key === 'ArrowDown') { e.preventDefault(); setCursor(c => Math.min(c + 1, allResults.length - 1)) }
@@ -155,9 +155,22 @@ export default function SearchModal({ open, onClose }: { open: boolean; onClose:
           )}
 
           {!query && (
-            <div className="py-10 text-center">
-              <Search size={28} className="mx-auto mb-2 text-gray-200" />
-              <p className="text-sm text-gray-400">Digite para buscar</p>
+            <div className="px-4 py-4 space-y-3">
+              {([
+                { icon: <Users size={13} />,        color: 'bg-amber-100 text-amber-700',   label: 'Acólito',    desc: 'Busque pelo nome',                       ex: 'ex: "João Silva"' },
+                { icon: <Calendar size={13} />,     color: 'bg-blue-100 text-blue-700',     label: 'Celebração', desc: 'Busque pelo período litúrgico ou data',   ex: 'ex: "Tempo Comum", "25/12"' },
+                { icon: <ClipboardList size={13} />,color: 'bg-emerald-100 text-emerald-700',label: 'Escala',    desc: 'Busque pelo período ou data da celebração', ex: 'ex: "Natal", "01/01"' },
+              ]).map(({ icon, color, label, desc, ex }) => (
+                <div key={label} className="flex items-start gap-3 rounded-xl bg-gray-50 px-3 py-2.5">
+                  <span className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md ${color}`}>
+                    {icon}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-gray-700">{label}</p>
+                    <p className="text-xs text-gray-400">{desc} <span className="text-gray-300">·</span> {ex}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
