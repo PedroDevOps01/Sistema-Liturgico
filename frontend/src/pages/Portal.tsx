@@ -1019,7 +1019,7 @@ export default function Portal() {
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { name: 'Advento',      color: 'bg-violet-700',  text: 'text-violet-200',  descricao: 'Roxo' },
-                  { name: 'Natal',        color: 'bg-white-600',    text: 'text-blue-200',    descricao: 'Branco' },
+                  { name: 'Natal',        color: 'bg-gray-50 border border-white/60 shadow-md',  text: 'text-gray-800 font-bold',  descricao: 'Branco' },
                   { name: 'Quaresma',     color: 'bg-purple-800',  text: 'text-purple-200',  descricao: 'Roxo' },
                   { name: 'Tempo Comum',  color: 'bg-emerald-700', text: 'text-emerald-200', descricao: 'Verde' },
                   { name: 'Tempo Pascal', color: 'bg-amber-500',   text: 'text-amber-100',   descricao: 'Branco/Dourado' },
