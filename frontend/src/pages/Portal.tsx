@@ -155,6 +155,15 @@ function PortalCarousel({
     return () => clearInterval(id)
   }, [paused, n])
 
+  useEffect(() => {
+    if (lightbox) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [lightbox])
+
   if (!slide) return null
 
   if (variant === 'principal') {
@@ -238,7 +247,7 @@ function PortalCarousel({
         {lightbox && (
           <div
             className="fixed inset-0 z-[9999] flex items-center justify-center p-6"
-            style={{ background: 'rgba(0,0,0,0.92)' }}
+            style={{ background: '#000' }}
             onClick={() => setLightbox(false)}
           >
             <div className="relative max-w-6xl w-full flex items-center justify-center" onClick={e => e.stopPropagation()}>
@@ -349,7 +358,7 @@ function PortalCarousel({
       {lightbox && (
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center p-6"
-          style={{ background: 'rgba(0,0,0,0.92)' }}
+          style={{ background: '#000' }}
           onClick={() => setLightbox(false)}
         >
           <div className="relative max-w-4xl w-full flex items-center justify-center" onClick={e => e.stopPropagation()}>
@@ -500,7 +509,7 @@ export default function Portal() {
 
         {/* Mobile dropdown */}
         {menuOpen && (
-          <div className="absolute inset-x-0 top-full border-t border-gray-100 bg-white/97 backdrop-blur-md shadow-lg md:hidden">
+          <div className="absolute inset-x-0 top-full border-t border-gray-100 bg-white shadow-xl md:hidden">
             <div className="flex flex-col gap-1 px-4 py-4">
               {[
                 ['#missao', 'Nossa Missão'],
@@ -557,7 +566,10 @@ export default function Portal() {
                   {config.heroTitulo.split('Ministério').length > 1 ? (
                     <>
                       {config.heroTitulo.split('Ministério')[0]}
-                      <span style={{ background: `linear-gradient(135deg, ${tema.from} 0%, ${tema.to} 100%)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', display: 'inline-block' }}>
+                      <span
+                        className="gradient-text-clip"
+                        style={{ '--gt': `linear-gradient(135deg, ${tema.from} 0%, ${tema.to} 100%)` } as React.CSSProperties}
+                      >
                         Ministério
                       </span>
                       {config.heroTitulo.split('Ministério')[1]}
@@ -1007,7 +1019,7 @@ export default function Portal() {
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { name: 'Advento',      color: 'bg-violet-700',  text: 'text-violet-200',  descricao: 'Roxo' },
-                  { name: 'Natal',        color: 'bg-blue-600',    text: 'text-blue-200',    descricao: 'Branco' },
+                  { name: 'Natal',        color: 'bg-white-600',    text: 'text-blue-200',    descricao: 'Branco' },
                   { name: 'Quaresma',     color: 'bg-purple-800',  text: 'text-purple-200',  descricao: 'Roxo' },
                   { name: 'Tempo Comum',  color: 'bg-emerald-700', text: 'text-emerald-200', descricao: 'Verde' },
                   { name: 'Tempo Pascal', color: 'bg-amber-500',   text: 'text-amber-100',   descricao: 'Branco/Dourado' },

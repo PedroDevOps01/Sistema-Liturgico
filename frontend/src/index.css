@@ -64,6 +64,16 @@
   --theme-btn-shadow:     rgba(194, 65, 12, 0.35);
 }
 
+/* ── Gradient text clip (sem flash) ── */
+.gradient-text-clip {
+  background: var(--gt, transparent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: inline-block;
+  contain: paint;
+}
+
 /* ── Sidebar gradient ── */
 .sidebar-gradient {
   background: linear-gradient(160deg, var(--theme-from) 0%, var(--theme-mid) 45%, var(--theme-to) 100%);
