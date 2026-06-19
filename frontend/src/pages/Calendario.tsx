@@ -277,7 +277,8 @@ export default function Calendario() {
       </div>
 
       {/* Calendar Grid */}
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
+        <div className="min-w-[560px]">
         {/* Weekday headers */}
         <div className="grid grid-cols-7 border-b border-gray-100"
              style={{ background: 'linear-gradient(135deg, var(--theme-mid), var(--theme-to))' }}>
@@ -357,6 +358,7 @@ export default function Calendario() {
             })}
           </div>
         )}
+        </div>
       </div>
 
       {/* ── Side Drawer (Portal → renders at document.body, bypasses overflow constraints) ── */}

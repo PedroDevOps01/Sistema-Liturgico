@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ListChecks,
+  Activity,
 } from 'lucide-react'
 import { removeToken, removeUser, getUser } from '../../lib/auth'
 import api from '../../lib/api'
@@ -77,8 +78,10 @@ const modules: Module[] = [
     id: 'relatorios',
     label: 'Relatórios',
     icon: BarChart2,
-    standalone: true,
-    items: [{ label: 'Relatório', icon: BarChart2, to: '/relatorio' }],
+    items: [
+      { label: 'Relatório',  icon: BarChart2, to: '/relatorio'  },
+      { label: 'Analytics',  icon: Activity,  to: '/analytics'  },
+    ],
   },
   {
     id: 'admin',

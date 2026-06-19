@@ -430,8 +430,14 @@ export default function Cerimoniarios() {
         onClose={() => setModalOpen(false)}
         title={editing ? 'Editar Cerimoniário' : 'Novo Cerimoniário'}
         size="lg"
+        footer={<>
+          <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">Cancelar</button>
+          <button type="submit" form="form-cerimoniario" disabled={isSubmitting} className="btn-primary">
+            {isSubmitting ? 'Salvando...' : editing ? 'Atualizar' : 'Criar'}
+          </button>
+        </>}
       >
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <form id="form-cerimoniario" onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div>
             <label className="label">Nome *</label>
             <input {...register('nome')} className="input-field" placeholder="Nome completo" />
@@ -461,7 +467,7 @@ export default function Cerimoniarios() {
           <div>
             <p className="label mb-1">Perfil do Acólito</p>
             <p className="text-xs text-gray-400 mb-2">Classificação definida pela coordenação</p>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-0 bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-0 bg-amber-50 border border-amber-200 rounded-xl p-4">
               <ToggleField
                 label="Experiente"
                 checked={watchedFields.experiente}
@@ -483,7 +489,7 @@ export default function Cerimoniarios() {
 
           <div>
             <p className="label mb-2">Disponibilidade</p>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-0 bg-gray-50 rounded-xl p-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-0 bg-gray-50 rounded-xl p-4">
               <ToggleField
                 label="Domingo Manhã"
                 checked={watchedFields.disponivel_domingo_manha}
@@ -533,14 +539,6 @@ export default function Cerimoniarios() {
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">
-              Cancelar
-            </button>
-            <button type="submit" disabled={isSubmitting} className="btn-primary">
-              {isSubmitting ? 'Salvando...' : editing ? 'Atualizar' : 'Criar'}
-            </button>
-          </div>
         </form>
       </Modal>
 
@@ -550,8 +548,14 @@ export default function Cerimoniarios() {
         onClose={() => setBulkModalOpen(false)}
         title="Adicionar em Massa"
         size="md"
+        footer={<>
+          <button type="button" onClick={() => setBulkModalOpen(false)} className="btn-secondary">Cancelar</button>
+          <button type="submit" form="form-bulk" disabled={bulkForm.formState.isSubmitting} className="btn-primary">
+            {bulkForm.formState.isSubmitting ? 'Salvando...' : 'Salvar Todos'}
+          </button>
+        </>}
       >
-        <form onSubmit={bulkForm.handleSubmit(saveBulk)} className="space-y-4">
+        <form id="form-bulk" onSubmit={bulkForm.handleSubmit(saveBulk)} className="space-y-4">
           <p className="text-gray-500 text-sm">Adicione vários cerimoniários de uma vez.</p>
           <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
             {fields.map((field, index) => (
@@ -581,18 +585,6 @@ export default function Cerimoniarios() {
             <Plus size={16} />
             Adicionar linha
           </button>
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={() => setBulkModalOpen(false)} className="btn-secondary">
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={bulkForm.formState.isSubmitting}
-              className="btn-primary"
-            >
-              {bulkForm.formState.isSubmitting ? 'Salvando...' : 'Salvar Todos'}
-            </button>
-          </div>
         </form>
       </Modal>
 

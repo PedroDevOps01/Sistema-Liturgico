@@ -67,20 +67,21 @@ export default function Login() {
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center sidebar-gradient animate-fade-in">
           <div className="flex flex-col items-center gap-8">
             {/* Logo animada */}
-            <div className="relative">
-              <div className="w-28 h-28 rounded-full overflow-hidden flex items-end justify-center"
+            <div className="relative w-32 h-32 flex items-center justify-center">
+              {/* Anel giratório — preenche o container inteiro, centralizado */}
+              <svg className="absolute inset-0 w-full h-full animate-spin" viewBox="0 0 128 128" fill="none"
+                   style={{ animationDuration: '1.4s' }}>
+                <circle cx="64" cy="64" r="60" stroke="rgba(255,255,255,0.15)" strokeWidth="3" />
+                <path d="M64 4 A60 60 0 0 1 124 64" stroke="white" strokeWidth="3" strokeLinecap="round" />
+              </svg>
+              {/* Imagem circular — centralizada dentro do anel */}
+              <div className="relative z-10 w-28 h-28 rounded-full overflow-hidden flex items-end justify-center"
                    style={{
                      background: 'linear-gradient(160deg, rgb(var(--w-300)) 0%, rgb(var(--w-500)) 45%, rgb(var(--w-700)) 100%)',
                      boxShadow: '0 0 0 4px rgba(255,255,255,0.15), 0 16px 48px rgba(0,0,0,0.4)',
                    }}>
                 <img src={logoGrupo} alt="" className="w-[95%] h-[129%] object-contain object-top" />
               </div>
-              {/* Anel giratório */}
-              <svg className="absolute -inset-2 animate-spin" style={{ animationDuration: '1.4s' }}
-                   width="128" height="128" viewBox="0 0 128 128" fill="none">
-                <circle cx="64" cy="64" r="60" stroke="rgba(255,255,255,0.15)" strokeWidth="3" />
-                <path d="M64 4 A60 60 0 0 1 124 64" stroke="white" strokeWidth="3" strokeLinecap="round" />
-              </svg>
             </div>
 
             {/* Texto */}

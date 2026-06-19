@@ -328,8 +328,13 @@ export default function EscalaView() {
             </div>
           ) : (
             (escala.escala_itens ?? escala.itens ?? []).map((item, index) => {
-              const confirmacao = item.presenca?.status_confirmacao
+              const linkStatus    = item.status_confirmacao            // resposta via link
+              const confirmacao   = item.presenca?.status_confirmacao  // toggle manual
               const statusPresenca = item.presenca?.status
+              // link confirmado OU toggle manual confirmado
+              const isConfirmed = confirmacao === 'confirmado' || linkStatus === 'confirmado'
+              // link recusado OU presença existente sem confirmação manual
+              const isNotConfirmedActive = linkStatus === 'recusado' || (item.presenca != null && confirmacao !== 'confirmado')
               return (
                 <div
                   key={item.id}
@@ -365,22 +370,30 @@ export default function EscalaView() {
                           )}
                           {!item.status_confirmacao && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-500">
-                              ? Pendente
+                              Pendente
                             </span>
                           )}
-                          {item.cerimoniario.numero && (
+                          {/* Botão de envio: oculto se já confirmado, "Reenviar" se recusou */}
+                          {item.cerimoniario.numero && linkStatus !== 'confirmado' && (
                             <button
                               onClick={() => {
                                 const num = item.cerimoniario!.numero!.replace(/\D/g, '')
                                 const full = num.startsWith('55') ? num : `55${num}`
                                 const link = `${window.location.origin}/confirmar/${item.token_confirmacao}`
-                                const msg = `Olá ${item.cerimoniario!.nome}! Você foi escalado(a) para *${item.funcao_label || 'sua função'}*.\n\nConfirme sua presença: ${link}`
+                                const msg = linkStatus === 'recusado'
+                                  ? `Olá ${item.cerimoniario!.nome}! Estamos reenviando o link de confirmação para *${item.funcao_label || 'sua função'}*.\n\nConfirme sua presença: ${link}`
+                                  : `Olá ${item.cerimoniario!.nome}! Você foi escalado(a) para *${item.funcao_label || 'sua função'}*.\n\nConfirme sua presença: ${link}`
                                 window.open(`https://wa.me/${full}?text=${encodeURIComponent(msg)}`, '_blank')
                               }}
-                              className="inline-flex items-center gap-1 rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-green-700 transition-colors"
-                              title="Enviar link de confirmação por WhatsApp"
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white transition-colors ${
+                                linkStatus === 'recusado'
+                                  ? 'bg-amber-500 hover:bg-amber-600'
+                                  : 'bg-green-600 hover:bg-green-700'
+                              }`}
+                              title={linkStatus === 'recusado' ? 'Reenviar link de confirmação' : 'Enviar link de confirmação por WhatsApp'}
                             >
-                              <MessageCircle size={10} /> Confirmar
+                              <MessageCircle size={10} />
+                              {linkStatus === 'recusado' ? 'Reenviar' : 'Confirmar'}
                             </button>
                           )}
                         </>
@@ -410,7 +423,7 @@ export default function EscalaView() {
                           onClick={() => handleSetConfirmado(item)}
                           title="Confirmou presença"
                           className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold border transition-all duration-200 active:scale-95 ${
-                            confirmacao === 'confirmado'
+                            isConfirmed
                               ? 'bg-green-600 text-white border-green-600'
                               : 'border-gray-200 text-gray-400 hover:bg-green-50 hover:text-green-700 hover:border-green-300'
                           }`}
@@ -424,7 +437,7 @@ export default function EscalaView() {
                           onClick={() => handleSetNaoConfirmado(item)}
                           title="Não confirmou presença"
                           className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold border transition-all duration-200 active:scale-95 ${
-                            item.presenca && confirmacao !== 'confirmado'
+                            isNotConfirmedActive
                               ? 'bg-red-500 text-white border-red-500'
                               : 'border-gray-200 text-gray-400 hover:bg-red-50 hover:text-red-600 hover:border-red-300'
                           }`}
@@ -434,8 +447,8 @@ export default function EscalaView() {
                         </button>
                       </div>
 
-                      {/* Passo 2a — confirmou: resultado completo */}
-                      {confirmacao === 'confirmado' && (
+                      {/* Passo 2a — confirmou (link ou manual): resultado completo */}
+                      {isConfirmed && (
                         <div className="flex items-center gap-1">
                           <span className="text-[10px] text-gray-400 mr-1 hidden sm:block">Resultado:</span>
                           {PRESENCA_OPTIONS.map((opt) => (
@@ -456,8 +469,8 @@ export default function EscalaView() {
                         </div>
                       )}
 
-                      {/* Passo 2b — não confirmou: justificou ou foi substituído? */}
-                      {item.presenca && confirmacao !== 'confirmado' && (
+                      {/* Passo 2b — não confirmou (link ou manual): justificou ou foi substituído? */}
+                      {isNotConfirmedActive && (
                         <div className="flex items-center gap-1">
                           <span className="text-[10px] text-gray-400 mr-1 hidden sm:block">Motivo:</span>
                           {PRESENCA_OPTIONS.filter((o) => o.value === 'justificado' || o.value === 'substituido').map((opt) => (

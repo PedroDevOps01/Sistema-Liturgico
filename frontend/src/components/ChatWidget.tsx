@@ -215,7 +215,7 @@ export default function ChatWidget() {
     <>
       {/* Painel */}
       <div
-        className={`fixed bottom-24 right-5 z-50 w-[370px] flex flex-col rounded-2xl overflow-hidden transition-all duration-300 origin-bottom-right ${
+        className={`fixed bottom-24 right-2 sm:right-5 z-50 w-[min(370px,calc(100vw-1rem))] flex flex-col rounded-2xl overflow-hidden transition-all duration-300 origin-bottom-right ${
           open ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-90 pointer-events-none'
         }`}
         style={{ height: '560px', boxShadow: '0 24px 64px rgba(0,0,0,0.22), 0 4px 16px rgba(0,0,0,0.12)' }}

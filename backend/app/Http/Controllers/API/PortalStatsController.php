@@ -44,12 +44,12 @@ class PortalStatsController extends Controller
 
         $presencaMedia = $total > 0 ? (int) round(($serviu / $total) * 100) : 0;
 
-        // Próximas 3 celebrações (apenas data, horário, período e flag de tipo)
+        // Próximas celebrações (3 para o hero, 14 para a agenda pública)
         $proximasCelebracoes = Celebracao::where('ativo', true)
             ->where('data', '>=', $hoje)
             ->orderBy('data')
             ->orderBy('horario')
-            ->take(3)
+            ->take(14)
             ->get(['data', 'horario', 'periodo_liturgico', 'celebracao_noite',
                    'santa_missa', 'celebracao_palavra', 'celebracao_solene',
                    'casamento', 'batismo', 'crisma', 'adoracao_santissimo',
@@ -57,6 +57,7 @@ class PortalStatsController extends Controller
 
         // Monta um rótulo legível para cada celebração
         $proximasCelebracoes = $proximasCelebracoes->map(function ($c) {
+            // (closure usada também para agenda)
             $tipo = 'Santa Missa';
             if ($c->celebracao_palavra)  $tipo = 'Cel. da Palavra';
             elseif ($c->celebracao_solene) $tipo = 'Missa Solene';
@@ -91,7 +92,8 @@ class PortalStatsController extends Controller
             'celebracoes_semana'   => $celebracoesNaSemana,
             'presenca_media'       => $presencaMedia,
             'anos_servico'         => $anosServico,
-            'proximas_celebracoes' => $proximasCelebracoes,
+            'proximas_celebracoes' => $proximasCelebracoes->take(3)->values(),
+            'agenda'               => $proximasCelebracoes->values(),
         ]);
     }
 }

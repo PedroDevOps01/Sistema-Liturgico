@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import ChatWidget from '../ChatWidget'
 import SearchModal from '../SearchModal'
+import RelatorioMensalModal from '../RelatorioMensalModal'
 import { Menu, X, Cross, Search } from 'lucide-react'
 
 const routeLabels: Record<string, string> = {
@@ -19,6 +20,7 @@ const routeLabels: Record<string, string> = {
   '/historico': 'Histórico',
   '/treinamentos': 'Treinamentos',
   '/relatorio': 'Relatório',
+  '/analytics': 'Analytics',
 }
 
 function getCurrentLabel(pathname: string): string {
@@ -124,8 +126,8 @@ export default function Layout() {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full min-w-0">
             <Outlet />
           </div>
         </main>
@@ -133,6 +135,7 @@ export default function Layout() {
 
       <ChatWidget />
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} onCloseMenu={() => setMobileOpen(false)} />
+      <RelatorioMensalModal />
     </div>
   )
 }

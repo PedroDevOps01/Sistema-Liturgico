@@ -280,8 +280,8 @@ function FrequenciaTab({ treinamentos }: { treinamentos: Treinamento[] }) {
   }
 
   return (
-    <div className="card overflow-hidden">
-      <table className="w-full">
+    <div className="card overflow-x-auto">
+      <table className="w-full min-w-[480px]">
         <thead>
           <tr style={{ background: 'linear-gradient(135deg, var(--theme-mid), var(--theme-to))' }} className="text-white">
             <th className="text-left px-5 py-3 font-semibold text-sm">Cerimoniário</th>
@@ -571,9 +571,15 @@ export default function Treinamentos() {
         onClose={() => setModalOpen(false)}
         title={editing ? 'Editar Treinamento' : 'Novo Treinamento'}
         size="2xl"
+        footer={<>
+          <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">Cancelar</button>
+          <button type="button" onClick={handleSave} disabled={saving} className="btn-primary">
+            {saving ? 'Salvando...' : editing ? 'Atualizar' : 'Criar Treinamento'}
+          </button>
+        </>}
       >
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Data *</label>
               <input
@@ -594,7 +600,7 @@ export default function Treinamentos() {
             <input value={form.tema} onChange={(e) => setForm((f) => ({ ...f, tema: e.target.value }))} className="input-field" placeholder="Ex: Procedimentos durante a Missa Solene" />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Local</label>
               <input value={form.local} onChange={(e) => setForm((f) => ({ ...f, local: e.target.value }))} className="input-field" placeholder="Ex: Sacristia" />
@@ -651,12 +657,6 @@ export default function Treinamentos() {
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">Cancelar</button>
-            <button type="button" onClick={handleSave} disabled={saving} className="btn-primary">
-              {saving ? 'Salvando...' : editing ? 'Atualizar' : 'Criar Treinamento'}
-            </button>
-          </div>
         </div>
       </Modal>
 

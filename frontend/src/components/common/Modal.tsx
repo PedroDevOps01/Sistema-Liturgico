@@ -6,10 +6,11 @@ interface ModalProps {
   onClose: () => void
   title: string
   children: ReactNode
+  footer?: ReactNode
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl'
 }
 
-export default function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, children, footer, size = 'md' }: ModalProps) {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden'
@@ -51,7 +52,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
         className={`relative bg-white rounded-2xl shadow-2xl w-full ${sizeClasses[size]} max-h-[95vh] sm:max-h-[90vh] flex flex-col animate-slide-up overflow-hidden`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 flex-shrink-0 sidebar-gradient">
+        <div className="flex items-center justify-between px-4 py-4 sm:px-6 flex-shrink-0 sidebar-gradient">
           <h2 className="text-lg font-bold text-white">{title}</h2>
           <button
             onClick={onClose}
@@ -63,9 +64,16 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5">
+        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
           {children}
         </div>
+
+        {/* Footer — sempre fixo na base, nunca some com scroll */}
+        {footer && (
+          <div className="flex-shrink-0 flex justify-end gap-3 px-4 py-3 sm:px-6 border-t border-gray-100 bg-white">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   )

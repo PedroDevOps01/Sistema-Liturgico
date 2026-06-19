@@ -18,6 +18,8 @@ use App\Http\Controllers\API\PresencaController;
 use App\Http\Controllers\API\UserController;
 use App\Http\Controllers\API\PortalStatsController;
 use App\Http\Controllers\API\PortalImageController;
+use App\Http\Controllers\API\AnalyticsController;
+use App\Http\Controllers\API\RelatorioMensalController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -100,6 +102,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Relatório de presenças
     Route::get('relatorios/presencas', [\App\Http\Controllers\API\RelatorioController::class, 'presencas']);
+
+    // Analytics
+    Route::get('analytics', [AnalyticsController::class, 'index']);
+
+    // Relatório mensal
+    Route::get('relatorio/mensal/status', [RelatorioMensalController::class, 'status']);
+    Route::post('relatorio/mensal/marcar-recebido', [RelatorioMensalController::class, 'marcarRecebido']);
+    Route::get('relatorio/mensal/{year}/{month}', [RelatorioMensalController::class, 'download']);
 
     // Treinamentos
     Route::get('treinamentos/{treinamento}/convite', [\App\Http\Controllers\API\TreinamentoController::class, 'convite']);

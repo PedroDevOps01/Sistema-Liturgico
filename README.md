@@ -82,6 +82,7 @@ bash redeploy.sh                          # no servidor
 
 ### Autenticação
 - Login com **usuário e senha** (sem e-mail)
+- Tela de carregamento pós-login com logo animada e anel giratório alinhado
 - Usuário master criado automaticamente no seed
 - Tokens via Laravel Sanctum (Bearer)
 
@@ -105,6 +106,7 @@ bash redeploy.sh                          # no servidor
 - Detecção automática de celebração noturna (horário ≥ 17h)
 - **Cor litúrgica CNBB** configurável por celebração (Branco, Vermelho, Verde, Roxo, Preto, Rosa, Dourado, Azul)
 - Flags disponíveis: Possui Bispo/Arcebispo · Celebração das 6h · Celebração da Palavra · Celebração Solene · Casamento · Batismo · Crisma · Primeira Eucaristia · Adoração ao Santíssimo · Procissão · Via-Sacra · Exéquias · Vigília Pascal · Paixão do Senhor · Ordenação
+- **Ordenação por data**: próximas celebrações aparecem primeiro; datas passadas ficam no final com badge vermelho "Data passada"
 - Soft delete
 
 ### Escalas
@@ -129,6 +131,7 @@ bash redeploy.sh                          # no servidor
   - 🟠 Laranja — já escalado em outra escala no mesmo dia
 - Alerta de conflito ao selecionar cerimoniário já escalado no mesmo dia
 - Alerta de cerimoniário duplicado na mesma escala
+- **Ordenação por data**: escalas futuras primeiro; datas passadas no final com badge vermelho "Data passada"
 - Soft delete
 
 ### Confirmação de Presença via Link
@@ -183,8 +186,10 @@ bash redeploy.sh                          # no servidor
 - **Carrossel Principal** (galeria do ministério) e **Carrossel de Serviço** (fotos de celebrações):
   - Upload de imagens com compressão automática no cliente (máx 1400px, JPEG 82%)
   - Imagens salvas no servidor em `storage/app/public/portal/`
+  - Proporção padronizada **16:7** (banner panorâmico) em ambos os carrossels
   - Avanço automático a cada 5 segundos, pause ao passar o mouse
-  - Lightbox ao clicar: fundo preto total, scroll bloqueado, navegação por setas
+  - Suporte a **swipe** (arrastar) no mobile para navegar entre slides
+  - Setas sempre visíveis no mobile; aparecem ao hover no desktop
 - **8 temas de cor litúrgica** para o portal:
   - Vinho/Borgonha, Azul Litúrgico, Verde Esperança, Roxo Advento
   - Dourado Pascal, Branco Festivo, Vermelho Pentecostes, Rosa Gaudete
@@ -195,8 +200,15 @@ bash redeploy.sh                          # no servidor
 
 ### Configuração do Portal (`/portal-config`)
 - Edição de todos os textos, cores, redes sociais e carrossels
+- Indicação do **tamanho ideal de imagem** por carrossel (1920 × 840 px — proporção 16:7)
+- Preview das imagens com proporção correta antes de salvar
+- Interface totalmente responsiva para mobile
 - Salvo via `PUT /api/configuracoes` com campo `portal_config` (JSON) no banco
 - localStorage usado como cache para carregamento imediato
+
+### Modais
+- Botões de ação sempre **fixos no rodapé** da modal, independente do scroll do conteúdo
+- Suporte a formulários com `form` attribute para vincular submit ao botão externo ao form
 
 ### Interessados
 - Administradores recebem as inscrições do portal em `/interessados`

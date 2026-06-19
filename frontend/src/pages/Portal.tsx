@@ -7,6 +7,7 @@ import {
   ListChecks,
   Bell,
   ChevronRight,
+  ChevronUp,
   ChevronLeft,
   Star,
   Clock,
@@ -26,8 +27,18 @@ import {
   Images,
   MessageSquare,
   Link2,
+  GraduationCap,
+  MapPin,
+  HelpCircle,
+  ChevronDown,
+  Play,
+  Flag,
+  Trophy,
+  Church,
 } from 'lucide-react'
 import logoGrupo from '../assets/logogrupo.png'
+import imgTarcisio from '../assets/saotarcisio.png'
+import imgDomingos from '../assets/saodomingos.png'
 import { loadPortalConfig, DEFAULT_PORTAL_CONFIG, type PortalConfig, type CarrosselSlide } from './PortalConfig'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -48,6 +59,7 @@ interface PortalStats {
   presenca_media: number
   anos_servico: number
   proximas_celebracoes: ProxCelebracao[]
+  agenda: ProxCelebracao[]
 }
 
 async function fetchPortalStats(): Promise<PortalStats | null> {
@@ -123,6 +135,214 @@ const steps = [
   { num: '04', icon: CheckCircle2,title: 'Acompanhamento',       desc: 'Presenças, treinamentos e histórico são acompanhados em tempo real pelo coordenador.' },
 ]
 
+/* ── Countdown hook ───────────────────────────────────── */
+function useCountdown(targetDate: string) {
+  const [left, setLeft] = useState<{ d: number; h: number; m: number; s: number } | null>(null)
+  useEffect(() => {
+    if (!targetDate) return
+    const update = () => {
+      // Parse como horário LOCAL (evita problema de UTC vs fuso do Brasil)
+      const iso = targetDate.length === 10 ? targetDate + 'T23:59:59' : targetDate
+      const diff = new Date(iso).getTime() - Date.now()
+      if (diff <= 0) { setLeft(null); return }
+      setLeft({
+        d: Math.floor(diff / 86400000),
+        h: Math.floor((diff % 86400000) / 3600000),
+        m: Math.floor((diff % 3600000) / 60000),
+        s: Math.floor((diff % 60000) / 1000),
+      })
+    }
+    update()
+    const id = setInterval(update, 1000)
+    return () => clearInterval(id)
+  }, [targetDate])
+  return left
+}
+
+/* ── Mandamentos da Lei de Deus ───────────────────────── */
+const mandamentos = [
+  { num: '1º', titulo: 'Amar a Deus sobre todas as coisas', desc: 'Amarás o Senhor, teu Deus, com todo o teu coração, com toda a tua alma e com todo o teu entendimento. Nenhuma criatura deve ser colocada acima d\'Ele.' },
+  { num: '2º', titulo: 'Não tomar o nome de Deus em vão', desc: 'O nome de Deus é santo e deve ser pronunciado com respeito. Não se deve blasfemar, jurar em falso nem usar o nome de Deus de forma leviana.' },
+  { num: '3º', titulo: 'Guardar os domingos e festas de guarda', desc: 'O domingo é o dia do Senhor. Devemos participar da Santa Missa, descansar das obras servis e dedicar esse dia à adoração e às obras de misericórdia.' },
+  { num: '4º', titulo: 'Honrar pai e mãe', desc: 'Devemos respeitar, obedecer e cuidar dos nossos pais e superiores. Este mandamento estende-se ao respeito por todas as autoridades legítimas.' },
+  { num: '5º', titulo: 'Não matar', desc: 'A vida humana é sagrada, pois o homem foi criado à imagem e semelhança de Deus. É proibido qualquer ato que atente contra a dignidade da vida.' },
+  { num: '6º', titulo: 'Não pecar contra a castidade', desc: 'Devemos manter pureza de pensamentos, palavras e ações. A castidade é a integração da sexualidade na pessoa segundo sua vocação.' },
+  { num: '7º', titulo: 'Não furtar', desc: 'É proibido tomar o que pertence ao próximo, reter injustamente salário, fazer fraudes ou prejudicar o bem comum. Devemos ser honestos e generosos.' },
+  { num: '8º', titulo: 'Não levantar falso testemunho', desc: 'Devemos sempre falar a verdade. É proibido mentir, caluniar, difamar ou causar dano à honra e à reputação do próximo.' },
+  { num: '9º', titulo: 'Não desejar a mulher do próximo', desc: 'Devemos guardar a pureza do coração e da vontade. O desejo desordenado é contrário ao amor conjugal e à fidelidade.' },
+  { num: '10º', titulo: 'Não cobiçar as coisas alheias', desc: 'Devemos dominar os desejos de riqueza excessiva e o apego aos bens materiais. A cobiça desordenada opõe-se à justiça e à caridade.' },
+]
+
+/* ── Calendário Litúrgico ─────────────────────────── */
+function computeEaster(year: number): Date {
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100
+  const d = Math.floor(b / 4), e = b % 4
+  const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3)
+  const h = (19 * a + b - d - g + 15) % 30
+  const i = Math.floor(c / 4), k = c % 4
+  const l = (32 + 2 * e + 2 * i - h - k) % 7
+  const m = Math.floor((a + 11 * h + 22 * l) / 451)
+  const month = Math.floor((h + l - 7 * m + 114) / 31)
+  const day = ((h + l - 7 * m + 114) % 31) + 1
+  return new Date(year, month - 1, day)
+}
+
+function getLiturgicalSeason(date: Date) {
+  const year = date.getFullYear()
+  const doy = Math.floor((date.getTime() - new Date(year, 0, 0).getTime()) / 86400000)
+  const easter = computeEaster(year)
+  const easterDoy = Math.floor((easter.getTime() - new Date(year, 0, 0).getTime()) / 86400000)
+
+  // Advent: 4th Sunday before Christmas (approx Nov 27 – Dec 24)
+  const christmas = new Date(year, 11, 25)
+  const christmasDow = christmas.getDay()
+  const adventStart = new Date(year, 11, 25 - christmasDow - 21)
+  const adventDoy = Math.floor((adventStart.getTime() - new Date(year, 0, 0).getTime()) / 86400000)
+
+  if (doy >= adventDoy && doy <= 358) return { nome: 'Advento', cor: '#7c3aed', corNome: 'Roxo', emoji: '✦' }
+  if (doy >= 359 || doy <= 12) return { nome: 'Natal', cor: '#f59e0b', corNome: 'Branco/Dourado', emoji: '✦' }
+  if (doy > easterDoy - 46 && doy < easterDoy) return { nome: 'Quaresma', cor: '#6d28d9', corNome: 'Roxo', emoji: '✦' }
+  if (doy >= easterDoy && doy < easterDoy + 49) return { nome: 'Tempo Pascal', cor: '#d97706', corNome: 'Branco/Dourado', emoji: '✦' }
+  if (doy === easterDoy + 49) return { nome: 'Pentecostes', cor: '#dc2626', corNome: 'Vermelho', emoji: '✦' }
+  return { nome: 'Tempo Comum', cor: '#16a34a', corNome: 'Verde', emoji: '✦' }
+}
+
+const glossario = [
+  { termo: 'Âmbão', def: 'Estrado ou púlpito de onde se proclama a Palavra de Deus. É reservado às leituras, ao salmo responsorial, ao Evangelho, à homilia e às preces.' },
+  { termo: 'Credência', def: 'Mesa lateral no presbitério onde são colocados os vasos sagrados, o missal, as âmbulas e outros objetos litúrgicos antes e após a Missa.' },
+  { termo: 'Estola', def: 'Faixa comprida que o sacerdote usa ao redor do pescoço e cruzada sobre o peito. Representa a autoridade sacerdotal e sua cor varia com o tempo litúrgico.' },
+  { termo: 'Turíbulo', def: 'Recipiente metálico suspenso por correntes, usado para queimar incenso durante as celebrações. O acólito que o carrega chama-se turiferário.' },
+  { termo: 'Naveta', def: 'Pequeno recipiente em forma de barco que contém o incenso a ser colocado no turíbulo. Geralmente acompanha o turíbulo.' },
+  { termo: 'Cálice', def: 'Taça sagrada de metal usado para conter o vinho que se torna o Sangue de Cristo na consagração.' },
+  { termo: 'Patena', def: 'Prato sagrado, geralmente de metal dourado, sobre o qual é colocada a hóstia durante a Missa. Pode também ser usada para recolher hóstias.' },
+  { termo: 'Píxide', def: 'Recipiente com tampa, geralmente metálico, usado para guardar ou distribuir hóstias consagradas. É mantido no Tabernáculo.' },
+  { termo: 'Custódia', def: 'Recipiente suntuoso, em forma de sol radiante, usado para expor o Santíssimo Sacramento à adoração dos fiéis.' },
+  { termo: 'Pluvial', def: 'Manto litúrgico sem mangas, preso na frente por um fecho, usado em procissões, bênçãos e outras celebrações não eucarísticas.' },
+  { termo: 'Casula', def: 'Veste exterior que o sacerdote usa sobre a alba e a estola durante a Missa. Sua cor varia conforme o tempo litúrgico.' },
+  { termo: 'Alba', def: 'Veste branca comprida, usada por ministros ordenados e acólitos. Simboliza a pureza batismal e a vida nova em Cristo.' },
+  { termo: 'Presbitério', def: 'Parte elevada da igreja onde se encontra o altar, o âmbão e a sede presidencial. É o espaço reservado ao celebrante e aos ministros.' },
+  { termo: 'Tabernáculo', def: 'Pequeno cofre sagrado, geralmente de metal, onde se guarda o Santíssimo Sacramento. Diante dele se genuflecte.' },
+  { termo: 'Aspersório', def: 'Instrumento usado para borrifar água benta sobre os fiéis ou objetos. Pode ser um raminho de hissopo ou um rolo metálico perfurado.' },
+]
+
+const paramentos = [
+  { nome: 'Alba', desc: 'Veste comprida de linho branco, símbolo da pureza batismal. Usada por sacerdotes, diáconos e acólitos em todas as celebrações.', cor: '#f8fafc', corBorda: '#cbd5e1', corTexto: '#334155', tempos: 'Todos os tempos' },
+  { nome: 'Estola', desc: 'Faixa sagrada que representa o jugo suave de Cristo. O sacerdote a usa cruzada; o diácono, transversal. Cor varia com o tempo litúrgico.', cor: '#f5f3ff', corBorda: '#8b5cf6', corTexto: '#4c1d95', tempos: 'Conforme o tempo' },
+  { nome: 'Casula / Planeta', desc: 'Veste principal do sacerdote na Missa. Cobre a alba e a estola. Sua cor litúrgica é o elemento mais visível do tempo da Igreja.', cor: '#fff7ed', corBorda: '#f97316', corTexto: '#7c2d12', tempos: 'Conforme o tempo' },
+  { nome: 'Dalmática', desc: 'Veste larga com mangas, usada pelo diácono. É mais larga que a casula e representa o serviço ao próximo.', cor: '#eff6ff', corBorda: '#3b82f6', corTexto: '#1e3a8a', tempos: 'Conforme o tempo' },
+  { nome: 'Pluvial / Capa de Asperge', desc: 'Manto sem mangas usado em procissões, bênçãos e horas do ofício. Não é usado durante a Missa propriamente dita.', cor: '#f0fdf4', corBorda: '#22c55e', corTexto: '#14532d', tempos: 'Procissões e bênçãos' },
+  { nome: 'Mitra', desc: 'Chapéu pontudo que o bispo usa em celebrações solenes. Símbolo da autoridade episcopal.', cor: '#fefce8', corBorda: '#eab308', corTexto: '#78350f', tempos: 'Celebrações episcopais' },
+]
+
+const coresLiturgicas: { cor: string; borda?: string; nome: string; uso: string }[] = [
+  { cor: '#ffffff', borda: '#e2e8f0', nome: 'Branco', uso: 'Natal, Páscoa, festas de Maria, Confessores, Doutores' },
+  { cor: '#dc2626', nome: 'Vermelho', uso: 'Pentecostes, Paixão do Senhor, festas de Mártires e Apóstolos' },
+  { cor: '#7c3aed', nome: 'Roxo/Violeta', uso: 'Advento, Quaresma, missas de requiem' },
+  { cor: '#16a34a', nome: 'Verde', uso: 'Tempo Comum — domingos e dias da semana fora de tempos especiais' },
+  { cor: '#ec4899', nome: 'Rosa', uso: 'Domingo Gaudete (3º Advento) e Domingo Laetare (4ª Quaresma)' },
+  { cor: '#d97706', nome: 'Dourado', uso: 'Grandes solenidades, como substituto do branco em celebrações festivas' },
+]
+
+const gestos = [
+  { gesto: 'Genuflexão', quando: 'Ao passar diante do Tabernáculo com o Santíssimo; ao início e fim da Missa no altar', como: 'Dobrar o joelho direito até o chão, mantendo o corpo ereto e a cabeça levemente inclinada. Breve mas reverente.' },
+  { gesto: 'Inclinação Profunda', quando: 'Diante do altar sem Santíssimo exposto; ao pronunciar o nome de Jesus, Maria e do santo do dia na Liturgia das Horas', como: 'Inclinar o corpo a 90° a partir da cintura, olhar para o chão, por cerca de 2 segundos.' },
+  { gesto: 'Inclinação de Cabeça', quando: 'Ao nome da Santíssima Trindade; ao nome de Jesus e Maria no Evangelho; ao nome do Papa e do bispo diocesano', como: 'Baixar apenas a cabeça, sem mover o tronco. Gesto discreto mas deliberado.' },
+  { gesto: 'Postura de Pé', quando: 'Durante o Evangelho, a oração do dia, o Credo e a oração eucarística (exceto joelhos na consagração)', como: 'Pés unidos ou ligeiramente separados, costas eretas, olhar para a frente ou para o celebrante, mãos ao lado do corpo ou juntas.' },
+  { gesto: 'Joelhos', quando: 'Após a consagração do pão e do vinho; durante a adoração eucarística; em momentos de prostração', como: 'Ambos os joelhos no chão, corpo ereto. Não sentar sobre os calcanhares. Manter recolhimento interior.' },
+  { gesto: 'Mãos Juntas (Orans simples)', quando: 'Em procissão, ao carregar objetos litúrgicos sem outra finalidade, durante momentos de oração pessoal', como: 'Palmas unidas diante do peito, dedos apontando para cima e levemente inclinados. Cotovelos próximos ao corpo.' },
+  { gesto: 'Incensação', quando: 'Ao incensar o altar, o Evangeliário, as oferendas, o celebrante, os fiéis', como: 'Segurar o turíbulo com a mão direita (cadeia curta) e esquerda (cadeia longa). Balançar em movimentos duplos (para pessoas) ou triplos (para objetos sagrados).' },
+]
+
+const missaPassos = [
+  {
+    fase: 'Rito de Entrada',
+    numero: '01',
+    cor: '#7c3aed',
+    passos: [
+      { passo: 'Procissão de entrada', desc: 'O acólito abre a procissão carregando a cruz processional (cruciferário) ou as velas. Caminha ereto, passo firme e olhar à frente.' },
+      { passo: 'Veneração ao altar', desc: 'Ao chegar ao presbitério, todos se inclinam profundamente para o altar (ou genuflectem se o Santíssimo estiver exposto). Os ministros ordenados beijam o altar.' },
+      { passo: 'Saudação e ato penitencial', desc: 'O celebrante saúda a assembleia. Segue-se o Ato Penitencial (Confiteor ou outro rito), o Glória (quando previsto) e a oração do dia.' },
+    ]
+  },
+  {
+    fase: 'Liturgia da Palavra',
+    numero: '02',
+    cor: '#2563eb',
+    passos: [
+      { passo: 'Primeira e Segunda Leituras', desc: 'O leitor proclama as leituras do Lecionário do âmbão. O acólito permanece sentado em seu lugar, atento e recolhido.' },
+      { passo: 'Salmo responsorial e Aleluia', desc: 'Cantado ou recitado entre as leituras. Ao Aleluia, a assembleia se levanta. O acólito pode ajudar a preparar o Evangeliário no âmbão.' },
+      { passo: 'Proclamação do Evangelho', desc: 'O diácono ou sacerdote proclama o Evangelho do âmbão. O acólito pode portar as velas ao lado do proclamador durante o Evangelho.' },
+      { passo: 'Homilia e Credo', desc: 'Após a homilia, recita-se o Credo (aos domingos). O acólito acompanha a assembleia em pé, com reverência ao trecho da Encarnação.' },
+    ]
+  },
+  {
+    fase: 'Liturgia Eucarística',
+    numero: '03',
+    cor: '#d97706',
+    passos: [
+      { passo: 'Preparação das oferendas', desc: 'O acólito leva ao celebrante o cálice, a patena com as hóstias e o missal. Também ajuda com a lavagem das mãos (lavabo): apresenta a jarra de água, a bacia e a toalha.' },
+      { passo: 'Incensação (quando prevista)', desc: 'O turiferário apresenta o turíbulo ao celebrante para a incensação das oferendas, do altar e do povo. Após, incensa o celebrante e os ministros.' },
+      { passo: 'Oração eucarística e Consagração', desc: 'A assembleia se ajoelha após a consagração do pão e do vinho. O acólito toca o sino ao elevatório (quando previsto) e permanece em reverência.' },
+      { passo: 'Rito da Comunhão', desc: 'Após o Pai Nosso e o Cordeiro de Deus, o acólito pode ajudar a distribuir a Sagrada Comunhão (se for ministro extraordinário) ou manter a ordem e higiene dos vasos sagrados.' },
+    ]
+  },
+  {
+    fase: 'Rito de Conclusão',
+    numero: '04',
+    cor: '#16a34a',
+    passos: [
+      { passo: 'Avisos e oração pós-comunhão', desc: 'Após um momento de silêncio ou canto de ação de graças, o celebrante faz os avisos e a oração pós-comunhão. O acólito retira os vasos sagrados da credência.' },
+      { passo: 'Bênção e despedida', desc: 'O celebrante abençoa a assembleia e o diácono (ou ele mesmo) diz a fórmula de despedida. A assembleia responde "Demos graças a Deus".' },
+      { passo: 'Procissão de saída', desc: 'O acólito forma a procissão de saída na ordem inversa à da entrada. Ao passar diante do altar, realiza a inclinação profunda ou genuflexão. Sai com reverência e dignidade.' },
+    ]
+  },
+]
+
+const santos = [
+  {
+    nome: 'São Tarcísio',
+    titulo: 'Mártir da Eucaristia · Patrono dos Acólitos',
+    festa: '15 de agosto',
+    cor: '#dc2626',
+    corLight: '#fef2f2',
+    imagem: imgTarcisio,
+    bio: 'Jovem acólito romano do século III, São Tarcísio morreu mártir para proteger a Sagrada Eucaristia que transportava para os cristãos presos. Ao ser cercado por um grupo pagão que queria saber o que carregava, recusou-se a entregar o Corpo de Cristo e foi espancado até a morte.',
+    legado: 'Seu martírio é o símbolo supremo da reverência que todo acólito deve ter à Eucaristia. Nos ensinamos que os objetos e sacramentos sagrados merecem nosso amor até o sacrifício.',
+    citation: '"Prefiro morrer a entregar o Corpo de Cristo aos pagãos."'
+  },
+  {
+    nome: 'São Domingos Sávio',
+    titulo: 'Santo Padroeiro do Ministério · Jovem e Santo',
+    festa: '9 de março',
+    cor: '#1d4ed8',
+    corLight: '#eff6ff',
+    imagem: imgDomingos,
+    bio: 'Nascido em 1842 em Riva di Chieri, Itália, Domingos Sávio foi discípulo de São João Bosco e destacou-se por sua alegria, pureza e amor à Eucaristia desde a Primeira Comunhão. Morreu aos 15 anos, em 1857, após breve doença, deixando um legado de santidade jovem e autêntica.',
+    legado: 'Sua máxima — "Antes morrer do que pecar" — é o lema do nosso ministério. Ele nos mostra que a santidade é possível na juventude, no serviço cotidiano e no amor fiel à Igreja.',
+    citation: '"Antes morrer do que pecar."'
+  },
+]
+
+/* ── Catequese data ───────────────────────────────────── */
+const catequese_etapas = [
+  { num: '01', titulo: 'Pré-Catequese',  idades: '5 – 6 anos',  cor: '#0ea5e9', descricao: 'Primeiro contato com a fé cristã. A criança é apresentada a Deus, à oração, ao sinal da cruz e à vida em família cristã.' },
+  { num: '02', titulo: '1ª Etapa',       idades: '7 – 8 anos',  cor: '#10b981', descricao: 'Aprofundamento na criação, nos mandamentos e na vida de Jesus. Base para o início da vida sacramental.' },
+  { num: '03', titulo: '2ª Etapa',       idades: '8 – 9 anos',  cor: '#8b5cf6', descricao: 'Conhecimento dos sacramentos, da Missa e da confissão. Preparação próxima para a Primeira Comunhão.' },
+  { num: '04', titulo: '1ª Comunhão',    idades: '9 – 10 anos', cor: '#f59e0b', descricao: 'A criança recebe pela primeira vez o Sacramento da Eucaristia. Momento central da vida cristã, celebrado com toda a comunidade.' },
+  { num: '05', titulo: 'Mistagogia',     idades: '10 – 12 anos',cor: '#f97316', descricao: 'Aprofundamento do mistério vivido na Primeira Comunhão. A fé é consolidada e o jovem se insere mais ativamente na vida da Igreja.' },
+  { num: '06', titulo: 'Crisma',         idades: '13 – 17 anos',cor: '#dc2626', descricao: 'Confirmação da fé pelo Sacramento da Confirmação. O jovem renova os compromissos do Batismo e recebe os dons do Espírito Santo.' },
+]
+
+const sacramentos = [
+  { nome: 'Batismo',           descricao: 'Entrada na vida cristã; purificação do pecado original.',       bg: '#eff6ff', cor: '#1d4ed8' },
+  { nome: 'Crisma',            descricao: 'Confirmação da fé; recepção dos dons do Espírito Santo.',       bg: '#fef2f2', cor: '#b91c1c' },
+  { nome: 'Eucaristia',        descricao: 'Corpo e Sangue de Cristo; fonte e cume da vida cristã.',        bg: '#fffbeb', cor: '#92400e' },
+  { nome: 'Penitência',        descricao: 'Reconciliação com Deus pelo perdão dos pecados confessados.',   bg: '#f5f3ff', cor: '#6d28d9' },
+  { nome: 'Unção dos Enfermos',descricao: 'Conforto espiritual e físico em momento de doença grave.',      bg: '#f0fdf4', cor: '#15803d' },
+  { nome: 'Ordem',             descricao: 'Consagração de diáconos, presbíteros e bispos ao serviço.',     bg: '#fdf4ff', cor: '#7e22ce' },
+  { nome: 'Matrimônio',        descricao: 'União sagrada entre homem e mulher, reflexo do amor de Cristo.',bg: '#fff1f2', cor: '#be123c' },
+]
+
 /* ── Carousel ─────────────────────────────────────────── */
 type TemaColors = { from: string; to: string; mid: string; text: string; light: string; accent: string }
 
@@ -138,16 +358,13 @@ function PortalCarousel({
   const validSlides = slides.filter(s => s.imageUrl)
   const [idx, setIdx] = useState(0)
   const [paused, setPaused] = useState(false)
-
-  const [lightbox, setLightbox] = useState(false)
+  const touchStartX = useRef<number | null>(null)
   const n = validSlides.length
   const prev = () => setIdx(i => (i - 1 + n) % n)
   const next = () => setIdx(i => (i + 1) % n)
   const slide = validSlides[idx]
 
-  useEffect(() => {
-    setIdx(0)
-  }, [n])
+  useEffect(() => { setIdx(0) }, [n])
 
   useEffect(() => {
     if (paused || n <= 1) return
@@ -155,187 +372,82 @@ function PortalCarousel({
     return () => clearInterval(id)
   }, [paused, n])
 
-  useEffect(() => {
-    if (lightbox) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
-    return () => { document.body.style.overflow = '' }
-  }, [lightbox])
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return
+    const delta = touchStartX.current - e.changedTouches[0].clientX
+    if (Math.abs(delta) > 40) delta > 0 ? next() : prev()
+    touchStartX.current = null
+  }
 
   if (!slide) return null
 
-  if (variant === 'principal') {
-    return (
-      <>
-        <div
-          className="relative group rounded-3xl overflow-hidden shadow-2xl select-none cursor-zoom-in"
-          style={{ aspectRatio: '16/7' }}
-          onMouseEnter={() => setPaused(true)}
-          onMouseLeave={() => setPaused(false)}
-          onClick={() => setLightbox(true)}
-        >
-          {/* Slides stack */}
-          {validSlides.map((s, i) => (
-            <div
-              key={i}
-              className="absolute inset-0 transition-opacity duration-700"
-              style={{ opacity: i === idx ? 1 : 0, zIndex: i === idx ? 10 : 0 }}
-            >
-              <img src={s.imageUrl} alt={s.titulo} className="w-full h-full object-cover" />
-            </div>
-          ))}
+  const aspectRatio = '16/7'
 
-          {/* Gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent z-20" />
-
-          {/* Text overlay */}
-          <div className="absolute bottom-0 inset-x-0 p-8 z-30">
-            {slide.titulo && (
-              <h3 className="text-2xl font-bold text-white drop-shadow-sm mb-1">{slide.titulo}</h3>
-            )}
-            {slide.descricao && (
-              <p className="text-white/75 text-sm max-w-2xl">{slide.descricao}</p>
-            )}
-          </div>
-
-          {/* Arrows */}
-          {n > 1 && (
-            <>
-              <button
-                onClick={prev}
-                className="absolute left-4 top-1/2 -translate-y-1/2 z-30 w-11 h-11 flex items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60 transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm"
-              >
-                <ChevronLeft size={22} />
-              </button>
-              <button
-                onClick={next}
-                className="absolute right-4 top-1/2 -translate-y-1/2 z-30 w-11 h-11 flex items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60 transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm"
-              >
-                <ChevronRight size={22} />
-              </button>
-            </>
-          )}
-
-          {/* Slide counter */}
-          {n > 1 && (
-            <div className="absolute top-5 left-5 z-30 bg-black/40 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm font-semibold">
-              {idx + 1} / {n}
-            </div>
-          )}
-        </div>
-
-        {/* Dots */}
-        {n > 1 && (
-          <div className="flex justify-center gap-2 mt-4">
-            {validSlides.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setIdx(i)}
-                className="h-1.5 rounded-full transition-all duration-300"
-                style={{
-                  width: i === idx ? 28 : 8,
-                  background: i === idx ? tema.mid : '#d1d5db',
-                }}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Lightbox */}
-        {lightbox && (
-          <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center p-6"
-            style={{ background: '#000' }}
-            onClick={() => setLightbox(false)}
-          >
-            <div className="relative max-w-6xl w-full flex items-center justify-center" onClick={e => e.stopPropagation()}>
-              <img
-                src={slide.imageUrl}
-                alt={slide.titulo}
-                className="max-w-full max-h-[90vh] rounded-2xl shadow-2xl object-contain"
-              />
-              {(slide.titulo || slide.descricao) && (
-                <div className="absolute inset-x-0 bottom-0 p-5 bg-gradient-to-t from-black/70 to-transparent rounded-b-2xl">
-                  {slide.titulo && <p className="text-white font-bold text-lg">{slide.titulo}</p>}
-                  {slide.descricao && <p className="text-white/70 text-sm mt-0.5">{slide.descricao}</p>}
-                </div>
-              )}
-              <button
-                onClick={() => setLightbox(false)}
-                className="absolute top-3 right-3 w-9 h-9 flex items-center justify-center bg-black/60 text-white rounded-full hover:bg-black/80 transition-colors"
-              >
-                <X size={18} />
-              </button>
-              {n > 1 && (
-                <>
-                  <button onClick={e => { e.stopPropagation(); prev() }} className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors">
-                    <ChevronLeft size={22} />
-                  </button>
-                  <button onClick={e => { e.stopPropagation(); next() }} className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors">
-                    <ChevronRight size={22} />
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-      </>
-    )
-  }
-
-  /* variant === 'servico' ───────────────────────────────── */
   return (
-    <div
-      className="relative group select-none"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-    >
-      <div className="overflow-hidden rounded-3xl shadow-xl border border-gray-100 bg-white">
-        {/* Image stack */}
-        <div className="relative overflow-hidden cursor-zoom-in" style={{ aspectRatio: '4/3' }} onClick={() => setLightbox(true)}>
-          {validSlides.map((s, i) => (
-            <div
-              key={i}
-              className="absolute inset-0 transition-opacity duration-700"
-              style={{ opacity: i === idx ? 1 : 0, zIndex: i === idx ? 10 : 0 }}
-            >
-              <img src={s.imageUrl} alt={s.titulo} className="w-full h-full object-cover" />
+    <>
+      <div className="max-w-6xl mx-auto">
+      <div
+        className="relative group select-none overflow-hidden rounded-3xl shadow-2xl"
+        style={{ aspectRatio }}
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Slides */}
+        {validSlides.map((s, i) => (
+          <img
+            key={i}
+            src={s.imageUrl}
+            alt={s.titulo}
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
+            style={{ opacity: i === idx ? 1 : 0, zIndex: i === idx ? 10 : 0 }}
+          />
+        ))}
+
+        {/* Gradient + texto overlay */}
+        {(slide.titulo || slide.descricao) && (
+          <>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent z-20 pointer-events-none" />
+            <div className="absolute bottom-0 inset-x-0 p-5 sm:p-8 z-30 pointer-events-none">
+              {slide.titulo && (
+                <h3 className="text-lg sm:text-2xl font-bold text-white drop-shadow-sm mb-1">{slide.titulo}</h3>
+              )}
+              {slide.descricao && (
+                <p className="text-white/75 text-xs sm:text-sm max-w-2xl">{slide.descricao}</p>
+              )}
             </div>
-          ))}
-          {/* Subtle tint overlay */}
-          <div className="absolute inset-0 z-20 pointer-events-none"
-            style={{ background: `linear-gradient(135deg, ${tema.from}18, transparent 60%)` }} />
+          </>
+        )}
 
-          {/* Arrows */}
-          {n > 1 && (
-            <>
-              <button
-                onClick={prev}
-                className="absolute left-3 top-1/2 -translate-y-1/2 z-30 w-10 h-10 flex items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-lg hover:shadow-xl transition-all opacity-0 group-hover:opacity-100"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <button
-                onClick={next}
-                className="absolute right-3 top-1/2 -translate-y-1/2 z-30 w-10 h-10 flex items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-lg hover:shadow-xl transition-all opacity-0 group-hover:opacity-100"
-              >
-                <ChevronRight size={18} />
-              </button>
-            </>
-          )}
-        </div>
+        {/* Contador */}
+        {n > 1 && (
+          <div className="absolute top-4 left-4 z-30 bg-black/40 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm font-semibold">
+            {idx + 1} / {n}
+          </div>
+        )}
 
-        {/* Text card */}
-        <div className="p-8">
-          {slide.titulo && (
-            <h3 className="text-xl font-bold text-gray-900 mb-2">{slide.titulo}</h3>
-          )}
-          {slide.descricao && (
-            <p className="text-gray-500 text-sm leading-relaxed">{slide.descricao}</p>
-          )}
-        </div>
+        {/* Setas — sempre visíveis no mobile, aparecem no hover no desktop */}
+        {n > 1 && (
+          <>
+            <button
+              onClick={prev}
+              className="absolute left-3 top-1/2 -translate-y-1/2 z-30 w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60 transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 backdrop-blur-sm"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <button
+              onClick={next}
+              className="absolute right-3 top-1/2 -translate-y-1/2 z-30 w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60 transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 backdrop-blur-sm"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </>
+        )}
       </div>
 
       {/* Dots */}
@@ -354,34 +466,8 @@ function PortalCarousel({
           ))}
         </div>
       )}
-
-      {lightbox && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-6"
-          style={{ background: '#000' }}
-          onClick={() => setLightbox(false)}
-        >
-          <div className="relative max-w-4xl w-full flex items-center justify-center" onClick={e => e.stopPropagation()}>
-            <img src={slide.imageUrl} alt={slide.titulo} className="max-w-full max-h-[90vh] rounded-2xl shadow-2xl object-contain" />
-            {(slide.titulo || slide.descricao) && (
-              <div className="absolute inset-x-0 bottom-0 p-5 bg-gradient-to-t from-black/70 to-transparent rounded-b-2xl">
-                {slide.titulo && <p className="text-white font-bold text-lg">{slide.titulo}</p>}
-                {slide.descricao && <p className="text-white/70 text-sm mt-0.5">{slide.descricao}</p>}
-              </div>
-            )}
-            <button onClick={() => setLightbox(false)} className="absolute top-3 right-3 w-9 h-9 flex items-center justify-center bg-black/60 text-white rounded-full hover:bg-black/80 transition-colors">
-              <X size={18} />
-            </button>
-            {n > 1 && (
-              <>
-                <button onClick={e => { e.stopPropagation(); prev() }} className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"><ChevronLeft size={22} /></button>
-                <button onClick={e => { e.stopPropagation(); next() }} className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"><ChevronRight size={22} /></button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+      </div>
+    </>
   )
 }
 
@@ -397,16 +483,44 @@ export default function Portal() {
   const [config, setConfig]       = useState<PortalConfig>(loadPortalConfig)
   const tema = TEMA_COLORS[config.tema ?? 'wine'] ?? TEMA_COLORS.wine
 
-  const heroSection          = useVisible(0.05)
-  const statsSection         = useVisible(0.2)
+  const heroSection           = useVisible(0.05)
+  const statsSection          = useVisible(0.2)
   const carrosselPrincipalSec = useVisible(0.1)
-  const featuresSection      = useVisible(0.1)
-  const missionSection       = useVisible(0.1)
-  const carrosselServicoSec  = useVisible(0.1)
-  const stepsSection         = useVisible(0.1)
-  const liturgicalSection    = useVisible(0.1)
-  const testimonialsSection  = useVisible(0.1)
-  const ctaSection           = useVisible(0.1)
+  const featuresSection       = useVisible(0.1)
+  const missionSection        = useVisible(0.1)
+  const carrosselServicoSec   = useVisible(0.1)
+  const stepsSection          = useVisible(0.1)
+  const liturgicalSection     = useVisible(0.1)
+  const testimonialsSection   = useVisible(0.1)
+  const ctaSection            = useVisible(0.1)
+  const countdownSection      = useVisible(0.1)
+  const acolitoMesSection     = useVisible(0.1)
+  const formacaoSection       = useVisible(0.1)
+  const agendaSection         = useVisible(0.1)
+  const faqSection            = useVisible(0.1)
+  const catequesesSection     = useVisible(0.1)
+  const oracoesSection        = useVisible(0.1)
+  const timelineSection       = useVisible(0.1)
+  const mapaSection           = useVisible(0.1)
+  const youtubeSection        = useVisible(0.1)
+
+  const mandamentosSection    = useVisible(0.1)
+
+  const calendLiturgSection  = useVisible(0.1)
+  const glossarioSection     = useVisible(0.1)
+  const paramentosSection    = useVisible(0.1)
+  const gestosSection        = useVisible(0.1)
+  const missaPassosSection   = useVisible(0.1)
+  const santosSection        = useVisible(0.1)
+  const intencaoMesSection   = useVisible(0.1)
+  const meditacaoSection     = useVisible(0.1)
+  const atoConsSection       = useVisible(0.1)
+
+  const [faqOpen, setFaqOpen]       = useState<number | null>(null)
+  const [oracaoOpen, setOracaoOpen] = useState<number | null>(null)
+  const [celebracoesExpandidas, setCelebracoesExpandidas] = useState(false)
+
+  const countdown = useCountdown(config.proximaFesta_data ?? '')
 
   const hasCarrosselPrincipal = (config.carrosselPrincipal ?? []).some(s => s.imageUrl)
   const hasCarrosselServico   = (config.carrosselServico ?? []).some(s => s.imageUrl)
@@ -486,8 +600,11 @@ export default function Portal() {
             {[
               ['#missao', 'Nossa Missão'],
               ['#funcionalidades', 'O Sistema'],
-              ['#como-funciona', 'Como Funciona'],
-              ['#depoimentos', 'Depoimentos'],
+              ['#catequese', 'Catequese'],
+              ['#mandamentos', 'Mandamentos'],
+              ['#santos', 'Santos'],
+              ['#glossario', 'Glossário'],
+              ['#oracoes', 'Orações'],
               ['#contato', 'Contato'],
             ].map(([href, label]) => (
               <a key={href} href={href}
@@ -515,8 +632,18 @@ export default function Portal() {
                 ['#missao', 'Nossa Missão'],
                 ['#funcionalidades', 'O Sistema'],
                 ['#como-funciona', 'Como Funciona'],
-                ['#depoimentos', 'Depoimentos'],
+                ['#catequese', 'Catequese'],
+                ['#mandamentos', 'Mandamentos'],
+                ['#santos', 'Santos Padroeiros'],
+                ['#gestos', 'Gestos na Missa'],
+                ['#missa-passos', 'A Missa'],
+                ['#glossario', 'Glossário'],
+                ['#ato-consagracao', 'Consagração'],
+                ['#oracoes', 'Orações'],
+                ['#agenda', 'Agenda'],
+                ['#faq', 'Dúvidas'],
                 ['#contato', 'Contato'],
+                ['#servir', 'Quero Servir'],
               ].map(([href, label]) => (
                 <a key={href} href={href} onClick={() => setMenuOpen(false)}
                   className="rounded-xl px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
@@ -561,7 +688,7 @@ export default function Portal() {
               </div>
 
               <div className="space-y-5">
-                <h1 className="text-[2.8rem] font-extrabold leading-[1.08] tracking-tight sm:text-6xl"
+                <h1 className="text-3xl font-extrabold leading-[1.08] tracking-tight sm:text-[2.8rem] lg:text-6xl"
                   style={{ color: tema.text }}>
                   {config.heroTitulo.split('Ministério').length > 1 ? (
                     <>
@@ -671,29 +798,43 @@ export default function Portal() {
                           </div>
                         ))
                       ) : stats && stats.proximas_celebracoes.length > 0 ? (
-                        stats.proximas_celebracoes.map((cel, i) => {
-                          const dt = parseISO(cel.data)
-                          const dayName = format(dt, 'EEE', { locale: ptBR })
-                          const dayNum = format(dt, 'dd')
-                          return (
-                            <div key={i} className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3 border border-white/10">
-                              <div className="flex h-10 w-10 flex-shrink-0 flex-col items-center justify-center rounded-xl bg-white/10 text-center">
-                                <span className="text-[9px] font-semibold uppercase text-white/50">{dayName}</span>
-                                <span className="text-sm font-bold text-white">{dayNum}</span>
+                        <>
+                          {(celebracoesExpandidas ? stats.proximas_celebracoes : stats.proximas_celebracoes.slice(0, 5)).map((cel, i) => {
+                            const dt = parseISO(cel.data)
+                            const dayName = format(dt, 'EEE', { locale: ptBR })
+                            const dayNum = format(dt, 'dd')
+                            return (
+                              <div key={i} className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3 border border-white/10">
+                                <div className="flex h-10 w-10 flex-shrink-0 flex-col items-center justify-center rounded-xl bg-white/10 text-center">
+                                  <span className="text-[9px] font-semibold uppercase text-white/50">{dayName}</span>
+                                  <span className="text-sm font-bold text-white">{dayNum}</span>
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-medium text-white/90">
+                                    {cel.tipo} — {cel.horario.substring(0, 5)}
+                                  </p>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white/15 text-white/60 font-medium">
+                                    {cel.periodo_liturgico}
+                                    {cel.celebracao_noite ? ' · Noturna' : ''}
+                                  </span>
+                                </div>
+                                <ChevronRight size={14} className="flex-shrink-0 text-white/30" />
                               </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-medium text-white/90">
-                                  {cel.tipo} — {cel.horario.substring(0, 5)}
-                                </p>
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white/15 text-white/60 font-medium">
-                                  {cel.periodo_liturgico}
-                                  {cel.celebracao_noite ? ' · Noturna' : ''}
-                                </span>
-                              </div>
-                              <ChevronRight size={14} className="flex-shrink-0 text-white/30" />
-                            </div>
-                          )
-                        })
+                            )
+                          })}
+                          {stats.proximas_celebracoes.length > 5 && (
+                            <button
+                              onClick={() => setCelebracoesExpandidas(v => !v)}
+                              className="w-full mt-1 py-2 text-xs font-semibold text-white/50 hover:text-white/80 transition-colors flex items-center justify-center gap-1.5"
+                            >
+                              {celebracoesExpandidas ? (
+                                <><ChevronUp size={13} /> Ver menos</>
+                              ) : (
+                                <><ChevronDown size={13} /> Ver mais ({stats.proximas_celebracoes.length - 5} celebrações)</>
+                              )}
+                            </button>
+                          )}
+                        </>
                       ) : (
                         <div className="flex items-center justify-center gap-2 py-4 text-white/40 text-sm">
                           {statsLoading ? <Loader2 size={16} className="animate-spin" /> : null}
@@ -711,10 +852,12 @@ export default function Portal() {
                 </div>
 
                 {/* Floating badge — activity */}
-                <div className="absolute -bottom-4 -left-4 flex items-center gap-2 rounded-2xl border border-gray-100 bg-white px-3 py-2 shadow-lg">
-                  <Star size={13} fill="currentColor" style={{ color: tema.accent }} />
-                  <span className="text-xs font-semibold text-gray-800">12 acólitos confirmados</span>
-                </div>
+                {stats && stats.total_acolitos > 0 && (
+                  <div className="absolute -bottom-4 -left-4 flex items-center gap-2 rounded-2xl border border-gray-100 bg-white px-3 py-2 shadow-lg">
+                    <Star size={13} fill="currentColor" style={{ color: tema.accent }} />
+                    <span className="text-xs font-semibold text-gray-800">{stats.total_acolitos} acólitos ativos</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -729,10 +872,39 @@ export default function Portal() {
         </div>
       </section>
 
+      {/* ── Countdown ──────────────────────────────────── */}
+      {(config.mostrarCountdown ?? true) && countdown && config.proximaFesta_nome && (
+        <section ref={countdownSection.ref} className="relative overflow-hidden py-10" style={{ background: `linear-gradient(135deg, ${tema.from} 0%, ${tema.mid} 100%)` }}>
+          <div className="pointer-events-none absolute inset-0 opacity-10"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Crect x='27' y='10' width='6' height='40'/%3E%3Crect x='10' y='27' width='40' height='6'/%3E%3C/g%3E%3C/svg%3E")` }} />
+          <div className="relative mx-auto max-w-4xl px-4 text-center">
+            <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-white/60">Contagem regressiva</p>
+            <h2 className="mb-6 text-2xl font-extrabold text-white">{config.proximaFesta_nome}</h2>
+            <div className="flex items-center justify-center gap-3 sm:gap-6">
+              {[
+                { v: countdown.d, label: 'dias' },
+                { v: countdown.h, label: 'horas' },
+                { v: countdown.m, label: 'min' },
+                { v: countdown.s, label: 'seg' },
+              ].map(({ v, label }) => (
+                <div key={label} className="flex flex-col items-center">
+                  <div className="flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm shadow-inner">
+                    <span className="text-2xl sm:text-3xl font-extrabold text-white tabular-nums">
+                      {String(v).padStart(2, '0')}
+                    </span>
+                  </div>
+                  <span className="mt-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/50">{label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── Stats ──────────────────────────────────────── */}
       {(config.mostrarStats ?? true) && <section
         ref={statsSection.ref}
-        className="relative overflow-hidden py-16"
+        className="relative overflow-hidden py-10"
         style={{ background: themeGradient }}
       >
         <div className="pointer-events-none absolute inset-0 opacity-10"
@@ -765,19 +937,16 @@ export default function Portal() {
       {/* ── Carrossel Principal ─────────────────────────── */}
       {(config.mostrarCarrosselPrincipal ?? true) && hasCarrosselPrincipal && (
         <section ref={carrosselPrincipalSec.ref} className="py-20 bg-white">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto px-4 sm:px-6 lg:px-8">
             <div className={`mb-10 text-center transition-all duration-700 ${carrosselPrincipalSec.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
               <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
                 style={{ background: tema.light, color: tema.text, outline: `1px solid ${tema.from}25` }}>
                 <Images size={14} />
                 Galeria do Ministério
               </div>
-              <h2 className="text-4xl font-extrabold tracking-tight sm:text-5xl" style={{ color: tema.text }}>
+              <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl" style={{ color: tema.text }}>
                 Nossas Artes
               </h2>
-              <p className="mx-auto mt-3 max-w-xl text-base text-gray-500">
-                Clique em qualquer imagem para ampliar e navegar pela galeria.
-              </p>
             </div>
             <div className={`transition-all duration-700 delay-100 ${carrosselPrincipalSec.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
               <PortalCarousel
@@ -785,6 +954,45 @@ export default function Portal() {
                 variant="principal"
                 tema={tema}
               />
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Acólito em Destaque ────────────────────────── */}
+      {(config.mostrarAcolitoMes ?? true) && config.acolitoMes_nome && (
+        <section ref={acolitoMesSection.ref} className="py-16 border-t border-gray-100" style={{ background: `linear-gradient(180deg, ${tema.light}80, #fff)` }}>
+          <div className="mx-auto max-w-2xl px-4 text-center sm:px-6">
+            <div className={`transition-all duration-700 ${acolitoMesSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ background: tema.light, color: tema.text }}>
+                <Trophy size={14} /> Acólito em Destaque
+              </div>
+              <div className="relative overflow-hidden rounded-3xl bg-white p-8 shadow-xl border" style={{ borderColor: `${tema.from}20` }}>
+                <div className="pointer-events-none absolute inset-0 opacity-5 rounded-3xl"
+                  style={{ background: `linear-gradient(135deg, ${tema.from}, ${tema.to})` }} />
+                <div className="relative flex flex-col items-center gap-4">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-extrabold text-white shadow-lg"
+                    style={{ background: `linear-gradient(135deg, ${tema.from}, ${tema.to})` }}>
+                    {config.acolitoMes_nome.slice(0, 2).toUpperCase()}
+                  </div>
+                  {config.acolitoMes_mensagem && (
+                    <div className="relative max-w-lg">
+                      <div className="text-5xl font-serif leading-none opacity-15 absolute -top-3 -left-2" style={{ color: tema.from }}>"</div>
+                      <p className="text-base italic text-gray-700 leading-relaxed px-4">{config.acolitoMes_mensagem}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="font-bold text-gray-900 text-lg">{config.acolitoMes_nome}</p>
+                    {config.acolitoMes_cargo && <p className="text-sm text-gray-500 mt-0.5">{config.acolitoMes_cargo}</p>}
+                  </div>
+                  <div className="flex gap-1">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} size={14} fill="currentColor" style={{ color: tema.accent }} />
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -805,7 +1013,7 @@ export default function Portal() {
                 <Heart size={14} />
                 Nossa Missão
               </div>
-              <h2 className="text-4xl font-extrabold tracking-tight sm:text-5xl" style={{ color: tema.text }}>
+              <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl" style={{ color: tema.text }}>
                 Servir com excelência<br />
                 <span className="text-gray-500 font-light">na liturgia da Igreja</span>
               </h2>
@@ -873,22 +1081,19 @@ export default function Portal() {
       {(config.mostrarCarrosselServico ?? true) && hasCarrosselServico && (
         <section
           ref={carrosselServicoSec.ref}
-          className="py-20 border-t border-gray-100"
+          className="py-20 border-t border-gray-100 overflow-hidden"
           style={{ background: `linear-gradient(180deg, ${tema.light}60 0%, #fff 100%)` }}
         >
-          <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto px-4 sm:px-6 lg:px-8">
             <div className={`mb-10 text-center transition-all duration-700 ${carrosselServicoSec.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
               <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
                 style={{ background: tema.light, color: tema.text, outline: `1px solid ${tema.from}25` }}>
                 <Users size={14} />
                 Acólitos em Serviço
               </div>
-              <h2 className="text-4xl font-extrabold tracking-tight sm:text-5xl" style={{ color: tema.text }}>
+              <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl" style={{ color: tema.text }}>
                 Nossa Equipe Atuando
               </h2>
-              <p className="mx-auto mt-3 max-w-xl text-base text-gray-500">
-                Momentos de serviço, fé e dedicação dos nossos acólitos nas celebrações.
-              </p>
             </div>
             <div className={`transition-all duration-700 delay-100 ${carrosselServicoSec.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
               <PortalCarousel
@@ -910,7 +1115,7 @@ export default function Portal() {
               <Layers size={14} />
               O Sistema de Gestão
             </div>
-            <h2 className="text-4xl font-extrabold tracking-tight sm:text-5xl" style={{ color: tema.text }}>
+            <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl" style={{ color: tema.text }}>
               Tudo que o ministério precisa
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600">
@@ -958,7 +1163,7 @@ export default function Portal() {
               <Clock size={14} />
               Como Funciona
             </div>
-            <h2 className="text-4xl font-extrabold tracking-tight sm:text-5xl" style={{ color: tema.text }}>
+            <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl" style={{ color: tema.text }}>
               Organização simples e eficiente
             </h2>
             <p className="mt-4 text-lg text-gray-600">
@@ -992,10 +1197,218 @@ export default function Portal() {
         </div>
       </section>}
 
+      {/* ── Como Entrar / Formação ─────────────────────── */}
+      {(config.mostrarFormacao ?? true) && (
+        <section id="formacao" ref={formacaoSection.ref} className="py-24 border-t border-gray-100" style={{ background: `linear-gradient(180deg, #fff, ${tema.light}60, #fff)` }}>
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className={`mb-14 text-center transition-all duration-700 ${formacaoSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ background: tema.light, color: tema.text, outline: `1px solid ${tema.from}25` }}>
+                <GraduationCap size={14} /> Como Entrar no Ministério
+              </div>
+              <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl" style={{ color: tema.text }}>
+                Sinta o chamado. Dê o passo.
+              </h2>
+              <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600">
+                Tornando-se acólito você passa por um processo de formação que prepara para servir com excelência e fé na liturgia da Igreja.
+              </p>
+            </div>
+
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                { num: '01', icon: Heart,          titulo: 'Interesse e Inscrição',    desc: 'Demonstre interesse à coordenação do ministério ou preencha o formulário de contato neste portal. Uma conversa inicial será agendada.' },
+                { num: '02', icon: Users,          titulo: 'Apresentação ao Grupo',    desc: 'Você é apresentado ao ministério, conhece os demais acólitos, as funções e a dinâmica das celebrações.' },
+                { num: '03', icon: BookOpen,       titulo: 'Formação Litúrgica',       desc: 'Aulas sobre as partes da Missa, objetos litúrgicos, postura no altar, hierarquia e reverências durante as celebrações.' },
+                { num: '04', icon: Award,          titulo: 'Acompanhamento Prático',   desc: 'O novo acólito serve ao lado de um experiente, aprendendo na prática antes de assumir uma função com autonomia.' },
+                { num: '05', icon: CheckCircle2,   titulo: 'Primeiro Serviço Oficial', desc: 'Com o aval do coordenador, o acólito entra na escala e começa a servir oficialmente nas celebrações da paróquia.' },
+                { num: '06', icon: Star,           titulo: 'Acólito Experiente',            desc: 'Após meses de serviço e formação contínua, o acólito é reconhecido como membro experiente do ministério.' },
+              ].map((s, i) => {
+                const Icon = s.icon
+                return (
+                  <div key={s.num}
+                    className={`relative overflow-hidden rounded-3xl border border-gray-100 bg-white p-7 shadow-sm transition-all duration-700 hover:-translate-y-1 hover:shadow-lg ${formacaoSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+                    style={{ transitionDelay: `${i * 60}ms` }}>
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl text-white shadow-sm" style={{ background: `linear-gradient(135deg, ${tema.from}, ${tema.to})` }}>
+                        <Icon size={18} />
+                      </div>
+                      <span className="text-xs font-bold uppercase tracking-widest" style={{ color: tema.accent }}>Passo {s.num}</span>
+                    </div>
+                    <h3 className="mb-2 text-base font-bold text-gray-900">{s.titulo}</h3>
+                    <p className="text-sm leading-relaxed text-gray-500">{s.desc}</p>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="mt-12 text-center">
+              <a href="#servir"
+                className="inline-flex items-center gap-2 px-8 py-3.5 rounded-2xl text-base font-semibold text-white shadow-lg transition-all hover:-translate-y-0.5"
+                style={{ background: `linear-gradient(135deg, ${tema.from}, ${tema.to})`, boxShadow: `0 8px 24px ${tema.from}35` }}>
+                <Heart size={16} /> Quero fazer parte
+              </a>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Santos Padroeiros ──────────────────────────── */}
+      {(config.mostrarSantos ?? true) && (
+        <section id="santos" ref={santosSection.ref} className="py-14 sm:py-24 border-t border-gray-100" style={{ background: `linear-gradient(180deg, ${tema.light}50, #fff)` }}>
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className={`mb-10 sm:mb-14 text-center transition-all duration-700 ${santosSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ background: tema.light, color: tema.text, outline: `1px solid ${tema.from}25` }}>
+                <Star size={14} /> Santos Padroeiros
+              </div>
+              <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl lg:text-4xl" style={{ color: tema.text }}>
+                Nossos Modelos de Santidade
+              </h2>
+              <p className="mx-auto mt-3 max-w-2xl text-base sm:text-lg text-gray-600">
+                Dois jovens santos que viveram o serviço litúrgico com total entrega e nos inspiram a cada celebração.
+              </p>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              {santos.map((s, i) => (
+                <div key={s.nome}
+                  className={`relative overflow-hidden rounded-3xl bg-white border shadow-lg transition-all duration-700 hover:-translate-y-1 hover:shadow-xl ${santosSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+                  style={{ borderColor: `${s.cor}30`, transitionDelay: `${i * 100}ms` }}>
+                  <div className="h-2 w-full" style={{ background: `linear-gradient(90deg, ${s.cor}, ${s.cor}80)` }} />
+                  <div className="p-5 sm:p-8">
+                    {/* Título — sem card ícone */}
+                    <div className="mb-5">
+                      <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: s.cor }}>Padroeiro</p>
+                      <h3 className="text-xl font-extrabold text-gray-900 leading-tight">{s.nome}</h3>
+                      <p className="text-sm text-gray-500 mt-0.5">{s.titulo}</p>
+                      <span className="inline-block mt-1.5 text-xs font-semibold px-2 py-0.5 rounded-full"
+                        style={{ background: s.corLight, color: s.cor }}>
+                        Festa: {s.festa}
+                      </span>
+                    </div>
+
+                    <div className="relative mb-4">
+                      <div className="text-4xl sm:text-5xl font-serif leading-none opacity-10 absolute -top-2 -left-1" style={{ color: s.cor }}>"</div>
+                      <p className="text-sm sm:text-base italic text-gray-700 px-4 leading-relaxed">{s.citation}</p>
+                    </div>
+
+                    <p className="text-xs sm:text-sm text-gray-600 leading-relaxed mb-4">{s.bio}</p>
+
+                    <div className="rounded-2xl p-3 sm:p-4 mb-5" style={{ background: s.corLight }}>
+                      <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: s.cor }}>Legado para nós</p>
+                      <p className="text-sm text-gray-700 leading-relaxed">{s.legado}</p>
+                    </div>
+
+                    {/* Foto do santo */}
+                    <div className="overflow-hidden rounded-2xl border" style={{ borderColor: `${s.cor}20` }}>
+                      <img
+                        src={s.imagem}
+                        alt={s.nome}
+                        className="w-full h-auto block"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Gestos e Posições ──────────────────────────── */}
+      {(config.mostrarGestos ?? true) && (
+        <section id="gestos" ref={gestosSection.ref} className="py-14 sm:py-24 bg-white border-t border-gray-100">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className={`mb-10 sm:mb-14 text-center transition-all duration-700 ${gestosSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ background: tema.light, color: tema.text, outline: `1px solid ${tema.from}25` }}>
+                <Award size={14} /> Gestos e Posições
+              </div>
+              <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl lg:text-4xl" style={{ color: tema.text }}>
+                A Linguagem do Corpo na Liturgia
+              </h2>
+              <p className="mx-auto mt-3 max-w-2xl text-base sm:text-lg text-gray-600">
+                Cada gesto litúrgico é uma oração do corpo. Aprenda o significado e a forma correta de cada postura no serviço do altar.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 items-start">
+              {gestos.map((g, i) => (
+                <div key={g.gesto}
+                  className={`rounded-3xl border border-gray-100 bg-white p-6 shadow-sm transition-all duration-700 hover:-translate-y-0.5 hover:shadow-md ${gestosSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+                  style={{ transitionDelay: `${i * 50}ms` }}>
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-2xl flex-shrink-0 flex items-center justify-center text-white text-sm font-bold shadow-sm"
+                      style={{ background: `linear-gradient(135deg, ${tema.from}, ${tema.to})` }}>
+                      {i + 1}
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-900 text-sm">{g.gesto}</p>
+                      <p className="text-[11px] font-semibold mt-0.5 mb-2" style={{ color: tema.text }}>Quando: <span className="font-normal text-gray-500">{g.quando}</span></p>
+                      <p className="text-xs text-gray-500 leading-relaxed">{g.como}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Missa Passo a Passo ────────────────────────── */}
+      {(config.mostrarMissaPassos ?? true) && (
+        <section id="missa-passos" ref={missaPassosSection.ref} className="py-14 sm:py-24 border-t border-gray-100" style={{ background: `linear-gradient(180deg, ${tema.light}40, #fff)` }}>
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className={`mb-10 sm:mb-14 text-center transition-all duration-700 ${missaPassosSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ background: tema.light, color: tema.text, outline: `1px solid ${tema.from}25` }}>
+                <Church size={14} /> A Santa Missa
+              </div>
+              <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl lg:text-4xl" style={{ color: tema.text }}>
+                A Missa Passo a Passo
+              </h2>
+              <p className="mx-auto mt-3 max-w-2xl text-base sm:text-lg text-gray-600">
+                Conheça cada momento da Celebração Eucarística e o papel do acólito em cada fase.
+              </p>
+            </div>
+
+            <div className="grid gap-6 sm:grid-cols-2">
+              {missaPassos.map((fase, fi) => (
+                <div key={fase.fase}
+                  className={`relative overflow-hidden rounded-3xl bg-white border border-gray-100 shadow-sm transition-all duration-700 ${missaPassosSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+                  style={{ transitionDelay: `${fi * 80}ms` }}>
+                  <div className="h-1.5 w-full" style={{ background: fase.cor }} />
+                  <div className="p-6">
+                    <div className="flex items-center gap-3 mb-5">
+                      <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white text-sm font-extrabold shadow-sm"
+                        style={{ background: fase.cor }}>
+                        {fase.numero}
+                      </div>
+                      <h3 className="text-base font-extrabold text-gray-900">{fase.fase}</h3>
+                    </div>
+                    <div className="space-y-4">
+                      {fase.passos.map((p, pi) => (
+                        <div key={pi} className="flex gap-3">
+                          <div className="w-1.5 flex-shrink-0 rounded-full mt-1" style={{ background: `${fase.cor}60`, minHeight: '1rem' }} />
+                          <div>
+                            <p className="text-sm font-semibold text-gray-800 mb-0.5">{p.passo}</p>
+                            <p className="text-xs text-gray-500 leading-relaxed">{p.desc}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── Liturgical highlight banner ─────────────────── */}
       {(config.mostrarCalendario ?? true) && <section ref={liturgicalSection.ref} className="py-20 bg-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="relative overflow-hidden rounded-[2.5rem] p-10 shadow-2xl lg:p-14"
+          <div className="relative overflow-hidden rounded-[2.5rem] p-6 shadow-2xl sm:p-10 lg:p-14"
             style={{ background: themeGradient }}>
             <div className="pointer-events-none absolute -top-20 -right-20 h-72 w-72 rounded-full opacity-10 blur-3xl bg-white" />
             <div className="pointer-events-none absolute -bottom-16 -left-16 h-56 w-56 rounded-full opacity-10 blur-3xl bg-white" />
@@ -1057,6 +1470,584 @@ export default function Portal() {
         </div>
       </section>}
 
+      {/* ── Calendário Litúrgico do Mês ────────────────── */}
+      {(config.mostrarCalendarioLiturgico ?? true) && (() => {
+        const season = getLiturgicalSeason(new Date())
+        return (
+          <section ref={calendLiturgSection.ref} id="calendario-liturgico" className="py-20 bg-white border-t border-gray-100">
+            <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+              <div className={`transition-all duration-700 ${calendLiturgSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+                  style={{ background: tema.light, color: tema.text, outline: `1px solid ${tema.from}25` }}>
+                  <CalendarDays size={14} /> Calendário Litúrgico
+                </div>
+                <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl mb-6 sm:mb-10" style={{ color: tema.text }}>
+                  Tempo Litúrgico Atual
+                </h2>
+
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2">
+                  {/* Tempo atual */}
+                  <div className="rounded-3xl p-5 sm:p-6 text-white shadow-xl sm:col-span-2 lg:col-span-1"
+                    style={{ background: `linear-gradient(135deg, ${season.cor}, ${season.cor}cc)` }}>
+                    <p className="text-xs font-bold uppercase tracking-widest opacity-70 mb-3">Tempo Atual</p>
+                    <p className="text-3xl sm:text-4xl font-extrabold mb-1">{season.nome}</p>
+                    <div className="flex items-center gap-2 mt-4">
+                      <span className="inline-block w-4 h-4 rounded-full border-2 border-white/60" style={{ background: season.cor === '#ffffff' ? '#f8fafc' : 'white' }} />
+                      <span className="text-sm font-semibold opacity-80">Cor litúrgica: {season.corNome}</span>
+                    </div>
+                  </div>
+
+                  {/* Cores do tempo */}
+                  <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+                    <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">Significado das Cores</p>
+                    <div className="space-y-2.5">
+                      {coresLiturgicas.map(c => (
+                        <div key={c.nome} className="flex items-start gap-2.5">
+                          <span className="w-3.5 h-3.5 rounded-full flex-shrink-0 mt-0.5 border"
+                            style={{ background: c.cor, borderColor: c.borda ?? c.cor }} />
+                          <div>
+                            <span className="text-xs font-bold text-gray-800">{c.nome}</span>
+                            <span className="text-[10px] text-gray-400 ml-1.5">{c.uso}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Santo do período */}
+                  {/* <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+                    <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">
+                      {config.calend_santoDoDia ? 'Santo em Destaque' : 'São Domingos Sávio'}
+                    </p>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-xl font-bold shadow"
+                        style={{ background: `linear-gradient(135deg, ${tema.from}, ${tema.to})` }}>
+                        ✦
+                      </div>
+                      <div>
+                        <p className="font-bold text-gray-900 text-sm">
+                          {config.calend_santoDoDia || 'São Domingos Sávio'}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {config.calend_santoDoDia ? 'Santo do período' : 'Padroeiro do ministério · 9 de março'}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 leading-relaxed italic">
+                      {config.calend_santoDoDia
+                        ? 'Que a intercessão deste santo fortaleça nosso serviço litúrgico.'
+                        : '"Antes morrer do que pecar." — nosso lema e nossa inspiração diária.'}
+                    </p>
+                  </div> */}
+                </div>
+              </div>
+            </div>
+          </section>
+        )
+      })()}
+
+      {/* ── Agenda Pública ─────────────────────────────── */}
+      {(config.mostrarAgenda ?? true) && (
+        <section id="agenda" ref={agendaSection.ref} className="py-24 bg-white border-t border-gray-100">
+          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+            <div className={`mb-12 text-center transition-all duration-700 ${agendaSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ background: tema.light, color: tema.text, outline: `1px solid ${tema.from}25` }}>
+                <CalendarDays size={14} /> Agenda Pública
+              </div>
+              <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl" style={{ color: tema.text }}>
+                Próximas Celebrações
+              </h2>
+              <p className="mt-3 text-base text-gray-500">Acompanhe as celebrações que estão chegando na paróquia.</p>
+            </div>
+
+            <div className={`space-y-3 transition-all duration-700 ${agendaSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              {statsLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-gray-50 px-5 py-4 animate-pulse">
+                    <div className="h-12 w-12 rounded-xl bg-gray-200 flex-shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 bg-gray-200 rounded w-1/3" />
+                      <div className="h-2 bg-gray-100 rounded w-1/4" />
+                    </div>
+                  </div>
+                ))
+              ) : stats && (stats.agenda ?? stats.proximas_celebracoes).length > 0 ? (
+                (stats.agenda ?? stats.proximas_celebracoes).map((cel, i) => {
+                  const dt = parseISO(cel.data)
+                  const diaSem = format(dt, 'EEE', { locale: ptBR })
+                  const diaNum = format(dt, 'dd')
+                  const mes    = format(dt, 'MMM', { locale: ptBR })
+                  return (
+                    <div key={i}
+                      className={`flex items-center gap-4 rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 duration-700`}
+                      style={{ transitionDelay: `${i * 40}ms`, opacity: agendaSection.visible ? 1 : 0, transform: agendaSection.visible ? 'translateY(0)' : 'translateY(12px)' }}>
+                      <div className="flex h-14 w-14 flex-shrink-0 flex-col items-center justify-center rounded-2xl text-white shadow-sm"
+                        style={{ background: `linear-gradient(135deg, ${tema.from}, ${tema.to})` }}>
+                        <span className="text-[9px] font-semibold uppercase tracking-wide opacity-70">{diaSem}</span>
+                        <span className="text-xl font-extrabold leading-none">{diaNum}</span>
+                        <span className="text-[9px] font-semibold uppercase tracking-wide opacity-70">{mes}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-gray-900 text-sm truncate">{cel.tipo}</p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="flex items-center gap-1 text-xs text-gray-500">
+                            <Clock size={11} /> {cel.horario.substring(0, 5)}
+                          </span>
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                            style={{ background: tema.light, color: tema.text }}>
+                            {cel.periodo_liturgico}
+                          </span>
+                          {cel.celebracao_noite && (
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-indigo-50 text-indigo-700">
+                              Noturna
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <ChevronRight size={16} className="flex-shrink-0 text-gray-300" />
+                    </div>
+                  )
+                })
+              ) : (
+                <div className="py-12 text-center text-gray-400">
+                  <CalendarDays size={36} className="mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">Nenhuma celebração cadastrada no momento.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── FAQ ────────────────────────────────────────── */}
+      {(config.mostrarFaq ?? true) && (
+        <section id="faq" ref={faqSection.ref} className="py-24" style={{ background: `linear-gradient(180deg, ${tema.light}50, #fff)` }}>
+          <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+            <div className={`mb-12 text-center transition-all duration-700 ${faqSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ background: tema.light, color: tema.text, outline: `1px solid ${tema.from}25` }}>
+                <HelpCircle size={14} /> Perguntas Frequentes
+              </div>
+              <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl" style={{ color: tema.text }}>
+                Ficou com dúvida?
+              </h2>
+              <p className="mt-3 text-base text-gray-500">Respondemos as perguntas mais comuns sobre o ministério.</p>
+            </div>
+
+            <div className={`space-y-3 transition-all duration-700 ${faqSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              {(config.faqItems ?? []).map((item, i) => (
+                <div key={i} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                  <button
+                    onClick={() => setFaqOpen(faqOpen === i ? null : i)}
+                    className="flex w-full items-center justify-between gap-4 p-5 text-left transition-colors hover:bg-gray-50"
+                  >
+                    <span className="font-semibold text-gray-900 text-sm leading-snug">{item.q}</span>
+                    <ChevronDown size={18} className={`flex-shrink-0 transition-transform duration-200 ${faqOpen === i ? 'rotate-180' : ''}`}
+                      style={{ color: tema.text }} />
+                  </button>
+                  {faqOpen === i && (
+                    <div className="border-t border-gray-100 px-5 pb-5 pt-4">
+                      <p className="text-sm leading-relaxed text-gray-600">{item.a}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <p className="mt-8 text-center text-sm text-gray-500">
+              Outras dúvidas?{' '}
+              <a href="#contato" className="font-semibold underline underline-offset-2" style={{ color: tema.text }}>
+                Entre em contato
+              </a>
+            </p>
+          </div>
+        </section>
+      )}
+
+      {/* ── Catequese ──────────────────────────────────── */}
+      {(config.mostrarCatequese ?? true) && (
+        <section id="catequese" ref={catequesesSection.ref} className="py-24 bg-white border-t border-gray-100">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className={`mb-14 text-center transition-all duration-700 ${catequesesSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ background: tema.light, color: tema.text, outline: `1px solid ${tema.from}25` }}>
+                <GraduationCap size={14} /> Catequese
+              </div>
+              <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl" style={{ color: tema.text }}>
+                O caminho da fé
+              </h2>
+              <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600">
+                A catequese é a escola da fé cristã. Conheça cada etapa do processo de formação e os sete sacramentos da Igreja Católica.
+              </p>
+            </div>
+
+            {/* Etapas */}
+            <div className="mb-16">
+              <h3 className="mb-8 text-center text-xl font-bold text-gray-800">Etapas da Catequese</h3>
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {catequese_etapas.map((etapa, i) => (
+                  <div key={etapa.num}
+                    className={`relative overflow-hidden rounded-3xl bg-white border border-gray-100 p-6 shadow-sm transition-all duration-700 hover:-translate-y-1 hover:shadow-lg ${catequesesSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+                    style={{ transitionDelay: `${i * 70}ms` }}>
+                    <div className="absolute top-0 left-0 h-1.5 w-full rounded-t-3xl" style={{ background: etapa.cor }} />
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl text-white text-sm font-bold shadow"
+                        style={{ background: etapa.cor }}>
+                        {etapa.num}
+                      </div>
+                      <div>
+                        <p className="font-bold text-gray-900 text-sm">{etapa.titulo}</p>
+                        <p className="text-xs text-gray-400">{etapa.idades}</p>
+                      </div>
+                    </div>
+                    <p className="text-sm leading-relaxed text-gray-600">{etapa.descricao}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Sacramentos */}
+            <div className="relative overflow-hidden rounded-[2rem] p-5 sm:p-8 lg:p-12" style={{ background: `linear-gradient(135deg, ${tema.light}, #fff)`, border: `1px solid ${tema.from}15` }}>
+              <h3 className="mb-8 text-center text-xl font-bold" style={{ color: tema.text }}>
+                <Church size={20} className="inline mr-2 -mt-0.5" />
+                Os 7 Sacramentos da Igreja Católica
+              </h3>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {sacramentos.map((s, i) => (
+                  <div key={s.nome}
+                    className={`rounded-2xl p-5 transition-all duration-700 ${catequesesSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+                    style={{ background: s.bg, transitionDelay: `${i * 60}ms` }}>
+                    <div className="mb-2 flex items-center gap-2">
+                      <div className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ background: s.cor }} />
+                      <p className="font-bold text-sm" style={{ color: s.cor }}>{s.nome}</p>
+                    </div>
+                    <p className="text-xs text-gray-600 leading-relaxed">{s.descricao}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Mandamentos da Lei de Deus ─────────────────── */}
+      {(config.mostrarMandamentos ?? true) && (
+        <section id="mandamentos" ref={mandamentosSection.ref} className="py-24 border-t border-gray-100" style={{ background: `linear-gradient(180deg, ${tema.light}40, #fff)` }}>
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className={`mb-14 text-center transition-all duration-700 ${mandamentosSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ background: tema.light, color: tema.text, outline: `1px solid ${tema.from}25` }}>
+                <Cross size={14} /> Mandamentos
+              </div>
+              <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl" style={{ color: tema.text }}>
+                Os 10 Mandamentos da Lei de Deus
+              </h2>
+              <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600">
+                Os mandamentos são o caminho que Deus nos revelou para vivermos em amor, justiça e santidade.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 items-start">
+              {mandamentos.map((m, i) => (
+                <div key={m.num}
+                  className={`relative overflow-hidden rounded-3xl border border-gray-100 bg-white p-6 shadow-sm transition-all duration-700 hover:-translate-y-0.5 hover:shadow-md ${mandamentosSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+                  style={{ transitionDelay: `${i * 50}ms` }}>
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl text-sm font-extrabold text-white shadow-sm"
+                      style={{ background: `linear-gradient(135deg, ${tema.from}, ${tema.to})` }}>
+                      {m.num}
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-900 text-sm leading-snug">{m.titulo}</p>
+                      <p className="mt-1.5 text-xs text-gray-500 leading-relaxed">{m.desc}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-10 text-center">
+              <p className="text-sm italic text-gray-400">
+                "Amai ao Senhor, vosso Deus, de todo o coração, de toda a alma, de todo o entendimento e de todas as forças." — Mc 12,30
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Glossário Litúrgico ─────────────────────────── */}
+      {(config.mostrarGlossario ?? true) && (
+        <section id="glossario" ref={glossarioSection.ref} className="py-14 sm:py-24 bg-white border-t border-gray-100">
+          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+            <div className={`mb-8 sm:mb-12 text-center transition-all duration-700 ${glossarioSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ background: tema.light, color: tema.text, outline: `1px solid ${tema.from}25` }}>
+                <BookOpen size={14} /> Glossário
+              </div>
+              <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl lg:text-4xl" style={{ color: tema.text }}>
+                Glossário Litúrgico
+              </h2>
+              <p className="mt-3 max-w-xl mx-auto text-sm sm:text-base text-gray-500">
+                Os principais termos usados na liturgia e no serviço do altar, com definições simples.
+              </p>
+            </div>
+
+            <div className={`grid gap-3 sm:grid-cols-2 items-start transition-all duration-700 ${glossarioSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              {glossario.map((g, i) => (
+                <div key={g.termo}
+                  className={`rounded-2xl border border-gray-100 bg-white shadow-sm p-5 transition-all duration-700 hover:-translate-y-0.5 hover:shadow-md ${glossarioSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+                  style={{ transitionDelay: `${i * 30}ms` }}>
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl flex-shrink-0 flex items-center justify-center text-white text-xs font-bold shadow-sm"
+                      style={{ background: `linear-gradient(135deg, ${tema.from}, ${tema.to})` }}>
+                      {g.termo.slice(0, 1)}
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-900 text-sm">{g.termo}</p>
+                      <p className="text-xs text-gray-500 leading-relaxed mt-1">{g.def}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Paramentos e Vestes ─────────────────────────── */}
+      {(config.mostrarParamentos ?? true) && (
+        <section id="paramentos" ref={paramentosSection.ref} className="py-14 sm:py-24 border-t border-gray-100" style={{ background: `linear-gradient(180deg, ${tema.light}40, #fff)` }}>
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className={`mb-10 sm:mb-14 text-center transition-all duration-700 ${paramentosSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ background: tema.light, color: tema.text, outline: `1px solid ${tema.from}25` }}>
+                <Layers size={14} /> Paramentos
+              </div>
+              <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl lg:text-4xl" style={{ color: tema.text }}>
+                Paramentos e Vestes Litúrgicas
+              </h2>
+              <p className="mx-auto mt-3 max-w-2xl text-base sm:text-lg text-gray-600">
+                Cada vestimenta tem um significado sagrado. Conheça as principais vestes usadas nas celebrações da Igreja.
+              </p>
+            </div>
+
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {paramentos.map((p, i) => (
+                <div key={p.nome}
+                  className={`relative overflow-hidden rounded-3xl bg-white border shadow-sm transition-all duration-700 hover:-translate-y-1 hover:shadow-lg ${paramentosSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+                  style={{ borderColor: p.corBorda, transitionDelay: `${i * 60}ms` }}>
+                  <div className="h-1.5 w-full" style={{ background: p.corBorda }} />
+                  <div className="p-6">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-extrabold border-2"
+                        style={{ background: p.cor, borderColor: p.corBorda, color: p.corTexto }}>
+                        {p.nome.slice(0, 1)}
+                      </div>
+                      <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full"
+                        style={{ background: p.cor, color: p.corTexto, border: `1px solid ${p.corBorda}` }}>
+                        {p.tempos}
+                      </span>
+                    </div>
+                    <h3 className="font-extrabold text-gray-900 text-base mb-2">{p.nome}</h3>
+                    <p className="text-sm text-gray-500 leading-relaxed">{p.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Orações ────────────────────────────────────── */}
+      {(config.mostrarOracoes ?? true) && (
+        <section id="oracoes" ref={oracoesSection.ref} className="py-24" style={{ background: `linear-gradient(180deg, ${tema.light}60, #fff)` }}>
+          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+            <div className={`mb-12 text-center transition-all duration-700 ${oracoesSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ background: tema.light, color: tema.text, outline: `1px solid ${tema.from}25` }}>
+                <Cross size={14} /> Orações
+              </div>
+              <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl" style={{ color: tema.text }}>
+                Orações da Catequese
+              </h2>
+              <p className="mt-3 max-w-xl mx-auto text-base text-gray-500">
+                As principais orações ensinadas na catequese, especialmente na preparação para a Primeira Comunhão. Clique para ver o texto completo.
+              </p>
+            </div>
+
+            <div className={`grid gap-3 sm:grid-cols-2 items-start transition-all duration-700 ${oracoesSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              {(config.oracoes ?? []).map((oracao, i) => (
+                <div key={i} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                  <button
+                    onClick={() => setOracaoOpen(oracaoOpen === i ? null : i)}
+                    className="flex w-full items-center justify-between gap-3 p-5 text-left transition-colors hover:bg-gray-50"
+                  >
+                    <div>
+                      <p className="font-bold text-gray-900 text-sm">{oracao.titulo}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{oracao.subtitulo}</p>
+                    </div>
+                    <ChevronDown size={16} className={`flex-shrink-0 transition-transform duration-200 ${oracaoOpen === i ? 'rotate-180' : ''}`}
+                      style={{ color: tema.text }} />
+                  </button>
+                  {oracaoOpen === i && (
+                    <div className="border-t px-5 pb-6 pt-4" style={{ borderColor: `${tema.from}15`, background: tema.light }}>
+                      <pre className="whitespace-pre-wrap font-serif text-sm leading-loose text-gray-700">
+                        {oracao.texto}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Intenção do Mês ────────────────────────────── */}
+      {(config.mostrarIntencaoMes ?? true) && config.intencaoMes_texto && (
+        <section id="intencao-mes" ref={intencaoMesSection.ref} className="py-20 bg-white border-t border-gray-100">
+          <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+            <div className={`transition-all duration-700 ${intencaoMesSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ background: tema.light, color: tema.text, outline: `1px solid ${tema.from}25` }}>
+                <Heart size={14} /> Espiritualidade
+              </div>
+              <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight mb-5 sm:mb-8" style={{ color: tema.text }}>
+                {config.intencaoMes_titulo || 'Intenção do Mês'}
+              </h2>
+              <div className="relative overflow-hidden rounded-3xl p-5 sm:p-8 text-white shadow-2xl"
+                style={{ background: `linear-gradient(135deg, ${tema.from}, ${tema.mid})` }}>
+                <div className="pointer-events-none absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/10 blur-2xl" />
+                <div className="relative">
+                  <div className="text-5xl sm:text-6xl font-serif leading-none opacity-20 mb-2">"</div>
+                  <p className="text-base sm:text-lg leading-relaxed font-medium -mt-3 sm:-mt-4">{config.intencaoMes_texto}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Meditação da Semana ─────────────────────────── */}
+      {(config.mostrarMeditacao ?? true) && config.meditacao_texto && (
+        <section id="meditacao" ref={meditacaoSection.ref} className="py-20 border-t border-gray-100" style={{ background: `linear-gradient(180deg, ${tema.light}40, #fff)` }}>
+          <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+            <div className={`transition-all duration-700 ${meditacaoSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ background: tema.light, color: tema.text, outline: `1px solid ${tema.from}25` }}>
+                <BookOpen size={14} /> Meditação da Semana
+              </div>
+              <div className="grid gap-5 sm:grid-cols-[1fr_1.3fr]">
+                {/* Versículo */}
+                <div className="rounded-3xl border p-5 sm:p-7 bg-white shadow-sm flex flex-col justify-between"
+                  style={{ borderColor: `${tema.from}20` }}>
+                  <div>
+                    <div className="text-4xl sm:text-5xl font-serif leading-none opacity-15 -mb-2" style={{ color: tema.from }}>"</div>
+                    <p className="text-sm sm:text-base italic text-gray-800 leading-relaxed mt-2">{config.meditacao_texto}</p>
+                  </div>
+                  <div className="mt-5 pt-4 border-t" style={{ borderColor: `${tema.from}15` }}>
+                    <p className="font-extrabold text-sm" style={{ color: tema.text }}>{config.meditacao_versiculo || ''}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{config.meditacao_fonte || ''}</p>
+                  </div>
+                </div>
+
+                {/* Reflexão */}
+                {config.meditacao_reflexao && (
+                  <div className="rounded-3xl p-5 sm:p-7 text-white shadow-xl"
+                    style={{ background: `linear-gradient(145deg, ${tema.from}, ${tema.to})` }}>
+                    <p className="text-xs font-bold uppercase tracking-widest opacity-60 mb-3">Reflexão</p>
+                    <p className="text-sm leading-relaxed opacity-90">{config.meditacao_reflexao}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Ato de Consagração ──────────────────────────── */}
+      {(config.mostrarAtoConsagracao ?? true) && config.atoConsagracao_texto && (
+        <section id="ato-consagracao" ref={atoConsSection.ref} className="py-20 bg-white border-t border-gray-100">
+          <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+            <div className={`transition-all duration-700 ${atoConsSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ background: tema.light, color: tema.text, outline: `1px solid ${tema.from}25` }}>
+                <Star size={14} /> São Domingos Sávio
+              </div>
+              <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight mb-6 sm:mb-8" style={{ color: tema.text }}>
+                Ato de Consagração ao Santo Padroeiro
+              </h2>
+              <div className="relative overflow-hidden rounded-3xl border bg-white shadow-xl p-5 sm:p-8 lg:p-10"
+                style={{ borderColor: `${tema.from}20` }}>
+                <div className="pointer-events-none absolute inset-0 opacity-[0.03] rounded-3xl"
+                  style={{ background: `linear-gradient(135deg, ${tema.from}, ${tema.to})` }} />
+                <div className="relative text-center">
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-5 sm:mb-6 rounded-3xl flex items-center justify-center text-white text-xl sm:text-2xl shadow-lg"
+                    style={{ background: `linear-gradient(135deg, ${tema.from}, ${tema.to})` }}>
+                    ✦
+                  </div>
+                  <pre className="whitespace-pre-wrap font-serif text-sm sm:text-base leading-loose text-gray-700 text-center max-w-lg mx-auto">
+                    {config.atoConsagracao_texto}
+                  </pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── História / Timeline ─────────────────────────── */}
+      {(config.mostrarTimeline ?? true) && (
+        <section id="historia" ref={timelineSection.ref} className="py-24 bg-white border-t border-gray-100">
+          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+            <div className={`mb-14 text-center transition-all duration-700 ${timelineSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ background: tema.light, color: tema.text, outline: `1px solid ${tema.from}25` }}>
+                <Flag size={14} /> Nossa História
+              </div>
+              <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl" style={{ color: tema.text }}>
+                Uma caminhada de fé
+              </h2>
+              <p className="mt-3 text-base text-gray-500">Os marcos que definiram o ministério ao longo dos anos.</p>
+            </div>
+
+            <div className="relative">
+              {/* Linha central */}
+              <div className="absolute left-6 top-0 bottom-0 w-px sm:left-1/2 sm:-translate-x-1/2"
+                style={{ background: `linear-gradient(180deg, ${tema.from}60, ${tema.accent}60, transparent)` }} />
+
+              <div className="space-y-10">
+                {(config.milestones ?? []).map((m, i) => {
+                  const isRight = i % 2 === 0
+                  return (
+                    <div key={m.ano}
+                      className={`relative flex gap-6 sm:gap-0 transition-all duration-700 ${timelineSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'} ${isRight ? 'sm:flex-row' : 'sm:flex-row-reverse'}`}
+                      style={{ transitionDelay: `${i * 80}ms` }}>
+                      {/* Círculo central */}
+                      <div className="absolute left-6 sm:left-1/2 top-5 h-4 w-4 -translate-x-1/2 rounded-full border-4 border-white shadow-md"
+                        style={{ background: `linear-gradient(135deg, ${tema.from}, ${tema.to})` }} />
+
+                      {/* Conteúdo */}
+                      <div className={`ml-14 sm:ml-0 sm:w-[45%] ${isRight ? 'sm:pr-10 sm:text-right' : 'sm:pl-10'}`}>
+                        <div className={`overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow`}>
+                          <span className="text-xs font-bold uppercase tracking-widest" style={{ color: tema.accent }}>{m.ano}</span>
+                          <h3 className="mt-1 font-bold text-gray-900 text-sm">{m.evento}</h3>
+                          <p className="mt-1.5 text-xs text-gray-500 leading-relaxed">{m.desc}</p>
+                        </div>
+                      </div>
+
+                      {/* Spacer lado oposto */}
+                      <div className="hidden sm:block sm:w-[45%]" />
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── Testimonials ───────────────────────────────── */}
       {(config.mostrarDepoimentos ?? true) && <section id="depoimentos" ref={testimonialsSection.ref} className="py-24 bg-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -1066,7 +2057,7 @@ export default function Portal() {
               <Star size={14} style={{ color: tema.accent }} />
               Depoimentos
             </div>
-            <h2 className="text-4xl font-extrabold tracking-tight sm:text-5xl" style={{ color: tema.text }}>
+            <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl" style={{ color: tema.text }}>
               O que dizem sobre o ministério
             </h2>
           </div>
@@ -1100,16 +2091,78 @@ export default function Portal() {
         </div>
       </section>}
 
+      {/* ── Localização / Mapa ─────────────────────────── */}
+      {(config.mostrarMapa ?? true) && config.endereco && (
+        <section id="localizacao" ref={mapaSection.ref} className="py-20 bg-white border-t border-gray-100">
+          <div className="mx-auto max-w-3xl px-4 sm:px-6 text-center">
+            <div className={`transition-all duration-700 ${mapaSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ background: tema.light, color: tema.text }}>
+                <MapPin size={14} /> Nossa Localização
+              </div>
+              <h2 className="text-3xl font-extrabold tracking-tight mb-8" style={{ color: tema.text }}>
+                Onde nos encontrar
+              </h2>
+              <div className="overflow-hidden rounded-3xl border bg-white shadow-xl p-8" style={{ borderColor: `${tema.from}20` }}>
+                <div className="flex flex-col items-center gap-5">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-3xl text-white shadow-lg"
+                    style={{ background: `linear-gradient(135deg, ${tema.from}, ${tema.to})` }}>
+                    <MapPin size={26} />
+                  </div>
+                  <p className="text-base text-gray-700 leading-relaxed whitespace-pre-line font-medium">
+                    {config.endereco}
+                  </p>
+                  {config.enderecoMapUrl && (
+                    <a href={config.enderecoMapUrl} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-semibold text-white transition-all hover:-translate-y-0.5 shadow-lg"
+                      style={{ background: `linear-gradient(135deg, ${tema.from}, ${tema.to})`, boxShadow: `0 6px 20px ${tema.from}35` }}>
+                      <MapPin size={15} /> Ver no Google Maps
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── YouTube ────────────────────────────────────── */}
+      {(config.mostrarYoutube ?? true) && config.youtubeEmbedUrl && (
+        <section ref={youtubeSection.ref} className="py-20 border-t border-gray-100" style={{ background: `linear-gradient(180deg, ${tema.light}50, #fff)` }}>
+          <div className="mx-auto max-w-4xl px-4 sm:px-6">
+            <div className={`mb-10 text-center transition-all duration-700 ${youtubeSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ background: tema.light, color: tema.text, outline: `1px solid ${tema.from}25` }}>
+                <Play size={14} /> Vídeo
+              </div>
+              <h2 className="text-3xl font-extrabold tracking-tight" style={{ color: tema.text }}>
+                Assista à celebração
+              </h2>
+            </div>
+            <div className={`overflow-hidden rounded-3xl shadow-2xl transition-all duration-700 delay-100 ${youtubeSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+              style={{ aspectRatio: '16/9' }}>
+              <iframe
+                src={config.youtubeEmbedUrl}
+                title="Vídeo do ministério"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="h-full w-full border-0"
+              />
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── Contact / CTA ──────────────────────────────── */}
       {(config.mostrarContato ?? true) && <section id="contato" ref={ctaSection.ref} className="py-24" style={{ background: `linear-gradient(160deg, ${tema.light} 0%, #fff 100%)` }}>
         <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
-          <div className={`overflow-hidden rounded-[2.5rem] bg-white p-12 shadow-xl transition-all duration-700 ${ctaSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+          <div className={`overflow-hidden rounded-[2.5rem] bg-white p-6 sm:p-12 shadow-xl transition-all duration-700 ${ctaSection.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
             style={{ boxShadow: `0 24px 48px ${tema.from}12`, border: `1px solid ${tema.from}20` }}>
             <div className="mb-5 inline-flex h-16 w-16 items-center justify-center rounded-3xl shadow-xl text-white"
               style={{ background: themeGradient }}>
               <img src={logoGrupo} alt="Logo" className="h-12 w-16 object-contain" />
             </div>
-            <h2 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl" style={{ color: tema.text }}>
+            <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl" style={{ color: tema.text }}>
               Entre em contato
             </h2>
             <p className="mx-auto mt-4 max-w-lg text-lg text-gray-600">
@@ -1191,7 +2244,7 @@ export default function Portal() {
           </p>
 
           {enviado ? (
-            <div className="rounded-3xl border border-green-200 bg-green-50 p-10 text-center">
+            <div className="rounded-3xl border border-green-200 bg-green-50 p-6 sm:p-10 text-center">
               <CheckCircle2 size={44} className="mx-auto mb-4 text-green-600" />
               <p className="text-xl font-semibold text-gray-900">Interesse registrado!</p>
               <p className="mt-2 text-gray-500">Em breve entraremos em contato. Que Deus abençoe!</p>
@@ -1260,10 +2313,18 @@ export default function Portal() {
             <div className="flex flex-wrap justify-center gap-5 text-xs text-gray-400">
               <a href="#missao" className="hover:text-gray-700 transition-colors">Nossa Missão</a>
               <a href="#funcionalidades" className="hover:text-gray-700 transition-colors">O Sistema</a>
-              <a href="#como-funciona" className="hover:text-gray-700 transition-colors">Como Funciona</a>
-              <a href="#depoimentos" className="hover:text-gray-700 transition-colors">Depoimentos</a>
+              <a href="#formacao" className="hover:text-gray-700 transition-colors">Formação</a>
+              <a href="#agenda" className="hover:text-gray-700 transition-colors">Agenda</a>
+              <a href="#faq" className="hover:text-gray-700 transition-colors">Dúvidas</a>
+              <a href="#catequese" className="hover:text-gray-700 transition-colors">Catequese</a>
+              <a href="#mandamentos" className="hover:text-gray-700 transition-colors">Mandamentos</a>
+              <a href="#santos" className="hover:text-gray-700 transition-colors">Santos</a>
+              <a href="#glossario" className="hover:text-gray-700 transition-colors">Glossário</a>
+              <a href="#ato-consagracao" className="hover:text-gray-700 transition-colors">Consagração</a>
+              <a href="#oracoes" className="hover:text-gray-700 transition-colors">Orações</a>
+              <a href="#historia" className="hover:text-gray-700 transition-colors">História</a>
               <a href="#contato" className="hover:text-gray-700 transition-colors">Contato</a>
-              <a href="#servir" className="hover:text-gray-700 transition-colors" style={{ color: tema.text }}>Quero Servir</a>
+              <a href="#servir" className="hover:text-gray-700 transition-colors font-semibold" style={{ color: tema.text }}>Quero Servir</a>
             </div>
 
             {/* Social in footer */}

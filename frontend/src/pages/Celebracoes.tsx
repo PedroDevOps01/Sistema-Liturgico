@@ -534,15 +534,34 @@ export default function Celebracoes() {
   }
 
   const inativos = list.filter((c) => !c.ativo)
-  const filtered = list.filter((c) => {
-    if (!mostrarInativos && !c.ativo) return false
-    const term = search.toLowerCase()
-    return (
-      c.data.includes(term) ||
-      c.periodo_liturgico.toLowerCase().includes(term) ||
-      c.horario.includes(term)
-    )
-  })
+  function isDatePast(data: string): boolean {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return parseDate(data) < today
+  }
+
+  const filtered = list
+    .filter((c) => {
+      if (!mostrarInativos && !c.ativo) return false
+      const term = search.toLowerCase()
+      return (
+        c.data.includes(term) ||
+        c.periodo_liturgico.toLowerCase().includes(term) ||
+        c.horario.includes(term)
+      )
+    })
+    .sort((a, b) => {
+      const dA = parseDate(a.data)
+      const dB = parseDate(b.data)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const pastA = dA < today
+      const pastB = dB < today
+      if (pastA && !pastB) return 1
+      if (!pastA && pastB) return -1
+      if (pastA && pastB) return dB.getTime() - dA.getTime()
+      return dA.getTime() - dB.getTime()
+    })
 
   function getCelebrationFlags(c: Celebracao) {
     const flags = []
@@ -583,8 +602,20 @@ export default function Celebracoes() {
       onClose={() => setModalOpen(false)}
       title={editing ? 'Editar Celebração' : 'Nova Celebração'}
       size="2xl"
+      footer={<>
+        <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">Cancelar</button>
+        {finalDeSemana && !editing ? (
+          <button type="button" onClick={handleBatchSubmit} disabled={batchSaving} className="btn-primary">
+            {batchSaving ? 'Criando...' : `Criar ${batchForms.length} Celebração${batchForms.length !== 1 ? 'ões' : ''}`}
+          </button>
+        ) : (
+          <button type="submit" form="form-celebracao" disabled={isSubmitting} className="btn-primary">
+            {isSubmitting ? 'Salvando...' : editing ? 'Atualizar' : 'Criar'}
+          </button>
+        )}
+      </>}
     >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form id="form-celebracao" onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* Final de Semana toggle (only when creating) */}
         {!editing && (
           <div className="flex items-center justify-between px-4 py-3 bg-gold-500/10 border border-gold-500/30 rounded-xl">
@@ -635,7 +666,7 @@ export default function Celebracoes() {
                 return (
                   <div key={idx} className="border-2 border-gray-200 rounded-xl p-4 space-y-3">
                     <p className="text-sm font-semibold text-wine-900">Celebração {idx + 1}</p>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="label">Data *</label>
                         <input
@@ -707,7 +738,7 @@ export default function Celebracoes() {
         ) : (
           <>
             {/* Single mode: original fields */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="label">Data *</label>
                 <input {...register('data')} type="date" className="input-field" />
@@ -728,7 +759,7 @@ export default function Celebracoes() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="label">Período Litúrgico *</label>
                 <select {...register('periodo_liturgico')} className="select-field">
@@ -795,28 +826,6 @@ export default function Celebracoes() {
           </>
         )}
 
-        <div className="flex justify-end gap-3 pt-2">
-          <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">
-            Cancelar
-          </button>
-          {/* Batch mode: bypass react-hook-form validation */}
-          {finalDeSemana && !editing ? (
-            <button
-              type="button"
-              onClick={handleBatchSubmit}
-              disabled={batchSaving}
-              className="btn-primary"
-            >
-              {batchSaving
-                ? 'Criando...'
-                : `Criar ${batchForms.length} Celebração${batchForms.length !== 1 ? 'ões' : ''}`}
-            </button>
-          ) : (
-            <button type="submit" disabled={isSubmitting} className="btn-primary">
-              {isSubmitting ? 'Salvando...' : editing ? 'Atualizar' : 'Criar'}
-            </button>
-          )}
-        </div>
       </form>
     </Modal>
   )
@@ -907,6 +916,11 @@ export default function Celebracoes() {
                         <DateBox data={c.data} />
                         <div>
                           <div className="font-semibold text-gray-900 text-sm">{formatData(c.data)}</div>
+                          {isDatePast(c.data) && (
+                            <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200">
+                              Data passada
+                            </span>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -1007,6 +1021,11 @@ export default function Celebracoes() {
                           <Clock size={11} />{c.horario}
                         </span>
                         <Badge variant={getPeriodoBadgeVariant(c.periodo_liturgico)} size="sm">{c.periodo_liturgico}</Badge>
+                        {isDatePast(c.data) && (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200">
+                            Data passada
+                          </span>
+                        )}
                         {flags.slice(0, 2).map(({ label, variant }) => (
                           <Badge key={label} variant={variant} size="sm">{label}</Badge>
                         ))}

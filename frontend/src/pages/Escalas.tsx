@@ -97,16 +97,42 @@ async function handleDownloadPdf(escala: Escala) {
     }
   }
 
+  function isDatePast(data: string): boolean {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const dateStr = data.substring(0, 10)
+    const [y, m, d] = dateStr.split('-').map(Number)
+    return new Date(y, m - 1, d) < today
+  }
+
   const inativos = list.filter((e) => !e.ativo)
-  const filtered = list.filter((e) => {
-    if (!mostrarInativos && !e.ativo) return false
-    if (!search) return true
-    const term = search.toLowerCase()
-    const dateStr = e.celebracao ? formatDataShort(e.celebracao.data).toLowerCase() : ''
-    const periodo = e.celebracao?.periodo_liturgico?.toLowerCase() ?? ''
-    const horario = e.celebracao?.horario ?? ''
-    return dateStr.includes(term) || periodo.includes(term) || horario.includes(term)
-  })
+  const filtered = list
+    .filter((e) => {
+      if (!mostrarInativos && !e.ativo) return false
+      if (!search) return true
+      const term = search.toLowerCase()
+      const dateStr = e.celebracao ? formatDataShort(e.celebracao.data).toLowerCase() : ''
+      const periodo = e.celebracao?.periodo_liturgico?.toLowerCase() ?? ''
+      const horario = e.celebracao?.horario ?? ''
+      return dateStr.includes(term) || periodo.includes(term) || horario.includes(term)
+    })
+    .sort((a, b) => {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const toDate = (data?: string) => {
+        if (!data) return new Date(9999, 0, 1)
+        const [y, m, d] = data.substring(0, 10).split('-').map(Number)
+        return new Date(y, m - 1, d)
+      }
+      const dA = toDate(a.celebracao?.data)
+      const dB = toDate(b.celebracao?.data)
+      const pastA = dA < today
+      const pastB = dB < today
+      if (pastA && !pastB) return 1
+      if (!pastA && pastB) return -1
+      if (pastA && pastB) return dB.getTime() - dA.getTime()
+      return dA.getTime() - dB.getTime()
+    })
 
   function isEscalaCompleta(e: Escala): boolean {
     const itens = e.escala_itens ?? e.itens ?? []
@@ -174,8 +200,8 @@ async function handleDownloadPdf(escala: Escala) {
           </Link>
         </div>
       ) : (
-        <div className="card overflow-hidden">
-          <table className="w-full">
+        <div className="card overflow-x-auto">
+          <table className="w-full min-w-[520px]">
             <thead>
               <tr className="bg-wine-900 text-white">
                 <th className="text-left px-5 py-3.5 font-semibold text-sm">Celebração</th>
@@ -210,7 +236,7 @@ async function handleDownloadPdf(escala: Escala) {
                         <div className="font-semibold text-gray-900 text-sm">
                           {escala.celebracao ? formatDataShort(escala.celebracao.data) : `Escala #${escala.id}`}
                         </div>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
                           {escala.celebracao && (
                             <span className="flex items-center gap-1 text-xs text-gray-500">
                               <Clock size={11} />{formatHorario(escala.celebracao.horario)}
@@ -223,6 +249,11 @@ async function handleDownloadPdf(escala: Escala) {
                           )}
                           {isEscalaCompleta(escala) && (
                             <Badge variant="green" size="sm">Completa</Badge>
+                          )}
+                          {escala.celebracao && isDatePast(escala.celebracao.data) && (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200">
+                              Data passada
+                            </span>
                           )}
                         </div>
                       </div>

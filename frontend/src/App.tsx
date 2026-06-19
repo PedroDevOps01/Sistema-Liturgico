@@ -29,6 +29,7 @@ import Portal from './pages/Portal'
 import PortalConfig from './pages/PortalConfig'
 import Confirmar from './pages/Confirmar'
 import Interessados from './pages/Interessados'
+import Analytics from './pages/Analytics'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated()) {
@@ -100,6 +101,7 @@ export default function App() {
           <Route path="/treinamentos" element={<Treinamentos />} />
           <Route path="/portal-config" element={<PortalConfig />} />
           <Route path="/interessados" element={<Interessados />} />
+          <Route path="/analytics" element={<Analytics />} />
         </Route>
 
         {/* Fallback */}

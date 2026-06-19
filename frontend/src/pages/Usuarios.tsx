@@ -168,8 +168,8 @@ export default function Usuarios() {
       </div>
 
       {/* Table */}
-      <div className="card overflow-hidden">
-        <table className="w-full">
+      <div className="card overflow-x-auto">
+        <table className="w-full min-w-[420px]">
           <thead>
             <tr className="bg-wine-900 text-white">
               <th className="text-left px-5 py-3.5 font-semibold text-sm">Usuário</th>
@@ -237,8 +237,14 @@ export default function Usuarios() {
       </div>
 
       {/* Create Modal */}
-      <Modal isOpen={createModalOpen} onClose={() => setCreateModalOpen(false)} title="Novo Usuário" size="md">
-        <form onSubmit={createForm.handleSubmit(handleCreate)} className="space-y-4">
+      <Modal isOpen={createModalOpen} onClose={() => setCreateModalOpen(false)} title="Novo Usuário" size="md"
+        footer={<>
+          <button type="button" onClick={() => setCreateModalOpen(false)} className="btn-secondary">Cancelar</button>
+          <button type="submit" form="form-create-user" disabled={createForm.formState.isSubmitting} className="btn-primary">
+            {createForm.formState.isSubmitting ? 'Criando...' : 'Criar'}
+          </button>
+        </>}>
+        <form id="form-create-user" onSubmit={createForm.handleSubmit(handleCreate)} className="space-y-4">
           <div>
             <label className="label">Nome completo *</label>
             <input {...createForm.register('nome')} className="input-field" placeholder="Nome do usuário" />
@@ -279,18 +285,18 @@ export default function Usuarios() {
               <p className="text-red-600 text-sm mt-1">{createForm.formState.errors.password_confirmation.message}</p>
             )}
           </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={() => setCreateModalOpen(false)} className="btn-secondary">Cancelar</button>
-            <button type="submit" disabled={createForm.formState.isSubmitting} className="btn-primary">
-              {createForm.formState.isSubmitting ? 'Criando...' : 'Criar'}
-            </button>
-          </div>
         </form>
       </Modal>
 
       {/* Edit Modal */}
-      <Modal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} title="Editar Usuário" size="md">
-        <form onSubmit={editForm.handleSubmit(handleEdit)} className="space-y-4">
+      <Modal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} title="Editar Usuário" size="md"
+        footer={<>
+          <button type="button" onClick={() => setEditModalOpen(false)} className="btn-secondary">Cancelar</button>
+          <button type="submit" form="form-edit-user" disabled={editForm.formState.isSubmitting} className="btn-primary">
+            {editForm.formState.isSubmitting ? 'Salvando...' : 'Salvar'}
+          </button>
+        </>}>
+        <form id="form-edit-user" onSubmit={editForm.handleSubmit(handleEdit)} className="space-y-4">
           <div>
             <label className="label">Nome completo *</label>
             <input {...editForm.register('nome')} className="input-field" />
@@ -305,18 +311,18 @@ export default function Usuarios() {
               <p className="text-red-600 text-sm mt-1">{editForm.formState.errors.usuario.message}</p>
             )}
           </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={() => setEditModalOpen(false)} className="btn-secondary">Cancelar</button>
-            <button type="submit" disabled={editForm.formState.isSubmitting} className="btn-primary">
-              {editForm.formState.isSubmitting ? 'Salvando...' : 'Salvar'}
-            </button>
-          </div>
         </form>
       </Modal>
 
       {/* Reset Password Modal */}
-      <Modal isOpen={resetModalOpen} onClose={() => setResetModalOpen(false)} title={`Redefinir Senha — ${resetTarget?.nome}`} size="md">
-        <form onSubmit={resetForm.handleSubmit(handleReset)} className="space-y-4">
+      <Modal isOpen={resetModalOpen} onClose={() => setResetModalOpen(false)} title={`Redefinir Senha — ${resetTarget?.nome}`} size="md"
+        footer={<>
+          <button type="button" onClick={() => setResetModalOpen(false)} className="btn-secondary">Cancelar</button>
+          <button type="submit" form="form-reset-pw" disabled={resetForm.formState.isSubmitting} className="btn-primary">
+            {resetForm.formState.isSubmitting ? 'Salvando...' : 'Redefinir'}
+          </button>
+        </>}>
+        <form id="form-reset-pw" onSubmit={resetForm.handleSubmit(handleReset)} className="space-y-4">
           <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl mb-2">
             <KeyRound size={16} className="text-amber-600 flex-shrink-0" />
             <p className="text-sm text-amber-800">
@@ -348,12 +354,6 @@ export default function Usuarios() {
             {resetForm.formState.errors.password_confirmation && (
               <p className="text-red-600 text-sm mt-1">{resetForm.formState.errors.password_confirmation.message}</p>
             )}
-          </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={() => setResetModalOpen(false)} className="btn-secondary">Cancelar</button>
-            <button type="submit" disabled={resetForm.formState.isSubmitting} className="btn-primary">
-              {resetForm.formState.isSubmitting ? 'Salvando...' : 'Redefinir'}
-            </button>
           </div>
         </form>
       </Modal>

@@ -94,24 +94,32 @@ export default function Confirmar() {
             </div>
 
             {respondido ? (
-              <div className={`rounded-2xl p-5 text-center ${
-                status === 'confirmado'
-                  ? 'border border-green-200 bg-green-50'
-                  : 'border border-red-200 bg-red-50'
-              }`}>
-                {status === 'confirmado' ? (
-                  <>
-                    <CheckCircle2 size={32} className="mx-auto mb-2 text-green-600" />
-                    <p className="font-semibold text-green-800">Presença confirmada!</p>
-                    <p className="mt-1 text-sm text-green-600">Que Deus abençoe seu serviço.</p>
-                  </>
-                ) : (
-                  <>
-                    <XCircle size={32} className="mx-auto mb-2 text-red-500" />
-                    <p className="font-semibold text-red-800">Recusa registrada.</p>
-                    <p className="mt-1 text-sm text-red-600">A coordenação foi notificada.</p>
-                  </>
-                )}
+              <div className="space-y-3">
+                <div className={`rounded-2xl p-5 text-center ${
+                  status === 'confirmado'
+                    ? 'border border-green-200 bg-green-50'
+                    : 'border border-red-200 bg-red-50'
+                }`}>
+                  {status === 'confirmado' ? (
+                    <>
+                      <CheckCircle2 size={32} className="mx-auto mb-2 text-green-600" />
+                      <p className="font-semibold text-green-800">Presença confirmada!</p>
+                      <p className="mt-1 text-sm text-green-600">Que Deus abençoe seu serviço.</p>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle size={32} className="mx-auto mb-2 text-red-500" />
+                      <p className="font-semibold text-red-800">Recusa registrada.</p>
+                      <p className="mt-1 text-sm text-red-600">A coordenação foi notificada.</p>
+                    </>
+                  )}
+                </div>
+                <button
+                  onClick={() => setRespondido(false)}
+                  className="w-full text-center text-xs text-gray-400 hover:text-gray-600 underline transition-colors py-1"
+                >
+                  Mudar minha resposta
+                </button>
               </div>
             ) : (
               <div className="space-y-3">
