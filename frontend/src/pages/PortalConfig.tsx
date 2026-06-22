@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import {
   Globe,
   Save,
@@ -97,6 +97,7 @@ export interface PortalConfig {
   whatsappUrl: string;
   endereco: string;
   enderecoMapUrl: string;
+  enderecoEmbedUrl: string;
   youtubeEmbedUrl: string;
   proximaFesta_nome: string;
   proximaFesta_data: string;
@@ -344,6 +345,7 @@ export const DEFAULT_PORTAL_CONFIG: PortalConfig = {
   whatsappUrl: "",
   endereco: "",
   enderecoMapUrl: "",
+  enderecoEmbedUrl: "",
   youtubeEmbedUrl: "",
   proximaFesta_nome: "",
   proximaFesta_data: "",
@@ -459,6 +461,8 @@ async function uploadImage(file: File): Promise<string> {
   return res.data.url as string;
 }
 
+const SectionSearchCtx = createContext('')
+
 interface SectionProps {
   icon: React.ReactNode;
   title: string;
@@ -474,7 +478,10 @@ function Section({
   children,
   defaultOpen = false,
 }: SectionProps) {
+  const search = useContext(SectionSearchCtx)
   const [open, setOpen] = useState(defaultOpen);
+
+  if (search && !title.toLowerCase().includes(search.toLowerCase())) return null;
 
   return (
     <div className="card w-full min-w-0 overflow-hidden">
@@ -703,10 +710,93 @@ function SlideEditor({
   );
 }
 
+const SECTION_LABELS: Record<string, string> = {
+  mostrarCountdown:         "Countdown (próxima festa)",
+  mostrarStats:             "Estatísticas (números)",
+  mostrarCarrosselPrincipal:"Galeria Principal",
+  mostrarAcolitoMes:        "Acólito em Destaque",
+  mostrarMissao:            "Nossa Missão",
+  mostrarCarrosselServico:  "Fotos de Serviço",
+  mostrarFuncionalidades:   "Funcionalidades do Sistema",
+  mostrarComoFunciona:      "Como Funciona",
+  mostrarFormacao:          "Como Entrar no Ministério",
+  mostrarSantos:            "Santos Padroeiros",
+  mostrarGestos:            "Gestos e Posições",
+  mostrarMissaPassos:       "A Missa Passo a Passo",
+  mostrarCalendario:        "Cores Litúrgicas",
+  mostrarCalendarioLiturgico:"Calendário Litúrgico do Mês",
+  mostrarAgenda:            "Agenda Pública",
+  mostrarFaq:               "Perguntas Frequentes (FAQ)",
+  mostrarCatequese:         "Catequese",
+  mostrarMandamentos:       "Mandamentos da Lei de Deus",
+  mostrarGlossario:         "Glossário Litúrgico",
+  mostrarParamentos:        "Paramentos e Vestes",
+  mostrarOracoes:           "Orações",
+  mostrarIntencaoMes:       "Intenção do Mês",
+  mostrarMeditacao:         "Meditação da Semana",
+  mostrarAtoConsagracao:    "Ato de Consagração",
+  mostrarTimeline:          "História do Ministério",
+  mostrarDepoimentos:       "Depoimentos",
+  mostrarMapa:              "Localização / Mapa",
+  mostrarYoutube:           "Vídeo do YouTube",
+  mostrarContato:           "Contato / CTA",
+  mostrarFormulario:        'Formulário "Quero Servir"',
+};
+
+function SortableSecao({
+  id,
+  active,
+  onToggle,
+}: {
+  id: string;
+  active: boolean;
+  onToggle: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5"
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing flex-shrink-0 touch-none"
+        tabIndex={-1}
+        aria-label="Arrastar"
+      >
+        <GripVertical size={16} />
+      </button>
+      <span className="flex-1 text-sm font-medium text-gray-700 min-w-0 truncate">
+        {SECTION_LABELS[id] ?? id}
+      </span>
+      <div
+        onClick={onToggle}
+        className={`relative w-10 h-5 rounded-full cursor-pointer transition-colors duration-200 flex-shrink-0 ${active ? "bg-wine-600" : "bg-gray-300"}`}
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${active ? "translate-x-5" : "translate-x-0"}`}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function PortalConfig() {
   const [config, setConfig] = useState<PortalConfig>(loadPortalConfig);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [searchConfig, setSearchConfig] = useState('');
 
   useEffect(() => {
     document.title = "Configuração do Portal · Ministério dos Acólitos";
@@ -761,6 +851,19 @@ export default function PortalConfig() {
       return { ...prev, [key]: arr };
     });
     setSaved(false);
+  }
+
+  /* ── Drag & drop — ordem das seções ─────────────────── */
+  const dndSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
+
+  function handleSecoesReorder(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const ordem = config.secoes_ordem?.length ? config.secoes_ordem : DEFAULT_SECTION_ORDER
+    const oldIdx = ordem.indexOf(String(active.id))
+    const newIdx = ordem.indexOf(String(over.id))
+    if (oldIdx === -1 || newIdx === -1) return
+    update('secoes_ordem', arrayMove(ordem, oldIdx, newIdx))
   }
 
   /* ── Depoimentos ────────────────────────────────────── */
@@ -868,6 +971,23 @@ export default function PortalConfig() {
         </div>
       </div>
 
+      <div className="relative">
+        <input
+          type="text"
+          value={searchConfig}
+          onChange={(e) => setSearchConfig(e.target.value)}
+          placeholder="Buscar seção de configuração..."
+          className="input-field pl-10"
+        />
+        <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        {searchConfig && (
+          <button onClick={() => setSearchConfig('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        )}
+      </div>
+
+      <SectionSearchCtx.Provider value={searchConfig}>
       <div className="grid gap-6 lg:grid-cols-2 items-start w-full min-w-0">
         {/* ── Identidade ───────────────────────────────── */}
         <Section icon={<Image size={16} />} title="Identidade do Ministério">
@@ -1178,6 +1298,16 @@ export default function PortalConfig() {
               className="input-field"
               placeholder="https://maps.google.com/..."
             />
+          </div>
+          <div>
+            <label className="label">URL de incorporação do Google Maps (opcional)</label>
+            <input
+              value={config.enderecoEmbedUrl ?? ""}
+              onChange={(e) => update("enderecoEmbedUrl", e.target.value)}
+              className="input-field"
+              placeholder="https://www.google.com/maps/embed?pb=..."
+            />
+            <p className="mt-1 text-xs text-gray-400">No Google Maps: Compartilhar → Incorporar mapa → copie o src do iframe</p>
           </div>
         </Section>
 
@@ -1568,83 +1698,29 @@ export default function PortalConfig() {
         <div className="lg:col-span-2 min-w-0">
           <Section
             icon={<Eye size={16} />}
-            title="Visibilidade das Seções"
-            subtitle="Ative ou desative cada seção do portal público."
+            title="Visibilidade e Ordem das Seções"
+            subtitle="Arraste para reordenar. O toggle ativa ou desativa cada seção no portal."
           >
-            <div className="grid gap-2 sm:grid-cols-2">
-              {(
-                [
-                  { key: "mostrarStats", label: "Estatísticas (números)" },
-                  { key: "mostrarMissao", label: "Nossa Missão" },
-                  {
-                    key: "mostrarCarrosselPrincipal",
-                    label: "Galeria Principal",
-                  },
-                  { key: "mostrarCarrosselServico", label: "Fotos de Serviço" },
-                  {
-                    key: "mostrarFuncionalidades",
-                    label: "Funcionalidades do Sistema",
-                  },
-                  { key: "mostrarComoFunciona", label: "Como Funciona" },
-                  { key: "mostrarCalendario", label: "Cores Litúrgicas" },
-                  { key: "mostrarDepoimentos", label: "Depoimentos" },
-                  { key: "mostrarContato", label: "Contato / CTA" },
-                  {
-                    key: "mostrarFormulario",
-                    label: 'Formulário "Quero Servir"',
-                  },
-                  {
-                    key: "mostrarCountdown",
-                    label: "Countdown (próxima festa)",
-                  },
-                  { key: "mostrarAcolitoMes", label: "Acólito em Destaque" },
-                  {
-                    key: "mostrarFormacao",
-                    label: "Como Entrar no Ministério",
-                  },
-                  { key: "mostrarAgenda", label: "Agenda Pública" },
-                  { key: "mostrarFaq", label: "Perguntas Frequentes (FAQ)" },
-                  { key: "mostrarCatequese", label: "Catequese" },
-                  { key: "mostrarOracoes", label: "Orações" },
-                  { key: "mostrarTimeline", label: "História do Ministério" },
-                  { key: "mostrarMapa", label: "Localização / Mapa" },
-                  { key: "mostrarYoutube", label: "Vídeo do YouTube" },
-                  {
-                    key: "mostrarMandamentos",
-                    label: "Mandamentos da Lei de Deus",
-                  },
-                  { key: "mostrarCalendarioLiturgico", label: "Calendário Litúrgico do Mês" },
-                  { key: "mostrarGlossario", label: "Glossário Litúrgico" },
-                  { key: "mostrarParamentos", label: "Paramentos e Vestes" },
-                  { key: "mostrarGestos", label: "Gestos e Posições" },
-                  { key: "mostrarMissaPassos", label: "A Missa Passo a Passo" },
-                  { key: "mostrarSantos", label: "Santos Padroeiros" },
-                  { key: "mostrarIntencaoMes", label: "Intenção do Mês" },
-                  { key: "mostrarMeditacao", label: "Meditação da Semana" },
-                  { key: "mostrarAtoConsagracao", label: "Ato de Consagração" },
-                ] as { key: keyof PortalConfig; label: string }[]
-              ).map(({ key, label }) => {
-                const active = (config[key] ?? true) as boolean;
-                return (
-                  <div
-                    key={key}
-                    className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5"
-                  >
-                    <span className="text-sm font-medium text-gray-700">
-                      {label}
-                    </span>
-                    <div
-                      onClick={() => update(key, !active)}
-                      className={`relative w-10 h-5 rounded-full cursor-pointer transition-colors duration-200 flex-shrink-0 ${active ? "bg-wine-600" : "bg-gray-300"}`}
-                    >
-                      <span
-                        className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${active ? "translate-x-5" : "translate-x-0"}`}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <p className="text-xs text-gray-400 flex items-center gap-1.5 mb-3">
+              <GripVertical size={12} /> Arraste pela alça para mudar a ordem de exibição
+            </p>
+            <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleSecoesReorder}>
+              <SortableContext
+                items={config.secoes_ordem?.length ? config.secoes_ordem : DEFAULT_SECTION_ORDER}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="flex flex-col gap-1.5">
+                  {(config.secoes_ordem?.length ? config.secoes_ordem : DEFAULT_SECTION_ORDER).map((key) => (
+                    <SortableSecao
+                      key={key}
+                      id={key}
+                      active={(config[key as keyof PortalConfig] ?? true) as boolean}
+                      onToggle={() => update(key as keyof PortalConfig, !(config[key as keyof PortalConfig] ?? true) as PortalConfig[keyof PortalConfig])}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
           </Section>
         </div>
 
@@ -1678,6 +1754,7 @@ export default function PortalConfig() {
           </div>
         </Section>
       </div>
+      </SectionSearchCtx.Provider>
 
       {/* Actions footer */}
       <div className="card p-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3">
