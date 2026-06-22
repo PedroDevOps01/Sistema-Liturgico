@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Sparkles,
   Users,
@@ -872,7 +872,7 @@ type TemaColors = {
 
 function PortalCarousel({
   slides,
-  variant,
+  variant: _variant,
   tema,
 }: {
   slides: CarrosselSlide[];
@@ -1113,8 +1113,6 @@ export default function Portal() {
   const secoes = config.secoes_ordem?.length
     ? config.secoes_ordem
     : DEFAULT_SECTION_ORDER;
-  const secOrder = (key: string) => secoes.indexOf(key);
-
   const whatsappHref = config.whatsappUrl
     ? config.whatsappUrl.startsWith("http")
       ? config.whatsappUrl

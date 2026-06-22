@@ -5,7 +5,7 @@ import {
 } from 'recharts'
 import {
   TrendingUp, TrendingDown, Minus, AlertTriangle, Award, Users,
-  Activity, Target, BarChart2, Calendar, ChevronRight,
+  BarChart2, Calendar, ChevronRight,
 } from 'lucide-react'
 import api from '../lib/api'
 import PageHeader from '../components/common/PageHeader'
