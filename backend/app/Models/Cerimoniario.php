@@ -17,6 +17,7 @@ class Cerimoniario extends Model
         'nome',
         'numero',
         'observacao',
+        'data_nascimento',
         'ativo',
         'disponivel_domingo_manha',
         'disponivel_domingo_tarde',
@@ -33,6 +34,7 @@ class Cerimoniario extends Model
     protected function casts(): array
     {
         return [
+            'data_nascimento' => 'date:Y-m-d',
             'ativo' => 'boolean',
             'disponivel_domingo_manha' => 'boolean',
             'disponivel_domingo_tarde' => 'boolean',

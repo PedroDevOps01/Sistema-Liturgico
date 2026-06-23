@@ -30,6 +30,14 @@ import PortalConfig from './pages/PortalConfig'
 import Confirmar from './pages/Confirmar'
 import Interessados from './pages/Interessados'
 import Analytics from './pages/Analytics'
+import Aniversariantes from './pages/Aniversariantes'
+import Tunicas from './pages/Tunicas'
+import Formacao from './pages/Formacao'
+import RelatorioFrequencia from './pages/RelatorioFrequencia'
+import RelatorioCrescimento from './pages/RelatorioCrescimento'
+import RelatorioTreinamentos from './pages/RelatorioTreinamentos'
+import RelatorioTunicas from './pages/RelatorioTunicas'
+import RelatorioAssiduidade from './pages/RelatorioAssiduidade'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated()) {
@@ -102,6 +110,14 @@ export default function App() {
           <Route path="/portal-config" element={<PortalConfig />} />
           <Route path="/interessados" element={<Interessados />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/aniversariantes" element={<Aniversariantes />} />
+          <Route path="/tunicas" element={<Tunicas />} />
+          <Route path="/formacao" element={<Formacao />} />
+          <Route path="/relatorios/frequencia" element={<RelatorioFrequencia />} />
+          <Route path="/relatorios/crescimento" element={<RelatorioCrescimento />} />
+          <Route path="/relatorios/treinamentos" element={<RelatorioTreinamentos />} />
+          <Route path="/relatorios/tunicas" element={<RelatorioTunicas />} />
+          <Route path="/relatorios/assiduidade" element={<RelatorioAssiduidade />} />
         </Route>
 
         {/* Fallback */}

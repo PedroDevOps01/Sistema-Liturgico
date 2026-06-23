@@ -20,6 +20,10 @@ use App\Http\Controllers\API\PortalStatsController;
 use App\Http\Controllers\API\PortalImageController;
 use App\Http\Controllers\API\AnalyticsController;
 use App\Http\Controllers\API\RelatorioMensalController;
+use App\Http\Controllers\API\TunicaController;
+use App\Http\Controllers\API\FormacaoController;
+use App\Http\Controllers\API\RelatorioController;
+use App\Http\Controllers\API\TreinamentoController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -29,7 +33,6 @@ Route::get('/portal-config', [ConfiguracaoController::class, 'showPortalConfig']
 Route::post('/interessados', [InteressadoController::class, 'store']);
 Route::get('/confirmar/{token}', [ConfirmacaoController::class, 'show']);
 Route::post('/confirmar/{token}', [ConfirmacaoController::class, 'update']);
-
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/consulta', [ConsultaRapidaController::class, 'consultar']);
@@ -51,6 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('users/{user}/toggle-ativo', [UserController::class, 'toggleAtivo']);
 
     // Cerimoniários
+    Route::get('cerimoniarios/aniversarios', [CerimoniarioController::class, 'aniversarios']);
     Route::apiResource('cerimoniarios', CerimoniarioController::class);
     Route::get('cerimoniarios/{id}/disponibilidade', [CerimoniarioController::class, 'disponibilidade']);
     Route::get('cerimoniarios/{id}/dashboard', [CerimoniarioController::class, 'dashboard']);
@@ -100,8 +104,13 @@ Route::middleware('auth:sanctum')->group(function () {
     // Estatísticas
     Route::get('estatisticas', [EstatisticasController::class, 'index']);
 
-    // Relatório de presenças
-    Route::get('relatorios/presencas', [\App\Http\Controllers\API\RelatorioController::class, 'presencas']);
+    // Relatórios
+    Route::get('relatorios/presencas', [RelatorioController::class, 'presencas']);
+    Route::get('relatorios/frequencia/{cerimoniario}', [RelatorioController::class, 'frequencia']);
+    Route::get('relatorios/crescimento', [RelatorioController::class, 'crescimento']);
+    Route::get('relatorios/treinamentos', [RelatorioController::class, 'treinamentos']);
+    Route::get('relatorios/emprestimos', [RelatorioController::class, 'emprestimos']);
+    Route::get('relatorios/assiduidade', [RelatorioController::class, 'assiduidade']);
 
     // Analytics
     Route::get('analytics', [AnalyticsController::class, 'index']);
@@ -115,4 +124,27 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('treinamentos/{treinamento}/convite', [\App\Http\Controllers\API\TreinamentoController::class, 'convite']);
     Route::put('treinamentos/{treinamento}/presencas/{cerimoniario}', [\App\Http\Controllers\API\TreinamentoController::class, 'updatePresenca']);
     Route::apiResource('treinamentos', \App\Http\Controllers\API\TreinamentoController::class);
+
+    // Túnicas
+    Route::get('tunicas/disponiveis', [TunicaController::class, 'disponiveis']);
+    Route::get('tunicas/{tunica}/historico', [TunicaController::class, 'historico']);
+    Route::post('tunicas/{tunica}/emprestar', [TunicaController::class, 'emprestar']);
+    Route::post('tunicas/{tunica}/devolver', [TunicaController::class, 'devolver']);
+    Route::post('tunicas/{tunica}/perdida', [TunicaController::class, 'marcarPerdida']);
+    Route::post('tunicas/{tunica}/encontrada', [TunicaController::class, 'marcarEncontrada']);
+    Route::apiResource('tunicas', TunicaController::class);
+
+    // Formação Litúrgica
+    Route::get('formacao/niveis', [FormacaoController::class, 'niveis']);
+    Route::post('formacao/niveis', [FormacaoController::class, 'storeNivel']);
+    Route::put('formacao/niveis/{nivel}', [FormacaoController::class, 'updateNivel']);
+    Route::delete('formacao/niveis/{nivel}', [FormacaoController::class, 'destroyNivel']);
+    Route::post('formacao/niveis/{nivel}/competencias', [FormacaoController::class, 'storeCompetencia']);
+    Route::put('formacao/competencias/{competencia}', [FormacaoController::class, 'updateCompetencia']);
+    Route::delete('formacao/competencias/{competencia}', [FormacaoController::class, 'destroyCompetencia']);
+    Route::get('formacao/overview', [FormacaoController::class, 'overview']);
+    Route::get('formacao/cerimoniario/{cerimoniario}/certificado/{nivel}', [FormacaoController::class, 'certificado']);
+    Route::get('formacao/cerimoniario/{cerimoniario}/historico', [FormacaoController::class, 'historico']);
+    Route::get('formacao/cerimoniario/{cerimoniario}', [FormacaoController::class, 'progressoCerimoniario']);
+    Route::put('formacao/cerimoniario/{cerimoniario}/competencia/{competencia}', [FormacaoController::class, 'updateProgresso']);
 });

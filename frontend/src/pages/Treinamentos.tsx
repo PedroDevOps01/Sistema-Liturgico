@@ -20,6 +20,12 @@ import { parseDate, parseDateParts, formatHorario } from '../lib/dateUtils'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+interface FormacaoNivelComCompetencias {
+  id: number
+  nome: string
+  competencias?: { id: number; nome: string }[]
+}
+
 interface TreinamentoPresenca {
   id: number
   treinamento_id: number
@@ -348,16 +354,18 @@ interface FormState {
   periodo_liturgico: string
   observacao: string
   cerimoniarios: number[]
+  formacao_competencia_id: number | null
 }
 
 function defaultForm(): FormState {
   const { periodo } = getPeriodoLiturgico()
-  return { data: '', horario: '', tema: '', local: '', funcoes: [], periodo_liturgico: periodo, observacao: '', cerimoniarios: [] }
+  return { data: '', horario: '', tema: '', local: '', funcoes: [], periodo_liturgico: periodo, observacao: '', cerimoniarios: [], formacao_competencia_id: null }
 }
 
 export default function Treinamentos() {
   const [list, setList] = useState<Treinamento[]>([])
   const [cerimoniarios, setCerimoniarios] = useState<Cerimoniario[]>([])
+  const [niveis, setNiveis] = useState<FormacaoNivelComCompetencias[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'treinos' | 'frequencia'>('treinos')
   const [search, setSearch] = useState('')
@@ -370,12 +378,14 @@ export default function Treinamentos() {
 
   const loadList = useCallback(async () => {
     try {
-      const [tR, cR] = await Promise.all([
+      const [tR, cR, nR] = await Promise.all([
         api.get<Treinamento[]>('/treinamentos'),
         api.get<Cerimoniario[]>('/cerimoniarios'),
+        api.get<FormacaoNivelComCompetencias[]>('/formacao/niveis'),
       ])
       setList(tR.data)
       setCerimoniarios(cR.data)
+      setNiveis(nR.data)
     } catch {
       toast.error('Erro ao carregar dados')
     } finally {
@@ -394,14 +404,15 @@ export default function Treinamentos() {
   function openEdit(t: Treinamento) {
     setEditing(t)
     setForm({
-      data:               t.data.substring(0, 10),
-      horario:            t.horario.substring(0, 5),
-      tema:               t.tema,
-      local:              t.local ?? '',
-      funcoes:            t.funcoes ?? [],
-      periodo_liturgico:  t.periodo_liturgico ?? '',
-      observacao:         t.observacao ?? '',
-      cerimoniarios:      t.presencas.map((p) => p.cerimoniario_id),
+      data:                      t.data.substring(0, 10),
+      horario:                   t.horario.substring(0, 5),
+      tema:                      t.tema,
+      local:                     t.local ?? '',
+      funcoes:                   t.funcoes ?? [],
+      periodo_liturgico:         t.periodo_liturgico ?? '',
+      observacao:                t.observacao ?? '',
+      cerimoniarios:             t.presencas.map((p) => p.cerimoniario_id),
+      formacao_competencia_id:   (t as Treinamento & { formacao_competencia_id?: number | null }).formacao_competencia_id ?? null,
     })
     setModalOpen(true)
   }
@@ -619,6 +630,31 @@ export default function Treinamentos() {
           <div>
             <label className="label">Observação / Informações adicionais</label>
             <textarea value={form.observacao} onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))} rows={2} className="input-field resize-none" placeholder="Detalhes que serão incluídos no convite..." />
+          </div>
+
+          {/* Vincular a competência de formação */}
+          <div>
+            <label className="label">Vincular a competência de formação (opcional)</label>
+            <select
+              value={form.formacao_competencia_id ?? ''}
+              onChange={e => setForm(f => ({
+                ...f,
+                formacao_competencia_id: e.target.value ? Number(e.target.value) : null,
+              }))}
+              className="input-field"
+            >
+              <option value="">— Nenhuma —</option>
+              {niveis.map(nivel => (
+                <optgroup key={nivel.id} label={nivel.nome}>
+                  {(nivel.competencias ?? []).map(comp => (
+                    <option key={comp.id} value={comp.id}>{comp.nome}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1.5">
+              Ao registrar presença como "presente", a competência selecionada será marcada automaticamente como concluída para cada cerimoniário.
+            </p>
           </div>
 
           {/* Cerimoniários */}

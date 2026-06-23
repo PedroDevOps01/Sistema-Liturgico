@@ -55,6 +55,31 @@ class DashboardController extends Controller
             HAVING COUNT(*) > 1
         ) as conflitos'))->count();
 
+        // Celebrações de hoje com escala e cerimoniários
+        $celebracoesHoje = Celebracao::with([
+            'escala' => fn($q) => $q->where('ativo', true)
+                ->with(['itens.cerimoniario', 'itens.funcao']),
+        ])
+        ->where('ativo', true)
+        ->where('data', $hoje)
+        ->orderBy('horario')
+        ->get();
+
+        // Alertas: escalas nos próximos 7 dias com confirmações pendentes
+        $alertasConfirmacao = DB::table('escalas as e')
+            ->join('celebracoes as c', 'c.id', '=', 'e.celebracao_id')
+            ->join('escala_itens as ei', 'ei.escala_id', '=', 'e.id')
+            ->where('e.ativo', true)
+            ->where('c.ativo', true)
+            ->whereNotNull('ei.cerimoniario_id')
+            ->where('c.data', '>', $hoje)
+            ->where('c.data', '<=', now()->addDays(7)->toDateString())
+            ->where('ei.status_confirmacao', 'pendente')
+            ->selectRaw('c.id as celebracao_id, c.data, c.horario, c.periodo_liturgico, COUNT(ei.id) as pendentes')
+            ->groupBy('c.id', 'c.data', 'c.horario', 'c.periodo_liturgico')
+            ->orderBy('c.data')
+            ->get();
+
         return response()->json([
             'data' => [
                 'proximasCelebracoes' => $proximasCelebracoes,
@@ -62,6 +87,8 @@ class DashboardController extends Controller
                 'cerimoniarios_ativos' => $cerimoniarios_ativos,
                 'celebracoesSemEscala' => $celebracoesSemEscala,
                 'alertasConflito' => $alertasConflito,
+                'celebracoesHoje' => $celebracoesHoje,
+                'alertasConfirmacao' => $alertasConfirmacao,
             ],
             'message' => 'Dashboard carregado com sucesso.',
         ]);

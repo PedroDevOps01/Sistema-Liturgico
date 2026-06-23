@@ -36,6 +36,7 @@ class CerimoniarioController extends Controller
             'nome' => 'required|string|max:255',
             'numero' => 'nullable|string|max:255',
             'observacao' => 'nullable|string',
+            'data_nascimento' => 'nullable|date',
             'ativo' => 'boolean',
             'disponivel_domingo_manha' => 'boolean',
             'disponivel_domingo_tarde' => 'boolean',
@@ -71,6 +72,7 @@ class CerimoniarioController extends Controller
             'nome' => 'sometimes|string|max:255',
             'numero' => 'nullable|string|max:255',
             'observacao' => 'nullable|string',
+            'data_nascimento' => 'nullable|date',
             'ativo' => 'sometimes|boolean',
             'disponivel_domingo_manha' => 'sometimes|boolean',
             'disponivel_domingo_tarde' => 'sometimes|boolean',
@@ -119,6 +121,8 @@ class CerimoniarioController extends Controller
         $anoAtual = now()->year;
         $hoje = now()->toDateString();
 
+        // total_escalado: todos os escala_itens com escala/celebração ativas (sem filtro de data)
+        // — igual ao analytics, inclui presenças marcadas antecipadamente para datas futuras
         $totalEscalado = DB::table('escala_itens as ei')
             ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
             ->join('celebracoes as cel', 'cel.id', '=', 'e.celebracao_id')
@@ -129,6 +133,7 @@ class CerimoniarioController extends Controller
             ->whereNull('cel.deleted_at')
             ->count();
 
+        // statusStats: mesma lógica — sem filtro de data para incluir faltas antecipadas
         $statusStats = DB::table('presencas as p')
             ->join('escala_itens as ei', 'ei.id', '=', 'p.escala_item_id')
             ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
@@ -160,6 +165,7 @@ class CerimoniarioController extends Controller
             ->where('cel.ativo', true)
             ->whereNull('e.deleted_at')
             ->whereNull('cel.deleted_at')
+            ->where('cel.data', '<', $hoje)
             ->select(
                 DB::raw("COALESCE(f.titulo, ei.funcao_label, 'Sem função') as titulo"),
                 DB::raw('COUNT(*) as total')
@@ -250,6 +256,45 @@ class CerimoniarioController extends Controller
                 'mensais'   => $mensais,
                 'ano'       => $anoAtual,
             ],
+        ]);
+    }
+
+    public function aniversarios(): JsonResponse
+    {
+        $hoje = now()->startOfDay();
+
+        $cerimoniarios = Cerimoniario::whereNotNull('data_nascimento')
+            ->where('ativo', true)
+            ->orderBy('nome')
+            ->get()
+            ->map(function ($c) use ($hoje) {
+                $nascimento = \Carbon\Carbon::parse($c->data_nascimento);
+                $aniversarioEsteAno = $nascimento->copy()->setYear($hoje->year);
+
+                if ($aniversarioEsteAno->lt($hoje)) {
+                    $aniversarioEsteAno->addYear();
+                }
+
+                $diasParaAniversario = (int) $hoje->diffInDays($aniversarioEsteAno);
+                $idadeNoAniversario  = $aniversarioEsteAno->year - $nascimento->year;
+
+                return [
+                    'id'                   => $c->id,
+                    'nome'                 => $c->nome,
+                    'numero'               => $c->numero,
+                    'data_nascimento'      => $c->data_nascimento->format('Y-m-d'),
+                    'aniversario_este_ano' => $aniversarioEsteAno->toDateString(),
+                    'dias_para_aniversario'=> $diasParaAniversario,
+                    'idade'                => $idadeNoAniversario,
+                    'mes_aniversario'      => $nascimento->month,
+                ];
+            })
+            ->sortBy('dias_para_aniversario')
+            ->values();
+
+        return response()->json([
+            'data'    => $cerimoniarios,
+            'message' => 'Aniversários listados com sucesso.',
         ]);
     }
 

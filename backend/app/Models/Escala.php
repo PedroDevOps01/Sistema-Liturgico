@@ -41,6 +41,11 @@ class Escala extends Model
         return $this->hasMany(EscalaItem::class, 'escala_id')->orderBy('ordem');
     }
 
+    public function itens(): HasMany
+    {
+        return $this->hasMany(EscalaItem::class, 'escala_id')->orderBy('ordem');
+    }
+
     public function historicos(): HasMany
     {
         return $this->hasMany(HistoricoEscala::class, 'escala_id')->orderByDesc('created_at');

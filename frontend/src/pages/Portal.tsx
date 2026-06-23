@@ -68,6 +68,17 @@ interface PortalStats {
   agenda: ProxCelebracao[];
 }
 
+function setMeta(name: string, content: string, property = false) {
+  const attr = property ? 'property' : 'name'
+  let el = document.querySelector(`meta[${attr}="${name}"]`) as HTMLMetaElement | null
+  if (!el) {
+    el = document.createElement('meta')
+    el.setAttribute(attr, name)
+    document.head.appendChild(el)
+  }
+  el.setAttribute('content', content)
+}
+
 async function fetchPortalStats(): Promise<PortalStats | null> {
   try {
     const res = await fetch("/api/portal-stats");
@@ -1087,10 +1098,28 @@ export default function Portal() {
   }, []);
 
   useEffect(() => {
+    // Title
+    document.title = 'Ministério dos Acólitos · Paróquia'
+
+    setMeta('description', 'Ministério dos Acólitos — Cerimoniários a serviço da liturgia. Conheça nosso ministério, nossa missão e junte-se a nós.')
+    setMeta('keywords', 'acólitos, cerimoniários, ministério, liturgia, igreja católica')
+    setMeta('og:title', 'Ministério dos Acólitos', true)
+    setMeta('og:description', 'Cerimoniários a serviço da liturgia. Conheça nossa missão.', true)
+    setMeta('og:type', 'website', true)
+    setMeta('og:image', window.location.origin + '/logogrupo.png', true)
+    setMeta('twitter:card', 'summary_large_image')
+    setMeta('twitter:title', 'Ministério dos Acólitos')
+    setMeta('twitter:description', 'Cerimoniários a serviço da liturgia.')
+
+    return () => { document.title = 'Ministério dos Acólitos' }
+  }, [])
+
+
+  useEffect(() => {
     document.title = `${config.nomeMinisterio} · Portal`;
   }, [config.nomeMinisterio]);
 
-  async function handleInteresse(e: React.FormEvent) {
+  async function handleInteresse(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!form.nome.trim()) return;
     setEnviando(true);

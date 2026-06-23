@@ -3,305 +3,512 @@ import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
-  ListChecks,
-  Users,
-  Calendar,
-  AlertCircle,
-  ChevronRight,
-  Plus,
-  Clock,
-  CheckCircle2,
-  ArrowRight,
+  Plus, ArrowRight, CheckCircle2, AlertCircle,
+  ListChecks, Calendar, Users, Cross, Clock,
 } from 'lucide-react'
 import api from '../lib/api'
-import type { Dashboard as DashboardData, Celebracao } from '../types'
-import { SkeletonCard } from '../components/common/LoadingSpinner'
-import Badge from '../components/common/Badge'
+import type { Dashboard as DashboardData } from '../types'
 import toast from 'react-hot-toast'
-import { formatDataMedium, parseDateParts, formatHorario } from '../lib/dateUtils'
-import { getPeriodoBadgeVariant } from '../lib/liturgico'
+import { formatHorario, parseDateParts } from '../lib/dateUtils'
+import { getPeriodoLiturgico, getPeriodoBadgeVariant } from '../lib/liturgico'
+import Badge from '../components/common/Badge'
 
-const formatData = formatDataMedium
-const formatDayMonth = parseDateParts
-const getPeriodoBadge = getPeriodoBadgeVariant
+// ─── Season data ───────────────────────────────────────────────────────────
 
-function DateChip({ data }: { data: string }) {
-  const { day, month, weekday } = formatDayMonth(data)
+const PERIODO_INFO: Record<string, { quote: string; ref: string }> = {
+  'Tempo Comum':    { quote: 'Ide e fazei discípulos de todos os povos.',                  ref: 'Mt 28,19' },
+  'Advento':        { quote: 'Preparai o caminho do Senhor, endireitai as suas veredas.',  ref: 'Is 40,3'  },
+  'Quaresma':       { quote: 'Convertei-vos e crede no Evangelho.',                        ref: 'Mc 1,15'  },
+  'Tempo Pascal':   { quote: 'Eu sou a ressurreição e a vida.',                            ref: 'Jo 11,25' },
+  'Tempo do Natal': { quote: 'O Verbo se fez carne e habitou entre nós.',                  ref: 'Jo 1,14'  },
+  'Pentecostes':    { quote: 'Vinde, Espírito Santo, enchei os corações dos vossos fiéis.',ref: ''         },
+  'Tríduo Pascal':  { quote: 'Por suas chagas fomos curados.',                             ref: 'Is 53,5'  },
+}
+
+const FALLBACK = { quote: 'O Senhor é meu pastor e nada me faltará.', ref: 'Sl 23,1' }
+
+function hexFromPeriodo(periodo: string): string {
+  const v = getPeriodoBadgeVariant(periodo)
   return (
-    <div className="flex-shrink-0 w-11 h-11 flex flex-col items-center justify-center bg-wine-900 rounded-lg text-white">
-      <span className="text-[9px] font-semibold uppercase opacity-60 leading-none">{weekday}</span>
-      <span className="text-base font-bold leading-tight">{day}</span>
-      <span className="text-[9px] font-semibold uppercase opacity-60 leading-none">{month}</span>
+    { purple: '#7c3aed', green: '#16a34a', blue: '#3b82f6', red: '#ef4444', wine: '#c2410c' }[v] ?? '#c2410c'
+  )
+}
+
+// ─── Live clock ────────────────────────────────────────────────────────────
+
+function LiveClock() {
+  const [now, setNow] = useState(new Date())
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  const hh = String(now.getHours()).padStart(2, '0')
+  const mm = String(now.getMinutes()).padStart(2, '0')
+  const ss = String(now.getSeconds()).padStart(2, '0')
+  return (
+    <div className="font-mono text-right leading-none select-none">
+      <span className="text-white font-black" style={{ fontSize: 'clamp(2rem, 3.5vw, 2.8rem)', letterSpacing: '-0.04em' }}>
+        {hh}:{mm}
+      </span>
+      <span className="text-white/30 font-bold" style={{ fontSize: 'clamp(1.1rem, 2vw, 1.5rem)', letterSpacing: '-0.04em' }}>:{ss}</span>
     </div>
   )
 }
 
-function CelebracaoListItem({ c }: { c: Celebracao }) {
-  return (
-    <div className="flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 transition-all duration-200 group cursor-pointer">
-      <DateChip data={c.data} />
-      <div className="flex-1 min-w-0">
-        <div className="font-semibold text-gray-900 text-sm truncate">{formatData(c.data)}</div>
-        <div className="flex items-center gap-2 mt-1 flex-wrap">
-          <span className="flex items-center gap-1 text-xs text-gray-500">
-            <Clock size={11} />
-            {formatHorario(c.horario)}
-          </span>
-          <Badge variant={getPeriodoBadge(c.periodo_liturgico)} size="sm">
-            {c.periodo_liturgico}
-          </Badge>
-          {c.celebracao_noite && <Badge variant="blue" size="sm">Noite</Badge>}
-          {c.possui_bispo && <Badge variant="purple" size="sm">Bispo</Badge>}
-          {c.casamento && <Badge variant="gold" size="sm">Casamento</Badge>}
-        </div>
-      </div>
-      <ChevronRight size={16} className="text-gray-300 group-hover:text-gray-400 flex-shrink-0 transition-colors" />
-    </div>
-  )
-}
+// ─── Dashboard ────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api
-      .get<DashboardData>('/dashboard')
-      .then((r) => setData(r.data))
+    api.get<DashboardData>('/dashboard')
+      .then(r => setData(r.data))
       .catch(() => toast.error('Erro ao carregar dashboard'))
       .finally(() => setLoading(false))
   }, [])
 
-  const stats = [
-    {
-      label: 'Escalas do Mês',
-      value: data?.escalasDoMes ?? 0,
-      icon: ListChecks,
-      iconBg: 'bg-wine-900',
-      iconColor: 'text-white',
-      link: '/escalas',
-    },
-    {
-      label: 'Cerimoniários Ativos',
-      value: data?.cerimoniarios_ativos ?? 0,
-      icon: Users,
-      iconBg: 'bg-gold-500',
-      iconColor: 'text-black',
-      link: '/cerimoniarios',
-    },
-    {
-      label: 'Próximas Celebrações',
-      value: data?.proximasCelebracoes?.length ?? 0,
-      icon: Calendar,
-      iconBg: 'bg-blue-600',
-      iconColor: 'text-white',
-      link: '/celebracoes',
-    },
-    {
-      label: 'Sem Escala',
-      value: data?.celebracoesSemEscala ?? 0,
-      icon: AlertCircle,
-      iconBg: 'bg-red-500',
-      iconColor: 'text-white',
-      link: '/celebracoes',
-    },
-  ]
+  const periodo = getPeriodoLiturgico()
+  const periodoInfo = PERIODO_INFO[periodo.periodo] ?? FALLBACK
+  const hex = hexFromPeriodo(periodo.periodo)
+  const hoje = new Date()
+  const semEscala = data?.celebracoesSemEscala ?? 0
+  const conflitos = data?.alertasConflito ?? 0
 
-  const quickActions = [
-    {
-      label: 'Nova Escala',
-      desc: 'Monte uma escala para celebração',
-      icon: ListChecks,
-      to: '/escalas/nova',
-      color: 'bg-wine-900',
-    },
-    {
-      label: 'Nova Celebração',
-      desc: 'Cadastre uma celebração litúrgica',
-      icon: Calendar,
-      to: '/celebracoes',
-      color: 'bg-blue-600',
-    },
-    {
-      label: 'Novo Cerimoniário',
-      desc: 'Adicione um membro ao time',
-      icon: Users,
-      to: '/cerimoniarios',
-      color: 'bg-gold-500',
-    },
-  ]
+  const nextCelebration = data?.proximasCelebracoes?.[0]
+  const daysUntilNext = (() => {
+    if (!nextCelebration) return null
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const target = new Date(nextCelebration.data.substring(0, 10) + 'T00:00:00')
+    return Math.round((target.getTime() - today.getTime()) / 86400000)
+  })()
+
+  const totalCelebracoes = (data?.escalasDoMes ?? 0) + semEscala
+  const pctEscaladas = totalCelebracoes > 0
+    ? Math.round(((data?.escalasDoMes ?? 0) / totalCelebracoes) * 100)
+    : null
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-0.5 capitalize">
-            {format(new Date(), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-          </p>
-        </div>
-        <Link to="/escalas/nova" className="btn-primary">
-          <Plus size={18} />
-          Nova Escala
-        </Link>
-      </div>
+    <div className="space-y-5">
 
-      {/* Stats Grid */}
-      {loading ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map(({ label, value, icon: Icon, iconBg, iconColor, link }) => (
-            <Link
-              key={label}
-              to={link}
-              className="card p-5 flex items-center gap-4 hover:shadow-md hover:border-gray-200 transition-all duration-200 group"
-            >
-              <div className={`${iconBg} w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform duration-200`}>
-                <Icon size={22} className={iconColor} />
+      {/* ── HERO ───────────────────────────────────────────────────────── */}
+      <div className="sidebar-gradient rounded-2xl overflow-hidden shadow-lg">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 px-6 pt-6 pb-5">
+
+          {/* Left: identity + period block */}
+          <div className="flex-1 space-y-4 min-w-0">
+            {/* Ministry header */}
+            <div className="flex items-center gap-2.5">
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg"
+                style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b)' }}
+              >
+                <Cross size={17} className="text-wine-900" />
               </div>
               <div>
-                <div className="text-3xl font-bold text-gray-900 leading-none">{value}</div>
-                <div className="text-xs text-gray-500 mt-1 leading-tight">{label}</div>
+                <p className="text-white font-bold leading-tight">Ministério dos Acólitos</p>
+                <p className="text-white/35 text-xs">Central de Gestão</p>
               </div>
+            </div>
+
+            {/* Period + scripture */}
+            <div
+              className="rounded-xl px-4 py-3"
+              style={{ background: 'rgba(255,255,255,0.07)', borderLeft: `3px solid ${hex}` }}
+            >
+              <span
+                className="inline-block text-[10px] font-bold uppercase tracking-[0.18em] px-2 py-0.5 rounded-full text-white mb-2"
+                style={{ background: hex + 'cc' }}
+              >
+                {periodo.periodo}
+              </span>
+              <p
+                className="text-sm italic text-white/65 leading-relaxed max-w-sm"
+                style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
+              >
+                "{periodoInfo.quote}"
+                {periodoInfo.ref && (
+                  <span className="not-italic text-white/30 text-xs ml-1.5">— {periodoInfo.ref}</span>
+                )}
+              </p>
+            </div>
+          </div>
+
+          {/* Right: live clock + date + CTA */}
+          <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-end gap-3 flex-shrink-0 w-full sm:w-auto">
+            <div>
+              <LiveClock />
+              <p className="text-white/35 text-[11px] text-right capitalize mt-1">
+                {format(hoje, "EEE, dd MMM yyyy", { locale: ptBR })}
+              </p>
+            </div>
+            <Link
+              to="/escalas/nova"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 shadow-md text-wine-900 flex-shrink-0"
+              style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b)' }}
+            >
+              <Plus size={15} />
+              Nova Escala
             </Link>
+          </div>
+        </div>
+
+        {/* Bottom stat strip inside hero */}
+        <div
+          className="grid grid-cols-2 sm:grid-cols-4 border-t"
+          style={{ borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.15)' }}
+        >
+          {[
+            { label: 'Escalas no mês',       value: data?.escalasDoMes               ?? '—', to: '/escalas'       },
+            { label: 'Cerimoniários ativos',  value: data?.cerimoniarios_ativos       ?? '—', to: '/cerimoniarios' },
+            { label: 'Próximas celebrações',  value: data?.proximasCelebracoes?.length ?? '—', to: '/celebracoes'  },
+            { label: 'Aguardando escala',     value: semEscala,                               to: '/celebracoes'   },
+          ].map(({ label, value, to }, i) => {
+            const isLast = i === 3
+            const isAlert = isLast && typeof value === 'number' && value > 0
+            return (
+              <Link
+                key={label}
+                to={to}
+                className="group flex flex-col items-center justify-center gap-0.5 py-3 px-3 hover:bg-white/5 transition-colors"
+                style={{ borderRight: i < 3 ? '1px solid rgba(255,255,255,0.07)' : undefined }}
+              >
+                {loading
+                  ? <div className="skeleton h-6 w-10 rounded bg-white/10" />
+                  : <span className={`text-xl font-extrabold leading-none ${isAlert ? 'text-red-400' : 'text-white'}`}>
+                      {value}
+                    </span>
+                }
+                <span className="text-white/35 text-[10px] font-medium text-center leading-tight">{label}</span>
+              </Link>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* ── KPI ROW ────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+        {/* Escalas — with progress bar */}
+        <div className="card p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              {loading
+                ? <div className="skeleton h-8 w-12 rounded" />
+                : <div className="text-3xl font-extrabold tracking-tight text-gray-900">{data?.escalasDoMes ?? 0}</div>
+              }
+              <p className="text-xs text-gray-400 mt-0.5">Escalas este mês</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-wine-50 flex items-center justify-center">
+              <ListChecks size={19} className="text-wine-700" />
+            </div>
+          </div>
+          {!loading && pctEscaladas !== null && (
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-[10px] font-medium">
+                <span className="text-gray-400">Celebrações escaladas</span>
+                <span className="text-gray-700">{pctEscaladas}%</span>
+              </div>
+              <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{
+                    width: `${pctEscaladas}%`,
+                    background: pctEscaladas >= 80 ? 'linear-gradient(90deg,#16a34a,#22c55e)'
+                      : pctEscaladas >= 50 ? 'linear-gradient(90deg,#f59e0b,#fbbf24)'
+                      : 'linear-gradient(90deg,#c2410c,#ef4444)',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* System status */}
+        <div className={`card p-5 border-l-4 ${semEscala > 0 ? 'border-l-red-500' : 'border-l-emerald-500'}`}>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.14em] mb-3">Status</p>
+          {loading ? (
+            <div className="space-y-2">
+              <div className="skeleton h-5 w-2/3 rounded" />
+              <div className="skeleton h-4 w-1/2 rounded" />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2.5">
+                <div className="relative flex-shrink-0">
+                  <div className={`w-2.5 h-2.5 rounded-full ${semEscala > 0 ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                  <div className={`absolute inset-0 rounded-full animate-ping opacity-50 ${semEscala > 0 ? 'bg-red-400' : 'bg-emerald-400'}`} />
+                </div>
+                <span className={`font-bold text-sm ${semEscala > 0 ? 'text-red-700' : 'text-emerald-700'}`}>
+                  {semEscala > 0 ? `${semEscala} sem escala` : 'Tudo escalado'}
+                </span>
+              </div>
+              {semEscala > 0 ? (
+                <Link to="/celebracoes" className="block w-full text-center py-2 text-xs font-bold text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors">
+                  Resolver agora →
+                </Link>
+              ) : (
+                <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                  <CheckCircle2 size={13} className="text-emerald-500" />
+                  Nenhuma pendência
+                </div>
+              )}
+              {conflitos > 0 && (
+                <div className="flex items-center gap-1.5 pt-1">
+                  <AlertCircle size={13} className="text-amber-500 flex-shrink-0" />
+                  <p className="text-xs text-amber-700 font-medium">
+                    {conflitos} conflito{conflitos > 1 ? 's' : ''} nas escalas
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Next celebration spotlight */}
+        <div
+          className="card p-5 space-y-3"
+          style={{ borderTop: `3px solid ${nextCelebration ? hexFromPeriodo(nextCelebration.periodo_liturgico) : '#e5e7eb'}` }}
+        >
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.14em]">Próxima Celebração</p>
+          {loading ? (
+            <div className="space-y-2">
+              <div className="skeleton h-8 w-20 rounded" />
+              <div className="skeleton h-4 w-32 rounded" />
+            </div>
+          ) : nextCelebration ? (
+            <>
+              <div className="text-3xl font-extrabold tracking-tight text-gray-900">
+                {daysUntilNext === 0 ? 'Hoje' : daysUntilNext === 1 ? 'Amanhã' : `Em ${daysUntilNext} dias`}
+              </div>
+              <p className="text-sm text-gray-600">
+                {format(new Date(nextCelebration.data.substring(0, 10) + 'T12:00:00'), "dd 'de' MMMM", { locale: ptBR })}
+                <span className="text-gray-400 ml-1">· {formatHorario(nextCelebration.horario)}</span>
+              </p>
+              <Badge variant={getPeriodoBadgeVariant(nextCelebration.periodo_liturgico)} size="sm">
+                {nextCelebration.periodo_liturgico}
+              </Badge>
+            </>
+          ) : (
+            <p className="text-sm text-gray-400">Sem celebrações futuras</p>
+          )}
+        </div>
+      </div>
+
+      {/* ── HOJE WIDGET ────────────────────────────────────────────────── */}
+      {!loading && data?.celebracoesHoje && data.celebracoesHoje.length > 0 && (
+        <div className="card overflow-hidden">
+          <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-gray-100">
+            <Clock size={15} className="text-wine-700" />
+            <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.14em]">
+              Celebrações de Hoje
+            </h2>
+            <span className="ml-auto text-xs font-semibold text-wine-700 bg-wine-50 px-2 py-0.5 rounded-full">
+              {data.celebracoesHoje.length}
+            </span>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {data.celebracoesHoje.map(cel => {
+              const itens = cel.escala?.itens ?? []
+              return (
+                <div key={cel.id} className="px-5 py-3.5">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-sm font-semibold text-gray-900">
+                      {formatHorario(cel.horario)}
+                    </span>
+                    <Badge variant={getPeriodoBadgeVariant(cel.periodo_liturgico)} size="sm">
+                      {cel.periodo_liturgico}
+                    </Badge>
+                  </div>
+                  {itens.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {itens.map(item => (
+                        <span
+                          key={item.id}
+                          className="inline-flex items-center gap-1 text-xs px-2.5 py-1 bg-gray-50 rounded-lg text-gray-700 border border-gray-100"
+                        >
+                          <span className="font-medium">{item.cerimoniario?.nome ?? '—'}</span>
+                          {item.funcao_label && (
+                            <span className="text-gray-400">· {item.funcao_label}</span>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400 italic">Sem cerimoniários escalados</p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── ALERTAS WIDGET ─────────────────────────────────────────────── */}
+      {!loading && (data?.alertasConfirmacao?.length || (data?.alertasConflito ?? 0) > 0) && (
+        <div className="space-y-2">
+          {(data?.alertasConflito ?? 0) > 0 && (
+            <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
+              <AlertCircle size={16} className="text-red-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm font-medium text-red-800">
+                {data!.alertasConflito} conflito{data!.alertasConflito > 1 ? 's' : ''} detectado{data!.alertasConflito > 1 ? 's' : ''} nas escalas
+              </p>
+              <Link to="/escalas" className="ml-auto text-xs font-bold text-red-700 hover:text-red-900 flex-shrink-0">
+                Ver →
+              </Link>
+            </div>
+          )}
+          {data?.alertasConfirmacao?.map(alerta => (
+            <div
+              key={alerta.celebracao_id}
+              className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200"
+            >
+              <AlertCircle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm font-medium text-amber-800">
+                <span className="font-bold">{alerta.pendentes} confirmação{alerta.pendentes > 1 ? 'ões' : ''} pendente{alerta.pendentes > 1 ? 's' : ''}</span>
+                {' '}—{' '}
+                {format(new Date(alerta.data.substring(0, 10) + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR })}
+                {' '}{formatHorario(alerta.horario)}
+              </p>
+              <Link to="/escalas" className="ml-auto text-xs font-bold text-amber-700 hover:text-amber-900 flex-shrink-0">
+                Ver →
+              </Link>
+            </div>
           ))}
         </div>
       )}
 
-      {/* Quick Actions */}
-      <div className="grid sm:grid-cols-3 gap-4">
-        {quickActions.map(({ label, desc, icon: Icon, to, color }) => (
-          <Link
-            key={label}
-            to={to}
-            className="card p-5 flex items-center gap-4 hover:shadow-md hover:border-gray-200 transition-all duration-200 group"
-          >
-            <div className={`${color} w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform duration-200`}>
-              <Icon size={20} className={color === 'bg-gold-500' ? 'text-black' : 'text-white'} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold text-gray-900 text-sm">{label}</div>
-              <div className="text-xs text-gray-500 mt-0.5 truncate">{desc}</div>
-            </div>
-            <ArrowRight size={16} className="text-gray-300 group-hover:text-gray-500 transition-colors flex-shrink-0" />
-          </Link>
-        ))}
-      </div>
+      {/* ── MAIN GRID ──────────────────────────────────────────────────── */}
+      <div className="grid lg:grid-cols-3 gap-5">
 
-      {/* Two-column section */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Proximas Celebrações */}
-        <div className="card overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-            <h2 className="font-bold text-gray-900 flex items-center gap-2">
-              <Calendar size={18} className="text-blue-500" />
-              Próximas Celebrações
+        {/* Timeline — 2/3 */}
+        <div className="lg:col-span-2 card overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+            <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.14em]">
+              Linha do Tempo
             </h2>
-            <Link to="/celebracoes" className="text-xs text-wine-700 hover:text-wine-900 font-semibold transition-colors">
-              Ver todas
+            <Link to="/celebracoes" className="text-xs text-wine-700 hover:text-wine-900 font-semibold transition-colors flex items-center gap-1">
+              Ver todas <ArrowRight size={11} />
             </Link>
           </div>
-          <div className="overflow-y-auto max-h-80 p-2">
+
+          <div className="px-5 py-4">
             {loading ? (
-              <div className="space-y-2 p-2">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="flex gap-3 p-2">
-                    <div className="skeleton w-14 h-14 rounded-xl flex-shrink-0" />
-                    <div className="flex-1 space-y-2">
-                      <div className="skeleton h-4 rounded w-2/3" />
-                      <div className="skeleton h-3 rounded w-1/2" />
+              <div className="space-y-5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex gap-4">
+                    <div className="skeleton w-11 h-11 rounded-full flex-shrink-0" />
+                    <div className="flex-1 space-y-2 pt-1">
+                      <div className="skeleton h-4 rounded w-2/5" />
+                      <div className="skeleton h-3 rounded w-1/3" />
                     </div>
                   </div>
                 ))}
               </div>
-            ) : data?.proximasCelebracoes && data.proximasCelebracoes.length > 0 ? (
-              data.proximasCelebracoes.map((c) => (
-                <Link key={c.id} to="/celebracoes">
-                  <CelebracaoListItem c={c} />
-                </Link>
-              ))
+            ) : data?.proximasCelebracoes?.length ? (
+              <div className="relative">
+                {/* Connecting line */}
+                <div className="absolute left-[21px] top-6 bottom-6 w-px bg-gradient-to-b from-gray-200 via-gray-100 to-transparent" />
+
+                <div className="space-y-1">
+                  {data.proximasCelebracoes.slice(0, 8).map((c, i) => {
+                    const dateStr = c.data.substring(0, 10)
+                    const { day, month, weekday } = parseDateParts(dateStr)
+                    const cHex = hexFromPeriodo(c.periodo_liturgico)
+                    const isFirst = i === 0
+                    return (
+                      <Link
+                        key={c.id}
+                        to="/celebracoes"
+                        className={`relative flex items-start gap-4 p-3 rounded-xl hover:bg-gray-50 transition-colors group ${isFirst ? 'bg-gray-50/70 ring-1 ring-gray-100' : ''}`}
+                      >
+                        {/* Date node */}
+                        <div
+                          className="flex-shrink-0 w-11 h-11 rounded-full flex flex-col items-center justify-center text-white z-10 shadow-sm"
+                          style={{ background: `linear-gradient(145deg, ${cHex}cc, ${cHex})` }}
+                        >
+                          <span className="text-[7px] font-bold uppercase leading-none opacity-80">{weekday}</span>
+                          <span className="text-sm font-extrabold leading-tight">{day}</span>
+                          <span className="text-[7px] font-bold uppercase leading-none opacity-80">{month}</span>
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0 pt-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-gray-900 text-sm">
+                              {format(new Date(dateStr + 'T12:00:00'), "dd 'de' MMMM", { locale: ptBR })}
+                            </span>
+                            <span className="text-xs text-gray-400">{formatHorario(c.horario)}</span>
+                          </div>
+                          <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                            <Badge variant={getPeriodoBadgeVariant(c.periodo_liturgico)} size="sm">
+                              {c.periodo_liturgico}
+                            </Badge>
+                            {c.possui_bispo      && <Badge variant="purple" size="sm">Bispo</Badge>}
+                            {c.casamento         && <Badge variant="gold"   size="sm">Casamento</Badge>}
+                            {c.celebracao_noite  && <Badge variant="blue"   size="sm">Noturna</Badge>}
+                            {c.escala
+                              ? <Badge variant="green" size="sm">Escalada</Badge>
+                              : <Badge variant="red"   size="sm">Sem escala</Badge>}
+                          </div>
+                        </div>
+
+                        {isFirst && (
+                          <span className="flex-shrink-0 self-start text-[10px] font-bold text-wine-700 bg-wine-50 px-2 py-0.5 rounded-full mt-1">
+                            Próxima
+                          </span>
+                        )}
+                      </Link>
+                    )
+                  })}
+                </div>
+              </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-10 text-center px-4">
+              <div className="flex flex-col items-center py-14 text-center px-4">
                 <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center mb-3">
-                  <Calendar size={24} className="text-gray-400" />
+                  <Calendar size={22} className="text-gray-400" />
                 </div>
-                <p className="font-semibold text-gray-500 text-sm">Sem celebrações próximas</p>
-                <p className="text-xs text-gray-400 mt-1">Cadastre uma nova celebração para começar</p>
-                <Link to="/celebracoes" className="mt-3 btn-primary text-sm px-4 py-2">
-                  <Plus size={14} />
-                  Nova Celebração
+                <p className="font-semibold text-gray-500 text-sm">Sem celebrações cadastradas</p>
+                <Link to="/celebracoes" className="mt-4 btn-primary text-sm px-4 py-2">
+                  <Plus size={14} /> Cadastrar
                 </Link>
               </div>
             )}
           </div>
         </div>
 
-        {/* Sem Escala */}
-        <div className="card overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-            <h2 className="font-bold text-gray-900 flex items-center gap-2">
-              <AlertCircle size={18} className="text-red-500" />
-              Celebrações sem Escala
-            </h2>
-            <Link to="/celebracoes" className="text-xs text-wine-700 hover:text-wine-900 font-semibold transition-colors">
-              Ver
-            </Link>
+        {/* Quick actions — 1/3 */}
+        <div className="card overflow-hidden self-start">
+          <div className="px-4 py-3.5 border-b border-gray-100">
+            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.16em]">Ações Rápidas</h3>
           </div>
-          <div className="p-5">
-            {loading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 2 }).map((_, i) => (
-                  <div key={i} className="skeleton h-12 rounded-xl" />
-                ))}
-              </div>
-            ) : (data?.celebracoesSemEscala ?? 0) > 0 ? (
-              <div className="flex flex-col items-center gap-4 py-4">
-                <div className="w-16 h-16 rounded-2xl bg-red-100 flex items-center justify-center">
-                  <AlertCircle size={32} className="text-red-500" />
+          <div className="divide-y divide-gray-50">
+            {([
+              { label: 'Nova Escala',       desc: 'Monte uma escala de serviço',        icon: ListChecks, to: '/escalas/nova',  accent: '#c2410c' },
+              { label: 'Nova Celebração',   desc: 'Cadastre uma celebração litúrgica',  icon: Calendar,   to: '/celebracoes',   accent: '#7c3aed' },
+              { label: 'Novo Cerimoniário', desc: 'Adicione um membro ao ministério',   icon: Users,      to: '/cerimoniarios', accent: '#f59e0b' },
+            ]).map(({ label, desc, icon: Icon, to, accent }) => (
+              <Link
+                key={label}
+                to={to}
+                className="flex items-center gap-3.5 px-4 py-4 hover:bg-gray-50 transition-colors group"
+              >
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: accent + '15' }}
+                >
+                  <Icon size={16} style={{ color: accent }} />
                 </div>
-                <div className="text-center">
-                  <div className="text-5xl font-bold text-red-600 leading-none">{data?.celebracoesSemEscala}</div>
-                  <div className="text-gray-500 text-sm mt-2">
-                    {data?.celebracoesSemEscala === 1
-                      ? 'Celebração aguarda escala'
-                      : 'Celebrações aguardam escala'}
-                  </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800 leading-tight">{label}</p>
+                  <p className="text-xs text-gray-400 mt-0.5 leading-tight">{desc}</p>
                 </div>
-                <Link to="/celebracoes" className="btn-danger text-sm px-5 py-2.5">
-                  <Plus size={16} />
-                  Criar escalas
-                </Link>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <div className="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center mb-3">
-                  <CheckCircle2 size={28} className="text-green-600" />
-                </div>
-                <p className="font-bold text-green-700">Tudo escalado!</p>
-                <p className="text-sm text-gray-400 mt-1">Todas as celebrações têm escala</p>
-              </div>
-            )}
-
-            {/* Conflito alert */}
-            {!loading && (data?.alertasConflito ?? 0) > 0 && (
-              <div className="mt-4 flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
-                <AlertCircle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
-                <div className="text-sm">
-                  <span className="font-semibold text-amber-800">
-                    {data?.alertasConflito} conflito{(data?.alertasConflito ?? 0) > 1 ? 's' : ''} detectado{(data?.alertasConflito ?? 0) > 1 ? 's' : ''}
-                  </span>
-                  <span className="text-amber-700"> — verifique as escalas.</span>
-                </div>
-              </div>
-            )}
+                <ArrowRight size={13} className="text-gray-200 group-hover:text-gray-500 flex-shrink-0 transition-colors" />
+              </Link>
+            ))}
           </div>
         </div>
+
       </div>
     </div>
   )

@@ -2,7 +2,10 @@ import { useEffect, useState, useCallback } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Search, Pencil, ToggleLeft, ToggleRight, Trash2, Users, X, LayoutDashboard, MoreVertical } from 'lucide-react'
+import {
+  Plus, Search, Pencil, ToggleLeft, ToggleRight, Trash2, Users, X,
+  LayoutDashboard, MoreVertical, Upload, Download,
+} from 'lucide-react'
 import { formatPhone } from '../lib/dateUtils'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
@@ -16,6 +19,8 @@ import PageHeader from '../components/common/PageHeader'
 import Badge from '../components/common/Badge'
 import { SkeletonRow } from '../components/common/LoadingSpinner'
 
+// ─── Schema ────────────────────────────────────────────────────────────────
+
 const schema = z.object({
   nome: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres'),
   numero: z
@@ -26,6 +31,7 @@ const schema = z.object({
       'Telefone inválido. Use formato: (11) 99999-9999'
     ),
   observacao: z.string().optional(),
+  data_nascimento: z.string().optional(),
   disponivel_domingo_manha: z.boolean(),
   disponivel_domingo_tarde: z.boolean(),
   disponivel_domingo_noite: z.boolean(),
@@ -49,6 +55,7 @@ const defaultValues: FormData = {
   nome: '',
   numero: '',
   observacao: '',
+  data_nascimento: '',
   disponivel_domingo_manha: true,
   disponivel_domingo_tarde: true,
   disponivel_domingo_noite: false,
@@ -61,6 +68,18 @@ const defaultValues: FormData = {
   mestre: false,
 }
 
+// ─── CSV types ─────────────────────────────────────────────────────────────
+
+interface CsvRow {
+  nome: string
+  numero?: string
+  data_nascimento?: string
+  observacao?: string
+  erro?: string
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+
 function maskPhone(raw: string): string {
   const digits = raw.replace(/\D/g, '').substring(0, 11)
   if (digits.length <= 2) return digits.length ? `(${digits}` : ''
@@ -68,6 +87,88 @@ function maskPhone(raw: string): string {
   if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
 }
+
+function formatDateBR(iso: string): string {
+  if (!iso) return '—'
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
+function isBirthdayToday(dataNascimento?: string): boolean {
+  if (!dataNascimento) return false
+  const today = new Date()
+  const [, m, d] = dataNascimento.split('-').map(Number)
+  return today.getMonth() + 1 === m && today.getDate() === d
+}
+
+function parseBirthDate(raw: string): string | undefined {
+  if (!raw?.trim()) return undefined
+  const brMatch = raw.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (brMatch) {
+    const [, d, m, y] = brMatch
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw.trim())) return raw.trim()
+  return undefined
+}
+
+function parseCSV(text: string): CsvRow[] {
+  const lines = text
+    .replace(/^﻿/, '') // remove BOM
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .trim()
+    .split('\n')
+
+  if (lines.length < 2) return []
+
+  const headers = lines[0]
+    .split(/[,;]/)
+    .map((h) => h.trim().toLowerCase().replace(/['"]/g, ''))
+
+  return lines
+    .slice(1)
+    .filter((l) => l.trim())
+    .map((line) => {
+      const values = line.split(/[,;]/).map((v) => v.trim().replace(/^["']|["']$/g, ''))
+      const get = (key: string) => {
+        const idx = headers.indexOf(key)
+        return idx >= 0 ? values[idx]?.trim() || undefined : undefined
+      }
+
+      const nome = get('nome') ?? ''
+      if (!nome) return null
+
+      const rawDate = get('data_nascimento') ?? get('nascimento') ?? get('aniversario') ?? ''
+      const parsedDate = parseBirthDate(rawDate)
+
+      return {
+        nome,
+        numero: get('numero') ?? get('telefone') ?? get('contato'),
+        data_nascimento: parsedDate,
+        observacao: get('observacao') ?? get('obs'),
+        erro: rawDate && !parsedDate ? `Data inválida: "${rawDate}"` : undefined,
+      } as CsvRow
+    })
+    .filter(Boolean) as CsvRow[]
+}
+
+function downloadTemplate() {
+  const rows = [
+    'nome,numero,data_nascimento,observacao',
+    'João da Silva,(11) 99999-9999,15/01/1990,Opcional',
+    'Maria Santos,(21) 88888-8888,22/03/1995,',
+  ]
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'modelo_cerimoniarios.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+// ─── Sub-components ────────────────────────────────────────────────────────
 
 function ToggleField({
   label,
@@ -121,18 +222,33 @@ function AvailabilityDots({ c }: { c: Cerimoniario }) {
   )
 }
 
+// ─── Main page ─────────────────────────────────────────────────────────────
+
 export default function Cerimoniarios() {
   const navigate = useNavigate()
+
+  // --- list state ---
   const [list, setList] = useState<Cerimoniario[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [mostrarInativos, setMostrarInativos] = useState(false)
+
+  // --- modals ---
   const [modalOpen, setModalOpen] = useState(false)
   const [bulkModalOpen, setBulkModalOpen] = useState(false)
+  const [csvModalOpen, setCsvModalOpen] = useState(false)
+
+  // --- edit / delete ---
   const [editing, setEditing] = useState<Cerimoniario | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Cerimoniario | null>(null)
   const [menuTarget, setMenuTarget] = useState<Cerimoniario | null>(null)
-  const [mostrarInativos, setMostrarInativos] = useState(false)
 
+  // --- CSV import state ---
+  const [csvRows, setCsvRows] = useState<CsvRow[]>([])
+  const [csvError, setCsvError] = useState<string | null>(null)
+  const [csvImporting, setCsvImporting] = useState(false)
+
+  // --- forms ---
   const { register, handleSubmit, reset, watch, setValue, formState: { errors, isSubmitting } } =
     useForm<FormData>({ resolver: zodResolver(schema), defaultValues })
 
@@ -141,6 +257,8 @@ export default function Cerimoniarios() {
     defaultValues: { rows: [{ nome: '' }] },
   })
   const { fields, append, remove } = useFieldArray({ control: bulkForm.control, name: 'rows' })
+
+  // ─── data loading ─────────────────────────────────────────────────────────
 
   const loadList = useCallback(async () => {
     try {
@@ -155,6 +273,8 @@ export default function Cerimoniarios() {
 
   useEffect(() => { loadList() }, [loadList])
 
+  // ─── modal openers ────────────────────────────────────────────────────────
+
   function openCreate() {
     setEditing(null)
     reset(defaultValues)
@@ -163,17 +283,32 @@ export default function Cerimoniarios() {
 
   function openEdit(c: Cerimoniario) {
     setEditing(c)
-    reset({ ...c, numero: c.numero ?? '', observacao: c.observacao ?? '', mestre: c.mestre ?? false })
+    reset({
+      ...c,
+      numero: c.numero ?? '',
+      observacao: c.observacao ?? '',
+      data_nascimento: c.data_nascimento ? c.data_nascimento.substring(0, 10) : '',
+      mestre: c.mestre ?? false,
+    })
     setModalOpen(true)
   }
 
+  function openCsvModal() {
+    setCsvRows([])
+    setCsvError(null)
+    setCsvModalOpen(true)
+  }
+
+  // ─── CRUD handlers ────────────────────────────────────────────────────────
+
   async function onSubmit(data: FormData) {
+    const payload = { ...data, data_nascimento: data.data_nascimento || null }
     try {
       if (editing) {
-        await api.put(`/cerimoniarios/${editing.id}`, data)
+        await api.put(`/cerimoniarios/${editing.id}`, payload)
         toast.success('Cerimoniário atualizado!')
       } else {
-        await api.post('/cerimoniarios', data)
+        await api.post('/cerimoniarios', payload)
         toast.success('Cerimoniário criado!')
       }
       setModalOpen(false)
@@ -181,8 +316,7 @@ export default function Cerimoniarios() {
     } catch (err: unknown) {
       const axiosErr = err as { response?: { status?: number; data?: { errors?: Record<string, string[]>; message?: string } } }
       if (axiosErr?.response?.status === 422 && axiosErr.response.data?.errors) {
-        const errs = axiosErr.response.data.errors
-        Object.entries(errs).forEach(([field, messages]) => {
+        Object.entries(axiosErr.response.data.errors).forEach(([field, messages]) => {
           toast.error(`${field}: ${messages[0]}`)
         })
       } else {
@@ -229,13 +363,65 @@ export default function Cerimoniarios() {
     }
   }
 
+  // ─── CSV import ───────────────────────────────────────────────────────────
+
+  function handleCsvFile(file: File) {
+    setCsvError(null)
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const text = e.target?.result as string
+      const rows = parseCSV(text)
+      if (rows.length === 0) {
+        setCsvError('Nenhum dado válido encontrado. Verifique o formato do arquivo.')
+      }
+      setCsvRows(rows)
+    }
+    reader.onerror = () => setCsvError('Erro ao ler o arquivo.')
+    reader.readAsText(file, 'UTF-8')
+  }
+
+  async function importCsvRows() {
+    const valid = csvRows.filter((r) => !r.erro && r.nome.trim())
+    if (valid.length === 0) return
+
+    setCsvImporting(true)
+    let ok = 0
+    let fail = 0
+
+    await Promise.allSettled(
+      valid.map((row) =>
+        api.post('/cerimoniarios', {
+          ...defaultValues,
+          nome: row.nome,
+          numero: row.numero ?? null,
+          data_nascimento: row.data_nascimento ?? null,
+          observacao: row.observacao ?? null,
+        })
+      )
+    ).then((results) => {
+      results.forEach((r) => (r.status === 'fulfilled' ? ok++ : fail++))
+    })
+
+    setCsvImporting(false)
+    if (ok > 0) toast.success(`${ok} cerimoniário(s) importado(s) com sucesso!`)
+    if (fail > 0) toast.error(`${fail} cerimoniário(s) falharam na importação.`)
+    setCsvModalOpen(false)
+    setCsvRows([])
+    loadList()
+  }
+
+  // ─── Derived data ─────────────────────────────────────────────────────────
+
   const inativos = list.filter((c) => !c.ativo)
-  const filtered = list.filter((c) =>
-    (mostrarInativos || c.ativo) &&
-    c.nome.toLowerCase().includes(search.toLowerCase())
+  const filtered = list.filter(
+    (c) =>
+      (mostrarInativos || c.ativo) &&
+      c.nome.toLowerCase().includes(search.toLowerCase())
   )
 
   const watchedFields = watch()
+
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-6">
@@ -243,7 +429,15 @@ export default function Cerimoniarios() {
         title="Cerimoniários"
         subtitle={`${list.filter((c) => c.ativo).length} ativos de ${list.length} cadastrados`}
         action={
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap justify-end">
+            <button
+              onClick={openCsvModal}
+              className="btn-secondary text-sm px-4 py-2"
+              title="Importar CSV"
+            >
+              <Upload size={16} />
+              <span className="hidden sm:inline">Importar CSV</span>
+            </button>
             <button onClick={() => setBulkModalOpen(true)} className="btn-secondary text-sm px-4 py-2">
               <Users size={16} />
               <span className="hidden sm:inline">Em Massa</span>
@@ -258,28 +452,28 @@ export default function Cerimoniarios() {
 
       {/* Search + filtro inativos */}
       <div className="flex gap-3 flex-wrap items-center">
-      <div className="relative flex-1 min-w-[200px] max-w-md">
-        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar cerimoniário..."
-          className="input-field pl-10 pr-10"
+        <div className="relative flex-1 min-w-[200px] max-w-md">
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar cerimoniário..."
+            className="input-field pl-10 pr-10"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+        <InativosToggle
+          mostrarInativos={mostrarInativos}
+          onChange={setMostrarInativos}
+          count={inativos.length}
         />
-        {search && (
-          <button
-            onClick={() => setSearch('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X size={16} />
-          </button>
-        )}
-      </div>
-      <InativosToggle
-        mostrarInativos={mostrarInativos}
-        onChange={setMostrarInativos}
-        count={inativos.length}
-      />
       </div>
 
       {/* Desktop Table */}
@@ -331,19 +525,20 @@ export default function Cerimoniarios() {
                         </span>
                       </div>
                       <div>
-                        <div className="font-semibold text-gray-900 text-sm">{c.nome}</div>
+                        <div className="font-semibold text-gray-900 text-sm flex items-center gap-1.5">
+                          {c.nome}
+                          {isBirthdayToday(c.data_nascimento) && (
+                            <span title="Aniversário hoje!">🎂</span>
+                          )}
+                        </div>
                         {c.observacao && (
                           <div className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">{c.observacao}</div>
                         )}
-                        {c.mestre && (
-                          <Badge variant="gold" size="sm">★ Mestre</Badge>
-                        )}
-                        {c.experiente && !c.mestre && (
-                          <Badge variant="gold" size="sm">Experiente</Badge>
-                        )}
-                        {c.indisponivel_temporario && (
-                          <Badge variant="red" size="sm">Temp. Indisp.</Badge>
-                        )}
+                        <div className="flex gap-1 mt-0.5 flex-wrap">
+                          {c.mestre && <Badge variant="gold" size="sm">★ Mestre</Badge>}
+                          {c.experiente && !c.mestre && <Badge variant="gold" size="sm">Experiente</Badge>}
+                          {c.indisponivel_temporario && <Badge variant="red" size="sm">Temp. Indisp.</Badge>}
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -401,7 +596,10 @@ export default function Cerimoniarios() {
                     </span>
                   </div>
                   <div>
-                    <div className="font-semibold text-gray-900">{c.nome}</div>
+                    <div className="font-semibold text-gray-900 flex items-center gap-1.5">
+                      {c.nome}
+                      {isBirthdayToday(c.data_nascimento) && <span title="Aniversário hoje!">🎂</span>}
+                    </div>
                     {c.numero && <div className="text-sm text-gray-500">{formatPhone(c.numero)}</div>}
                   </div>
                 </div>
@@ -424,7 +622,7 @@ export default function Cerimoniarios() {
         )}
       </div>
 
-      {/* Create/Edit Modal */}
+      {/* ─── Create/Edit Modal ─────────────────────────────────────────────── */}
       <Modal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -443,27 +641,37 @@ export default function Cerimoniarios() {
             <input {...register('nome')} className="input-field" placeholder="Nome completo" />
             {errors.nome && <p className="text-red-600 text-sm mt-1">{errors.nome.message}</p>}
           </div>
-          <div>
-            <label className="label">Número / Contato</label>
-            <input
-              {...register('numero')}
-              className="input-field"
-              placeholder="(11) 99999-9999"
-              inputMode="numeric"
-              onChange={e => {
-                const masked = maskPhone(e.target.value)
-                e.target.value = masked
-                register('numero').onChange(e)
-              }}
-            />
-            {errors.numero && <p className="text-red-600 text-sm mt-1">{errors.numero.message}</p>}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="label">Número / Contato</label>
+              <input
+                {...register('numero')}
+                className="input-field"
+                placeholder="(11) 99999-9999"
+                inputMode="numeric"
+                onChange={e => {
+                  e.target.value = maskPhone(e.target.value)
+                  register('numero').onChange(e)
+                }}
+              />
+              {errors.numero && <p className="text-red-600 text-sm mt-1">{errors.numero.message}</p>}
+            </div>
+            <div>
+              <label className="label">Data de Nascimento</label>
+              <input
+                {...register('data_nascimento')}
+                type="date"
+                className="input-field"
+              />
+            </div>
           </div>
+
           <div>
             <label className="label">Observação</label>
             <textarea {...register('observacao')} rows={2} className="input-field resize-none" />
           </div>
 
-          {/* Perfil — Experiente e Mestre separados da disponibilidade */}
           <div>
             <p className="label mb-1">Perfil do Acólito</p>
             <p className="text-xs text-gray-400 mb-2">Classificação definida pela coordenação</p>
@@ -490,41 +698,13 @@ export default function Cerimoniarios() {
           <div>
             <p className="label mb-2">Disponibilidade</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-0 bg-gray-50 rounded-xl p-4">
-              <ToggleField
-                label="Domingo Manhã"
-                checked={watchedFields.disponivel_domingo_manha}
-                onChange={(v) => setValue('disponivel_domingo_manha', v)}
-              />
-              <ToggleField
-                label="Domingo Tarde"
-                checked={watchedFields.disponivel_domingo_tarde}
-                onChange={(v) => setValue('disponivel_domingo_tarde', v)}
-              />
-              <ToggleField
-                label="Domingo Noite"
-                checked={watchedFields.disponivel_domingo_noite}
-                onChange={(v) => setValue('disponivel_domingo_noite', v)}
-              />
-              <ToggleField
-                label="Semana Manhã"
-                checked={watchedFields.disponivel_semana_manha}
-                onChange={(v) => setValue('disponivel_semana_manha', v)}
-              />
-              <ToggleField
-                label="Semana Tarde"
-                checked={watchedFields.disponivel_semana_tarde}
-                onChange={(v) => setValue('disponivel_semana_tarde', v)}
-              />
-              <ToggleField
-                label="Semana Noite"
-                checked={watchedFields.disponivel_semana_noite}
-                onChange={(v) => setValue('disponivel_semana_noite', v)}
-              />
-              <ToggleField
-                label="Sábado"
-                checked={watchedFields.disponivel_sabado}
-                onChange={(v) => setValue('disponivel_sabado', v)}
-              />
+              <ToggleField label="Domingo Manhã" checked={watchedFields.disponivel_domingo_manha} onChange={(v) => setValue('disponivel_domingo_manha', v)} />
+              <ToggleField label="Domingo Tarde" checked={watchedFields.disponivel_domingo_tarde} onChange={(v) => setValue('disponivel_domingo_tarde', v)} />
+              <ToggleField label="Domingo Noite" checked={watchedFields.disponivel_domingo_noite} onChange={(v) => setValue('disponivel_domingo_noite', v)} />
+              <ToggleField label="Semana Manhã"  checked={watchedFields.disponivel_semana_manha}  onChange={(v) => setValue('disponivel_semana_manha', v)} />
+              <ToggleField label="Semana Tarde"  checked={watchedFields.disponivel_semana_tarde}  onChange={(v) => setValue('disponivel_semana_tarde', v)} />
+              <ToggleField label="Semana Noite"  checked={watchedFields.disponivel_semana_noite}  onChange={(v) => setValue('disponivel_semana_noite', v)} />
+              <ToggleField label="Sábado"        checked={watchedFields.disponivel_sabado}        onChange={(v) => setValue('disponivel_sabado', v)} />
             </div>
           </div>
 
@@ -538,11 +718,10 @@ export default function Cerimoniarios() {
               />
             </div>
           </div>
-
         </form>
       </Modal>
 
-      {/* Bulk Modal */}
+      {/* ─── Bulk Modal ────────────────────────────────────────────────────── */}
       <Modal
         isOpen={bulkModalOpen}
         onClose={() => setBulkModalOpen(false)}
@@ -588,7 +767,145 @@ export default function Cerimoniarios() {
         </form>
       </Modal>
 
-      {/* Confirm Delete */}
+      {/* ─── CSV Import Modal ──────────────────────────────────────────────── */}
+      <Modal
+        isOpen={csvModalOpen}
+        onClose={() => { setCsvModalOpen(false); setCsvRows([]); setCsvError(null) }}
+        title="Importar Cerimoniários por CSV"
+        size="lg"
+        footer={<>
+          <button
+            type="button"
+            onClick={() => { setCsvModalOpen(false); setCsvRows([]); setCsvError(null) }}
+            className="btn-secondary"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={importCsvRows}
+            disabled={csvRows.filter(r => !r.erro).length === 0 || csvImporting}
+            className="btn-primary"
+          >
+            {csvImporting
+              ? 'Importando...'
+              : `Importar ${csvRows.filter(r => !r.erro).length} cerimoniário(s)`}
+          </button>
+        </>}
+      >
+        <div className="space-y-4">
+          {/* Instructions */}
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
+            <p className="font-semibold mb-1">Formato esperado do CSV:</p>
+            <code className="text-xs bg-blue-100 px-2 py-0.5 rounded">
+              nome, numero, data_nascimento, observacao
+            </code>
+            <p className="mt-1.5 text-xs text-blue-600">
+              A data de nascimento deve estar no formato <strong>DD/MM/AAAA</strong>. Vírgula ou ponto e vírgula como separador são aceitos.
+            </p>
+          </div>
+
+          {/* Download template */}
+          <button
+            type="button"
+            onClick={downloadTemplate}
+            className="flex items-center gap-2 text-sm text-wine-700 hover:text-wine-900 font-medium transition-colors"
+          >
+            <Download size={16} />
+            Baixar modelo CSV
+          </button>
+
+          {/* File drop zone */}
+          <label
+            htmlFor="csv-file-input"
+            className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-wine-400 hover:bg-wine-50/30 transition-colors"
+          >
+            <Upload size={32} className="text-gray-400" />
+            <div className="text-center">
+              <p className="text-sm font-medium text-gray-600">Clique para selecionar o arquivo</p>
+              <p className="text-xs text-gray-400 mt-0.5">Apenas arquivos .csv</p>
+            </div>
+            <input
+              id="csv-file-input"
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={e => { if (e.target.files?.[0]) handleCsvFile(e.target.files[0]) }}
+            />
+          </label>
+
+          {csvError && (
+            <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {csvError}
+            </p>
+          )}
+
+          {/* Preview */}
+          {csvRows.length > 0 && (
+            <div>
+              {/* Counters */}
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <span className="text-sm font-semibold text-gray-700">Pré-visualização</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 bg-gray-100 text-gray-600 text-xs font-semibold px-2.5 py-1 rounded-full">
+                    Total
+                    <span className="bg-white text-gray-800 rounded-full px-1.5 py-0.5 text-xs leading-none">
+                      {csvRows.length}
+                    </span>
+                  </span>
+                  <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-xs font-semibold px-2.5 py-1 rounded-full">
+                    Válidos
+                    <span className="bg-white text-green-800 rounded-full px-1.5 py-0.5 text-xs leading-none">
+                      {csvRows.filter(r => !r.erro).length}
+                    </span>
+                  </span>
+                  {csvRows.some(r => r.erro) && (
+                    <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 text-xs font-semibold px-2.5 py-1 rounded-full">
+                      Com erro
+                      <span className="bg-white text-red-800 rounded-full px-1.5 py-0.5 text-xs leading-none">
+                        {csvRows.filter(r => r.erro).length}
+                      </span>
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="border border-gray-200 rounded-xl overflow-hidden max-h-64 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium text-gray-600">#</th>
+                      <th className="text-left px-3 py-2 font-medium text-gray-600">Nome</th>
+                      <th className="text-left px-3 py-2 font-medium text-gray-600">Telefone</th>
+                      <th className="text-left px-3 py-2 font-medium text-gray-600">Nascimento</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {csvRows.map((row, i) => (
+                      <tr
+                        key={i}
+                        className={`border-t border-gray-100 ${row.erro ? 'bg-red-50' : ''}`}
+                      >
+                        <td className="px-3 py-2 text-gray-400 text-xs tabular-nums">{i + 1}</td>
+                        <td className="px-3 py-2 font-medium">{row.nome}</td>
+                        <td className="px-3 py-2 text-gray-500">{row.numero || '—'}</td>
+                        <td className="px-3 py-2 text-gray-500">
+                          {row.data_nascimento
+                            ? formatDateBR(row.data_nascimento)
+                            : row.erro
+                              ? <span className="text-red-500 text-xs">{row.erro}</span>
+                              : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* ─── Confirm Delete ────────────────────────────────────────────────── */}
       <ConfirmDialog
         isOpen={!!deleteTarget}
         title="Inativar Cerimoniário"
@@ -598,7 +915,7 @@ export default function Cerimoniarios() {
         onCancel={() => setDeleteTarget(null)}
       />
 
-      {/* Actions Drawer */}
+      {/* ─── Actions Drawer ────────────────────────────────────────────────── */}
       <ActionsDrawer
         isOpen={!!menuTarget}
         onClose={() => setMenuTarget(null)}

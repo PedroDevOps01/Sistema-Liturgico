@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Treinamento extends Model
@@ -20,6 +21,7 @@ class Treinamento extends Model
         'funcoes',
         'periodo_liturgico',
         'observacao',
+        'formacao_competencia_id',
     ];
 
     protected function casts(): array
@@ -33,5 +35,10 @@ class Treinamento extends Model
     public function presencas(): HasMany
     {
         return $this->hasMany(TreinamentoPresenca::class);
+    }
+
+    public function competencia(): BelongsTo
+    {
+        return $this->belongsTo(FormacaoCompetencia::class, 'formacao_competencia_id');
     }
 }

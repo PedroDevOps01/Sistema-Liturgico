@@ -1,6 +1,6 @@
 # Ministério dos Acólitos
 
-Sistema web para gerenciamento do ministério de cerimoniários e acólitos: escalas, presenças, treinamentos, relatórios e estatísticas de celebrações da Igreja Católica.
+Sistema web para gerenciamento do ministério de cerimoniários e acólitos: escalas, presenças, treinamentos, relatórios, formação litúrgica, controle de túnicas e estatísticas de celebrações da Igreja Católica.
 
 ---
 
@@ -87,65 +87,54 @@ bash redeploy.sh                          # no servidor
 - Tokens via Laravel Sanctum (Bearer)
 
 ### Dashboard
-- Cards de resumo: escalas do mês, cerimoniários ativos, próximas celebrações, sem escala
-- Lista de próximas celebrações com scroll interno
-- Alertas de celebrações sem escala e conflitos de horário
+- **Relógio em tempo real** (HH:MM:SS) com atualização a cada segundo
+- Hero com gradiente vinho/dourado, período litúrgico atual com cor e trecho bíblico
+- Strip de estatísticas no hero: escalas do mês, cerimoniários ativos, confirmações pendentes
+- **3 cards KPI**: escalas com barra de progresso (verde/âmbar/vermelho por taxa de confirmação), status com ponto pulsante animado, próxima celebração com contagem de dias
+- **Timeline vertical** das próximas celebrações com selos de data nas cores do período litúrgico e pill "Próxima"
+- **Widget "Hoje"** — lista todos os cerimoniários escalados nas celebrações do dia, agrupados por célula
+- **Alertas de confirmação** — escalas dos próximos 7 dias com confirmações pendentes, exibidas em âmbar/vermelho por urgência
+
+### Navegação (Sidebar)
+- Menu lateral com **módulos colapsáveis** em acordeão — abre/fecha ao clicar no módulo
+- Módulo ativo abre automaticamente ao navegar
+- Linha vertical de indentação visual nos subitens
+- Logo do grupo com fundo dourado no cabeçalho
+- Modo recolhido: apenas ícones, com flyout ao passar o mouse
+- Mobile: drawer deslizante com overlay e header com logo
 
 ### Cerimoniários
 - Cadastro individual e **em massa** (várias linhas de uma vez)
 - Disponibilidade por turno: domingo manhã/tarde/noite, semana manhã/tarde/noite, sábado
 - Flag de indisponibilidade temporária
 - Flag de **cerimoniário experiente** (destacado em listagens e relatórios)
-- Flag de **Mestre** — exibe prefixo `M -` antes do nome em toda escala (cópia WhatsApp, PDF, calendário mensal)
-- Soft delete — excluídos somem da lista permanentemente
-- Exibição de telefone com máscara `(XX) XXXXX-XXXX`
+- Flag de **Mestre** — exibe prefixo `M -` antes do nome em toda escala
+- Soft delete
 
 ### Celebrações
 - Cadastro individual ou **em lote para final de semana**
 - Flag "Repetir mesmo dia" no cadastro em lote
 - Detecção automática de celebração noturna (horário ≥ 17h)
-- **Cor litúrgica CNBB** configurável por celebração (Branco, Vermelho, Verde, Roxo, Preto, Rosa, Dourado, Azul)
-- Flags disponíveis: Possui Bispo/Arcebispo · Celebração das 6h · Celebração da Palavra · Celebração Solene · Casamento · Batismo · Crisma · Primeira Eucaristia · Adoração ao Santíssimo · Procissão · Via-Sacra · Exéquias · Vigília Pascal · Paixão do Senhor · Ordenação
-- **Ordenação por data**: próximas celebrações aparecem primeiro; datas passadas ficam no final com badge vermelho "Data passada"
-- Soft delete
+- **Cor litúrgica CNBB** configurável por celebração
+- Flags: Possui Bispo/Arcebispo · Celebração das 6h · Celebração da Palavra · Celebração Solene · Casamento · Batismo · Crisma · Primeira Eucaristia · Adoração ao Santíssimo · Procissão · Via-Sacra · Exéquias · Vigília Pascal · Paixão do Senhor · Ordenação
+- Ordenação por data com badge "Data passada" para celebrações anteriores
 
 ### Escalas
 - Estrutura **automática** gerada pelas flags da celebração
-- Celebrações já escaladas não aparecem no seletor de nova escala
-- Funções geradas automaticamente por tipo de celebração:
-  - Cerimoniário Mestre sempre presente
-  - Auxiliares 1–4 em celebrações padrão
-  - Turiferário (5º Aux) apenas em celebrações noturnas
-  - Môr, Mitra, Bácula quando possui Bispo/Arcebispo
-- **Sugestão automática de acólitos** — botão "Sugerir" preenche a escala com base em:
-  - Disponibilidade de horário/turno
-  - Acólitos não escalados no mesmo dia
-  - Rotatividade justa (prioriza quem há mais tempo sem servir)
-  - Mestres priorizados para a primeira posição
+- Funções geradas automaticamente por tipo (Turiferário só em noturnas, Môr/Mitra/Bácula com Bispo)
+- **Sugestão automática** por disponibilidade, rotatividade justa e priorização de mestres
 - **Drag & drop** para reordenar funções
-- Adicionar, remover e duplicar funções livremente
-- Select de cerimoniário com busca e indicadores visuais:
-  - 🟢 Verde — disponível para o horário
-  - 🟡 Âmbar — fora do turno habitual
-  - 🔴 Vermelho — indisponível temporariamente
-  - 🟠 Laranja — já escalado em outra escala no mesmo dia
-- Alerta de conflito ao selecionar cerimoniário já escalado no mesmo dia
-- Alerta de cerimoniário duplicado na mesma escala
-- **Ordenação por data**: escalas futuras primeiro; datas passadas no final com badge vermelho "Data passada"
-- Soft delete
+- Select de cerimoniário com indicadores visuais de disponibilidade (verde/âmbar/vermelho/laranja)
+- Alertas de conflito e duplicatas
 
-### Confirmação de Presença via Link
-- Cada acólito na escala recebe um **link único** (token de 40 chars) para confirmar ou recusar presença
-- A página de confirmação (`/confirmar/:token`) é **pública** — não exige login
-- Exibe detalhes da celebração (data, horário, função) antes de confirmar
-- Status visível na visualização da escala: ✓ Confirmado / ✗ Recusou / ? Pendente
-- Botão de WhatsApp na escala para enviar o link diretamente ao acólito
-- Token regenerado automaticamente se o cerimoniário for trocado
+### Confirmação de Presença
+- Link único por acólito para confirmar/recusar sem login
+- Status visível na escala: ✓ Confirmado / ✗ Recusou / ? Pendente
+- Botão de WhatsApp para enviar link diretamente
 
 ### Exportação
-- **Copiar para WhatsApp** — texto compacto formatado com prefixo `M -` para mestres
-- **Enviar no WhatsApp** — abre `wa.me` com o texto pronto
-- **PDF estilizado** — layout compacto com logo da paróquia, tabela de funções e legenda
+- **Copiar para WhatsApp** — texto formatado com prefixo `M -` para mestres
+- **PDF estilizado** — layout com logo, tabela de funções e legenda
 - **Calendário mensal** — cópia de todas as escalas do mês
 
 ### Presença
@@ -154,77 +143,64 @@ bash redeploy.sh                          # no servidor
 - Campo de substituto vinculado ao status "Substituído"
 
 ### Treinamentos
-- Cadastro de treinamentos com data, horário, tema, local, período litúrgico e observação
-- Funções litúrgicas alvo (JSON) para direcionar o treinamento
+- Cadastro com data, horário, tema, local, período litúrgico e funções alvo
 - Registro de presença por cerimoniário com status individual
 - Geração de convite formatado para WhatsApp
+- **Vínculo com competência de Formação** — ao marcar presença como "presente", a competência selecionada avança automaticamente para "concluída" no perfil do cerimoniário
+
+### Formação
+- **Níveis de formação** (ex.: Introdutório, Básico, Avançado) com descrição
+- **Competências** vinculadas a cada nível (ex.: conhece o rito, manuseio da cruz processional)
+- **Progresso individual** de cada cerimoniário por competência: não iniciado / em andamento / concluído
+- Aba de visão geral com progresso percentual de todos os cerimoniários
+- Aba de progresso com seleção de cerimoniário, botão de voltar para a listagem e edição inline de cada competência
+- **Emissão de certificado PDF** ao concluir um nível — gerado com DomPDF, layout paisagem A4, download autenticado
+- **Histórico de competências** — aba com data de conclusão, observação e nome de quem registrou cada competência
+
+### Controle de Túnicas
+- Cadastro com código, tamanho (opcional), cor e estado de conservação
+- **Empréstimo** a cerimoniário com data prevista de devolução
+- **Devolução** com registro de data real e observação
+- **Marcar como perdida** em túnicas emprestadas
+- **Marcar como encontrada** em túnicas perdidas — volta ao status disponível
+- Filtros por status: todas / disponíveis / emprestadas / perdidas
+- Alerta de atraso na devolução (dias em vermelho)
+- Histórico completo de empréstimos por túnica
 
 ### Relatórios
-- Módulo próprio na sidebar
-- **Relatório de Presenças**: total de serviços, faltas, substituições e justificativas por cerimoniário
-- **Estatísticas gerais**: ranking dos que mais serviram, participações mensais, faltas por cerimoniário
-- **Top presenças** e **substituições** por período
+- **Presenças**: total de serviços, faltas, substituições e justificativas por cerimoniário
+- **Frequência Individual**: evolução mensal de presenças de um cerimoniário específico com gráfico de barras
+- **Crescimento do Ministério**: evolução do número de cerimoniários ativos mês a mês com gráfico de linha
+- **Presenças em Treinamentos**: taxa de presença por treinamento e ranking de participação dos cerimoniários
+- **Empréstimos de Túnicas**: tempo médio de devolução, cerimoniários com mais empréstimos, túnicas com mais ocorrências de perda e histórico completo com filtro por período
+- **Assiduidade**: por período litúrgico (Advento, Quaresma, Tempo Comum etc.), top ausentes, faltas por mês com top 5 por mês — padrão inclui próximos 30 dias para capturar faltas pré-registradas
+- **Analytics**: ranking de assiduidade com tendência (subindo/estável/caindo), cerimoniários em risco (≥ 3 faltas consecutivas), score de saúde do ministério (0–100), projeção de celebrações para o próximo mês
+- Meses sempre em **português** (Jan, Fev, Mar…) independente do locale do servidor
 
 ### Chat — Consultas Rápidas
 - Interface de chat com respostas em linguagem natural
-- Reconhece perguntas sobre: ranking de serviços, escalas, celebrações, cerimoniários, treinamentos, presenças e funções litúrgicas
-- Consultas disponíveis: próximas escalas, escalas da semana/mês, casamentos, batismos, cerimoniários ativos/inativos/experientes/indisponíveis, presenças pendentes, ausências e muito mais
+- Reconhece perguntas sobre: ranking, escalas, celebrações, cerimoniários, treinamentos, presenças e funções litúrgicas
 
 ### Busca Global (Ctrl+K)
-- Atalho `Ctrl+K` (ou `Cmd+K` no Mac) abre o modal de busca de qualquer página
-- Pesquisa simultânea em cerimoniários, celebrações e escalas:
-  - **Acólito** — busca pelo nome
-  - **Celebração** — busca pelo período litúrgico ou data (`25/12`, `25/12/2026`)
-  - **Escala** — busca pelo período ou data da celebração associada
+- Pesquisa simultânea em cerimoniários, celebrações e escalas
 - Navegação por teclado: ↑↓ para mover, Enter para ir, Esc para fechar
-- Fecha o menu lateral ao navegar para o resultado
-- Exemplos de busca exibidos no estado vazio do modal
 
 ### Portal Público (`/portal`)
 - Página pública sem necessidade de login
-- Configuração completa salva no banco de dados — qualquer dispositivo vê as mesmas alterações
-- **Carrossel Principal** (galeria do ministério) e **Carrossel de Serviço** (fotos de celebrações):
-  - Upload de imagens com compressão automática no cliente (máx 1400px, JPEG 82%)
-  - Imagens salvas no servidor em `storage/app/public/portal/`
-  - Proporção padronizada **16:7** (banner panorâmico) em ambos os carrossels
-  - Avanço automático a cada 5 segundos, pause ao passar o mouse
-  - Suporte a **swipe** (arrastar) no mobile para navegar entre slides
-  - Setas sempre visíveis no mobile; aparecem ao hover no desktop
-- **8 temas de cor litúrgica** para o portal:
-  - Vinho/Borgonha, Azul Litúrgico, Verde Esperança, Roxo Advento
-  - Dourado Pascal, Branco Festivo, Vermelho Pentecostes, Rosa Gaudete
-- **Visibilidade de seções** — cada seção pode ser ocultada individualmente:
-  Estatísticas · Nossa Missão · Galeria Principal · Fotos de Serviço · Funcionalidades · Como Funciona · Próximas Celebrações · Depoimentos · Contato · Formulário
-- Estatísticas em tempo real puxadas do banco
-- Formulário **"Quero Servir"** para interessados
-
-### Configuração do Portal (`/portal-config`)
-- Edição de todos os textos, cores, redes sociais e carrossels
-- Indicação do **tamanho ideal de imagem** por carrossel (1920 × 840 px — proporção 16:7)
-- Preview das imagens com proporção correta antes de salvar
-- Interface totalmente responsiva para mobile
-- Salvo via `PUT /api/configuracoes` com campo `portal_config` (JSON) no banco
-- localStorage usado como cache para carregamento imediato
-
-### Modais
-- Botões de ação sempre **fixos no rodapé** da modal, independente do scroll do conteúdo
-- Suporte a formulários com `form` attribute para vincular submit ao botão externo ao form
+- **8 temas de cor litúrgica**
+- Carrossels com upload de imagens, proporção 16:7 e suporte a swipe mobile
+- Formulário "Quero Servir" para interessados
+- Visibilidade individual de seções configurável
+- **SEO básico**: meta `description`, Open Graph (`og:title`, `og:description`, `og:image`, `og:type`), Twitter Card e `theme-color` — configurado via `<head>` estático + `useEffect` no React
 
 ### Interessados
-- Administradores recebem as inscrições do portal em `/interessados`
-- Badge "NOVO" para inscrições não lidas
-- Ação de marcar como lido / não lido
-- Botão de WhatsApp direto para entrar em contato
-- Exclusão com confirmação
+- Inscrições recebidas pelo portal em `/interessados`
+- Badge "NOVO" para não lidas, marcar como lido/não lido
+- Botão de WhatsApp direto para contato
 
 ### Usuários
 - CRUD de administradores com usuário/senha (sem e-mail)
 - Resetar senha, ativar/desativar, soft delete
-
-### Configurações
-- Nome da paróquia, endereço, telefone, coordenador
-- Logo salvo em **base64** no banco
-- Configurações gerais do portal
 
 ---
 
@@ -233,17 +209,22 @@ bash redeploy.sh                          # no servidor
 | Tabela | Descrição |
 |--------|-----------|
 | `users` | Administradores do sistema |
-| `cerimoniarios` | Cerimoniários/acólitos (com flags `mestre`, `experiente`, `indisponivel_temporario`) |
+| `cerimoniarios` | Cerimoniários/acólitos (flags `mestre`, `experiente`, `indisponivel_temporario`) |
 | `funcoes` | 9 funções litúrgicas fixas |
 | `celebracoes` | Celebrações com flags, cor litúrgica e agrupamento de final de semana |
 | `escalas` | Escalas vinculadas a uma celebração |
 | `escala_itens` | Linhas da escala (função + cerimoniário + token de confirmação + status) |
 | `presencas` | Presença pós-celebração (com campo de substituto) |
 | `treinamentos` | Treinamentos com tema, local, período litúrgico e funções alvo |
-| `treinamento_presencas` | Presença individual por cerimoniário em cada treinamento |
+| `treinamento_presencas` | Presença individual por cerimoniário em cada treinamento (campo `formacao_competencia_id` para avanço automático) |
 | `historico_escalas` | Auditoria de criação/edição/exclusão |
 | `configuracoes` | Dados, logo da paróquia e configurações do portal (JSON `portal_config`) |
 | `interessados` | Inscrições recebidas pelo formulário do portal público |
+| `tunicas` | Túnicas com código, tamanho, cor, estado e soft delete |
+| `tunica_emprestimos` | Histórico de empréstimos com status: `emprestada`, `devolvida`, `perdida` |
+| `formacao_niveis` | Níveis de formação litúrgica |
+| `formacao_competencias` | Competências vinculadas a cada nível |
+| `cerimoniario_competencias` | Progresso individual por competência: `nao_iniciado`, `em_andamento`, `concluido` — campo `concluido_por` registra o usuário que marcou |
 
 Todas as tabelas principais usam **soft delete** (`deleted_at`).
 

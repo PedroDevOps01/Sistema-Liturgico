@@ -4,7 +4,8 @@ import Sidebar from './Sidebar'
 import ChatWidget from '../ChatWidget'
 import SearchModal from '../SearchModal'
 import RelatorioMensalModal from '../RelatorioMensalModal'
-import { Menu, X, Cross, Search } from 'lucide-react'
+import { Menu, X, Search } from 'lucide-react'
+import logogrupo from '../../assets/logogrupo.png'
 
 const routeLabels: Record<string, string> = {
   '/': 'Dashboard',
@@ -21,6 +22,14 @@ const routeLabels: Record<string, string> = {
   '/treinamentos': 'Treinamentos',
   '/relatorio': 'Relatório',
   '/analytics': 'Analytics',
+  '/aniversariantes': 'Aniversariantes',
+  '/tunicas': 'Controle de Túnicas',
+  '/formacao': 'Formação',
+  '/relatorios/frequencia': 'Frequência Individual',
+  '/relatorios/crescimento': 'Crescimento do Ministério',
+  '/relatorios/treinamentos': 'Presenças em Treinamentos',
+  '/relatorios/tunicas': 'Relatório de Empréstimos',
+  '/relatorios/assiduidade': 'Assiduidade por Período Litúrgico',
 }
 
 function getCurrentLabel(pathname: string): string {
@@ -111,8 +120,11 @@ export default function Layout() {
             {mobileOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
           <div className="flex items-center gap-2 flex-1">
-            <div className="w-7 h-7 bg-gold-500 rounded-full flex items-center justify-center">
-              <Cross size={14} className="text-black" />
+            <div
+              className="w-12 h-12 rounded-lg flex items-center justify-center p-1 flex-shrink-0"
+              style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)' }}
+            >
+              <img src={logogrupo} alt="Logo" className="w-full h-full object-contain" />
             </div>
             <span className="font-bold text-base">{pageLabel}</span>
           </div>

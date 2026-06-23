@@ -10,7 +10,6 @@ import {
   UserCog,
   Settings,
   LogOut,
-  Cross,
   History,
   GraduationCap,
   Globe,
@@ -18,9 +17,16 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   ListChecks,
   Activity,
+  Gift,
+  Shirt,
+  BookOpen,
+  TrendingUp,
+  UserCheck,
 } from 'lucide-react'
+import logogrupo from '../../assets/logogrupo.png'
 import { removeToken, removeUser, getUser } from '../../lib/auth'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
@@ -43,8 +49,9 @@ interface Module {
 const modules: Module[] = [
   {
     id: 'overview',
-    label: 'Visão Geral',
+    label: 'Dashboard',
     icon: LayoutDashboard,
+    standalone: true,
     items: [{ label: 'Dashboard', icon: LayoutDashboard, to: '/' }],
   },
   {
@@ -53,7 +60,7 @@ const modules: Module[] = [
     icon: Users,
     items: [
       { label: 'Cerimoniários', icon: Users,    to: '/cerimoniarios' },
-      { label: 'Celebrações',   icon: Calendar, to: '/celebracoes' },
+      { label: 'Celebrações',   icon: Calendar, to: '/celebracoes'   },
     ],
   },
   {
@@ -61,8 +68,8 @@ const modules: Module[] = [
     label: 'Escalonamento',
     icon: ListChecks,
     items: [
-      { label: 'Escalas',    icon: List,        to: '/escalas' },
-      { label: 'Calendário', icon: CalendarDays, to: '/calendario' },
+      { label: 'Escalas',    icon: List,         to: '/escalas'    },
+      { label: 'Calendário', icon: CalendarDays,  to: '/calendario' },
     ],
   },
   {
@@ -70,8 +77,18 @@ const modules: Module[] = [
     label: 'Acompanhamento',
     icon: History,
     items: [
-      { label: 'Histórico',    icon: History,       to: '/historico' },
-      { label: 'Treinamentos', icon: GraduationCap, to: '/treinamentos' },
+      { label: 'Histórico',       icon: History,       to: '/historico'      },
+      { label: 'Treinamentos',    icon: GraduationCap, to: '/treinamentos'   },
+      { label: 'Aniversariantes', icon: Gift,          to: '/aniversariantes'},
+    ],
+  },
+  {
+    id: 'ministerio',
+    label: 'Ministério',
+    icon: BookOpen,
+    items: [
+      { label: 'Formação',          icon: BookOpen, to: '/formacao' },
+      { label: 'Controle de Túnicas', icon: Shirt,  to: '/tunicas'  },
     ],
   },
   {
@@ -79,17 +96,13 @@ const modules: Module[] = [
     label: 'Relatórios',
     icon: BarChart2,
     items: [
-      { label: 'Relatório',  icon: BarChart2, to: '/relatorio'  },
-      { label: 'Analytics',  icon: Activity,  to: '/analytics'  },
-    ],
-  },
-  {
-    id: 'admin',
-    label: 'Administração',
-    icon: UserCog,
-    items: [
-      { label: 'Usuários',      icon: UserCog,  to: '/usuarios' },
-      { label: 'Configurações', icon: Settings, to: '/configuracoes' },
+      { label: 'Presenças',                icon: BarChart2,     to: '/relatorio'                  },
+      { label: 'Frequência Individual',    icon: UserCheck,     to: '/relatorios/frequencia'      },
+      { label: 'Crescimento',              icon: TrendingUp,    to: '/relatorios/crescimento'     },
+      { label: 'Treinamentos',             icon: GraduationCap, to: '/relatorios/treinamentos'    },
+      { label: 'Empréstimos de Túnicas',   icon: Shirt,         to: '/relatorios/tunicas'         },
+      { label: 'Assiduidade',              icon: UserCheck,     to: '/relatorios/assiduidade'     },
+      { label: 'Analytics',                icon: Activity,      to: '/analytics'                  },
     ],
   },
   {
@@ -98,7 +111,16 @@ const modules: Module[] = [
     icon: Globe,
     items: [
       { label: 'Portal Público', icon: Globe,  to: '/portal-config' },
-      { label: 'Interessados',   icon: Heart,  to: '/interessados' },
+      { label: 'Interessados',   icon: Heart,  to: '/interessados'  },
+    ],
+  },
+  {
+    id: 'admin',
+    label: 'Administração',
+    icon: UserCog,
+    items: [
+      { label: 'Usuários',      icon: UserCog,  to: '/usuarios'       },
+      { label: 'Configurações', icon: Settings, to: '/configuracoes'  },
     ],
   },
 ]
@@ -122,9 +144,29 @@ export default function Sidebar({
   const location = useLocation()
   const user = getUser()
 
+  /* collapsed flyout */
   const [hoveredModule, setHoveredModule] = useState<string | null>(null)
   const [flyoutTop, setFlyoutTop] = useState(0)
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  /* accordion open state – default: open the active module */
+  const [openModules, setOpenModules] = useState<Set<string>>(() => {
+    const active = modules.find(m =>
+      m.items.some(i =>
+        i.to === '/' ? location.pathname === '/' : location.pathname.startsWith(i.to)
+      )
+    )
+    return new Set(active ? [active.id] : [])
+  })
+
+  function toggleModule(id: string) {
+    setOpenModules(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   function isModuleActive(mod: Module) {
     return mod.items.some(item =>
@@ -172,10 +214,10 @@ export default function Sidebar({
           : 'flex-row items-center gap-3 px-5 py-5'
       }`}>
         <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg"
+          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg p-1.5"
           style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)' }}
         >
-          <Cross size={20} className="text-wine-900" />
+          <img src={logogrupo} alt="Ministério dos Acólitos" className="w-full h-10 object-contain" />
         </div>
 
         {!collapsed && (
@@ -219,18 +261,12 @@ export default function Sidebar({
       {/* ── Navigation ────────────────────────── */}
       <nav className={`flex-1 py-3 overflow-y-auto ${collapsed ? 'px-2' : 'px-3'}`}>
         {collapsed ? (
-          /* Icon-only mode */
+          /* ── Icon-only mode ── */
           <div className="space-y-1">
             {modules.map(mod => {
               const ModIcon = mod.icon
               const active = isModuleActive(mod)
               const isSingle = mod.items.length === 1
-
-              const iconClass = `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${
-                active
-                  ? 'bg-white/20 text-white shadow-sm border border-white/20'
-                  : 'text-orange-100/70 hover:bg-white/10 hover:text-white'
-              }`
 
               return isSingle ? (
                 <NavLink
@@ -255,7 +291,13 @@ export default function Sidebar({
                   onMouseEnter={e => onModuleEnter(mod.id, e.currentTarget)}
                   onMouseLeave={onLeave}
                 >
-                  <button className={iconClass}>
+                  <button
+                    className={`flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${
+                      active
+                        ? 'bg-white/20 text-white shadow-sm border border-white/20'
+                        : 'text-orange-100/70 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
                     <ModIcon size={18} />
                   </button>
                 </div>
@@ -263,38 +305,86 @@ export default function Sidebar({
             })}
           </div>
         ) : (
-          /* Expanded: grouped by module */
+          /* ── Expanded: accordion by module ── */
           <div className="space-y-0.5">
-            {modules.map((mod, modIdx) => {
-              const isSingle = mod.items.length === 1 && !mod.standalone
+            {modules.map(mod => {
+              const ModIcon = mod.icon
+              const isActive = isModuleActive(mod)
+              const isOpen = openModules.has(mod.id)
+
+              /* standalone items (Dashboard) render as plain NavLink */
+              if (mod.standalone) {
+                return (
+                  <NavLink
+                    key={mod.id}
+                    to={mod.items[0].to}
+                    end
+                    onClick={onCloseMobile}
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm font-medium ${
+                        isActive
+                          ? 'bg-white/20 text-white font-semibold shadow-sm border border-white/20 backdrop-blur-sm'
+                          : 'text-orange-100/80 hover:bg-white/10 hover:text-white'
+                      }`
+                    }
+                  >
+                    <ModIcon size={17} className="flex-shrink-0" />
+                    {mod.items[0].label}
+                  </NavLink>
+                )
+              }
+
               return (
-                <div key={mod.id} className={modIdx > 0 ? 'pt-2' : ''}>
-                  {!isSingle && (
-                    <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest px-4 pb-1 pt-1">
-                      {mod.label}
-                    </p>
-                  )}
-                  {mod.items.map(item => {
-                    const ItemIcon = item.icon
-                    return (
-                      <NavLink
-                        key={item.to}
-                        to={item.to}
-                        end={item.to === '/'}
-                        onClick={onCloseMobile}
-                        className={({ isActive }) =>
-                          `flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-[15px] font-medium ${
-                            isActive
-                              ? 'bg-white/20 text-white font-semibold shadow-sm border border-white/20 backdrop-blur-sm'
-                              : 'text-orange-100/80 hover:bg-white/10 hover:text-white'
-                          }`
-                        }
-                      >
-                        <ItemIcon size={18} className="flex-shrink-0" />
-                        {item.label}
-                      </NavLink>
-                    )
-                  })}
+                <div key={mod.id}>
+                  {/* Module header – clickable toggle */}
+                  <button
+                    onClick={() => toggleModule(mod.id)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all duration-200 text-sm font-semibold ${
+                      isActive
+                        ? 'text-white bg-white/10'
+                        : 'text-orange-100/60 hover:text-orange-100/90 hover:bg-white/5'
+                    }`}
+                  >
+                    <ModIcon size={16} className="flex-shrink-0" />
+                    <span className="flex-1 text-left">{mod.label}</span>
+                    <ChevronDown
+                      size={14}
+                      className={`flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+
+                  {/* Subitems – animated via CSS grid trick */}
+                  <div
+                    className={`grid transition-all duration-200 ease-in-out ${
+                      isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                    }`}
+                  >
+                    <div className="overflow-hidden">
+                      <div className="mt-0.5 ml-3 pl-3 border-l border-white/10 space-y-0.5 pb-1">
+                        {mod.items.map(item => {
+                          const ItemIcon = item.icon
+                          return (
+                            <NavLink
+                              key={item.to}
+                              to={item.to}
+                              end={item.to === '/'}
+                              onClick={onCloseMobile}
+                              className={({ isActive }) =>
+                                `flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-150 text-sm ${
+                                  isActive
+                                    ? 'bg-white/20 text-white font-semibold shadow-sm border border-white/15'
+                                    : 'text-orange-100/75 hover:bg-white/10 hover:text-white'
+                                }`
+                              }
+                            >
+                              <ItemIcon size={15} className="flex-shrink-0" />
+                              {item.label}
+                            </NavLink>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )
             })}
@@ -305,7 +395,7 @@ export default function Sidebar({
       {/* ── User + Logout ─────────────────────── */}
       <div className={`border-t border-white/10 pt-3 pb-4 flex-shrink-0 space-y-1 ${collapsed ? 'px-2' : 'px-3'}`}>
         {user && !collapsed && (
-          <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl">
+          <div className="flex items-center gap-3 px-3 py-2 rounded-xl">
             <div
               className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
               style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)' }}
@@ -331,7 +421,7 @@ export default function Sidebar({
           onClick={handleLogout}
           title={collapsed ? 'Sair' : undefined}
           className={`flex items-center gap-3 w-full py-2.5 rounded-xl text-gray-300 hover:bg-white/10 hover:text-white transition-all duration-200 text-sm font-medium ${
-            collapsed ? 'justify-center px-0' : 'px-4'
+            collapsed ? 'justify-center px-0' : 'px-3'
           }`}
         >
           <LogOut size={18} className="flex-shrink-0" />
@@ -351,8 +441,10 @@ export default function Sidebar({
             className="sidebar-gradient rounded-2xl overflow-hidden shadow-2xl min-w-[200px]"
             style={{ border: '1px solid rgba(255,255,255,0.15)' }}
           >
-            <p className="text-[10px] font-bold uppercase tracking-widest px-4 py-2.5 text-white/40"
-              style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            <p
+              className="text-[10px] font-bold uppercase tracking-widest px-4 py-2.5 text-white/40"
+              style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}
+            >
               {flyoutModule.label}
             </p>
             {flyoutModule.items.map(item => {

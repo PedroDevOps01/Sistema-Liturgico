@@ -31,16 +31,17 @@ class TreinamentoController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'data'              => 'required|date',
-            'horario'           => 'required|string',
-            'tema'              => 'required|string|max:255',
-            'local'             => 'nullable|string|max:255',
-            'funcoes'           => 'nullable|array',
-            'funcoes.*'         => 'string',
-            'periodo_liturgico' => 'nullable|string|max:100',
-            'observacao'        => 'nullable|string',
-            'cerimoniarios'     => 'nullable|array',
-            'cerimoniarios.*'   => 'exists:cerimoniarios,id',
+            'data'                     => 'required|date',
+            'horario'                  => 'required|string',
+            'tema'                     => 'required|string|max:255',
+            'local'                    => 'nullable|string|max:255',
+            'funcoes'                  => 'nullable|array',
+            'funcoes.*'                => 'string',
+            'periodo_liturgico'        => 'nullable|string|max:100',
+            'observacao'               => 'nullable|string',
+            'formacao_competencia_id'  => 'nullable|exists:formacao_competencias,id',
+            'cerimoniarios'            => 'nullable|array',
+            'cerimoniarios.*'          => 'exists:cerimoniarios,id',
         ]);
 
         $cerimoniarios = $validated['cerimoniarios'] ?? [];
@@ -84,16 +85,17 @@ class TreinamentoController extends Controller
     public function update(Request $request, Treinamento $treinamento): JsonResponse
     {
         $validated = $request->validate([
-            'data'              => 'sometimes|date',
-            'horario'           => 'sometimes|string',
-            'tema'              => 'sometimes|string|max:255',
-            'local'             => 'nullable|string|max:255',
-            'funcoes'           => 'nullable|array',
-            'funcoes.*'         => 'string',
-            'periodo_liturgico' => 'nullable|string|max:100',
-            'observacao'        => 'nullable|string',
-            'cerimoniarios'     => 'nullable|array',
-            'cerimoniarios.*'   => 'exists:cerimoniarios,id',
+            'data'                     => 'sometimes|date',
+            'horario'                  => 'sometimes|string',
+            'tema'                     => 'sometimes|string|max:255',
+            'local'                    => 'nullable|string|max:255',
+            'funcoes'                  => 'nullable|array',
+            'funcoes.*'                => 'string',
+            'periodo_liturgico'        => 'nullable|string|max:100',
+            'observacao'               => 'nullable|string',
+            'formacao_competencia_id'  => 'nullable|exists:formacao_competencias,id',
+            'cerimoniarios'            => 'nullable|array',
+            'cerimoniarios.*'          => 'exists:cerimoniarios,id',
         ]);
 
         $cerimoniarios = isset($validated['cerimoniarios']) ? $validated['cerimoniarios'] : null;
@@ -159,6 +161,21 @@ class TreinamentoController extends Controller
             ],
             $validated
         );
+
+        $treinamento->load('competencia');
+        if ($presenca->status === 'presente' && $treinamento->formacao_competencia_id) {
+            \App\Models\CerimoniarioCompetencia::updateOrCreate(
+                [
+                    'cerimoniario_id'         => $cerimoniario->id,
+                    'formacao_competencia_id' => $treinamento->formacao_competencia_id,
+                ],
+                [
+                    'concluida'      => true,
+                    'data_conclusao' => now()->toDateString(),
+                    'concluido_por'  => auth()->id(),
+                ]
+            );
+        }
 
         return response()->json([
             'data'    => $presenca->load('cerimoniario'),
