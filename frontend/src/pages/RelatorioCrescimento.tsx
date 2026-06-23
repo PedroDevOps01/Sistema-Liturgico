@@ -1,18 +1,10 @@
 import { useEffect, useState } from 'react'
 import { TrendingUp, Users, BarChart2 } from 'lucide-react'
 import { format, subMonths } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
 import type { RelatorioCrescimentoData } from '../types'
 import PageHeader from '../components/common/PageHeader'
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-function formatMonthLabel(label: string) {
-  // label comes as e.g. "Jan/2024" — truncate to 3 chars month
-  return label.length > 7 ? label.slice(0, 7) : label
-}
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
@@ -25,14 +17,12 @@ export default function RelatorioCrescimento() {
   const [ate, setAte] = useState(defaultAte)
   const [relatorio, setRelatorio] = useState<RelatorioCrescimentoData | null>(null)
   const [loading, setLoading] = useState(false)
-  const [hasGenerated, setHasGenerated] = useState(false)
 
   async function gerar() {
     setLoading(true)
     try {
       const r = await api.get<RelatorioCrescimentoData>(`/relatorios/crescimento?de=${de}&ate=${ate}`)
       setRelatorio(r.data)
-      setHasGenerated(true)
     } catch {
       toast.error('Erro ao gerar relatório')
     } finally {

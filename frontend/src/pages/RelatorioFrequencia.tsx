@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Search, X, BarChart2, Calendar, User } from "lucide-react";
+import { X, BarChart2, Calendar, User } from "lucide-react";
 import { format, parseISO, startOfYear } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import toast from "react-hot-toast";
@@ -117,10 +117,6 @@ export default function RelatorioFrequencia() {
   const filteredCer = cerimoniarios
     .filter((c) => c.nome.toLowerCase().includes(search.toLowerCase()))
     .slice(0, 8);
-
-  const maxServiu = relatorio
-    ? Math.max(...relatorio.por_mes.map((m) => m.total), 1)
-    : 1;
 
   return (
     <div className="space-y-6">

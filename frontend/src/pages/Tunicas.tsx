@@ -18,7 +18,7 @@ import SearchableSelect from '../components/common/SearchableSelect'
 
 const tunicaSchema = z.object({
   codigo: z.string().min(1, 'Código obrigatório'),
-  tamanho: z.enum(['PP', 'P', 'M', 'G', 'GG']).optional().or(z.literal('')).transform(v => v || undefined),
+  tamanho: z.enum(['', 'PP', 'P', 'M', 'G', 'GG']).optional(),
   cor: z.enum(['branca', 'vermelha', 'preta']),
   estado: z.enum(['novo', 'bom', 'regular', 'ruim']),
   observacao: z.string().optional(),
@@ -26,7 +26,7 @@ const tunicaSchema = z.object({
 type TunicaForm = z.infer<typeof tunicaSchema>
 
 const emprestarSchema = z.object({
-  cerimoniario_id: z.number({ required_error: 'Selecione um cerimoniário' }),
+  cerimoniario_id: z.number({ message: 'Selecione um cerimoniário' }),
   data_devolucao_prevista: z.string().optional(),
   observacao: z.string().optional(),
 })
@@ -38,14 +38,6 @@ const devolverSchema = z.object({
 type DevolverForm = z.infer<typeof devolverSchema>
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-function estadoBadgeVariant(estado: string): 'green' | 'blue' | 'gold' | 'red' | 'gray' {
-  if (estado === 'novo') return 'green'
-  if (estado === 'bom') return 'blue'
-  if (estado === 'regular') return 'orange' as unknown as 'gold'
-  if (estado === 'ruim') return 'red'
-  return 'gray'
-}
 
 function estadoBadgeVariantSafe(estado: string): 'green' | 'blue' | 'orange' | 'red' | 'gray' {
   if (estado === 'novo') return 'green'
@@ -148,11 +140,12 @@ export default function Tunicas() {
 
   async function onSaveTunica(data: TunicaForm) {
     try {
+      const payload = { ...data, tamanho: data.tamanho || undefined }
       if (editTarget) {
-        await api.put(`/tunicas/${editTarget.id}`, data)
+        await api.put(`/tunicas/${editTarget.id}`, payload)
         toast.success('Túnica atualizada!')
       } else {
-        await api.post('/tunicas', data)
+        await api.post('/tunicas', payload)
         toast.success('Túnica criada!')
       }
       setModalTunica(false)
@@ -582,7 +575,6 @@ export default function Tunicas() {
         confirmLabel="Confirmar"
         onConfirm={onMarcarEncontrada}
         onCancel={() => setEncontradaTarget(null)}
-        variant="default"
       />
     </div>
   )

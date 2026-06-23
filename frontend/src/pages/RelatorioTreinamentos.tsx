@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Copy, Check, BarChart2, GraduationCap } from 'lucide-react'
 import { format, subMonths } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
 import type { RelatorioTreinamentosData } from '../types'
