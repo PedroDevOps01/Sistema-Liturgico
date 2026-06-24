@@ -41,7 +41,7 @@ export default function Modal({ isOpen, onClose, title, children, footer, size =
   }
 
   return (
-    <div className="fixed inset-0 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ zIndex: 9999 }}>
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm"
@@ -49,7 +49,7 @@ export default function Modal({ isOpen, onClose, title, children, footer, size =
       />
       {/* Panel */}
       <div
-        className={`relative bg-white rounded-2xl shadow-2xl w-full ${sizeClasses[size]} max-h-[95vh] sm:max-h-[90vh] flex flex-col animate-slide-up overflow-hidden`}
+        className={`relative bg-white rounded-2xl shadow-2xl w-full ${sizeClasses[size]} max-h-[90vh] flex flex-col animate-slide-up overflow-hidden`}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-4 sm:px-6 flex-shrink-0 sidebar-gradient">

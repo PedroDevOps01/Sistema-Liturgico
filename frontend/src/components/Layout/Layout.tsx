@@ -5,7 +5,6 @@ import ChatWidget from '../ChatWidget'
 import SearchModal from '../SearchModal'
 import RelatorioMensalModal from '../RelatorioMensalModal'
 import { Menu, X, Search } from 'lucide-react'
-import logogrupo from '../../assets/logogrupo.png'
 
 const routeLabels: Record<string, string> = {
   '/': 'Dashboard',
@@ -119,15 +118,7 @@ export default function Layout() {
           >
             {mobileOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
-          <div className="flex items-center gap-2 flex-1">
-            <div
-              className="w-12 h-12 rounded-lg flex items-center justify-center p-1 flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)' }}
-            >
-              <img src={logogrupo} alt="Logo" className="w-full h-full object-contain" />
-            </div>
-            <span className="font-bold text-base">{pageLabel}</span>
-          </div>
+          <span className="font-bold text-base flex-1">{pageLabel}</span>
           <button
             onClick={openSearch}
             className="p-2 rounded-xl hover:bg-white/10 transition-colors"

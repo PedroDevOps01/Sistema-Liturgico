@@ -301,9 +301,15 @@ export default function RelatorioFrequencia() {
               },
               {
                 label: "Taxa de Presença",
-                value: `${relatorio.resumo.taxa_presenca}%`,
-                cls: taxaColor(relatorio.resumo.taxa_presenca),
-                bg: taxaBg(relatorio.resumo.taxa_presenca).split(" ")[0],
+                value: relatorio.resumo.taxa_presenca != null
+                  ? `${relatorio.resumo.taxa_presenca}%`
+                  : "—",
+                cls: relatorio.resumo.taxa_presenca != null
+                  ? taxaColor(relatorio.resumo.taxa_presenca)
+                  : "text-gray-400",
+                bg: relatorio.resumo.taxa_presenca != null
+                  ? taxaBg(relatorio.resumo.taxa_presenca).split(" ")[0]
+                  : "",
               },
             ].map((k) => (
               <div key={k.label} className={`card p-4 ${k.bg}`}>
