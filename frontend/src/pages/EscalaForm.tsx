@@ -35,6 +35,9 @@ import {
   AlertCircle,
   CheckCircle2,
   Sparkles,
+  Check,
+  LayoutGrid,
+  LayoutList,
 } from 'lucide-react'
 import api from '../lib/api'
 import type { Celebracao, Cerimoniario, EscalaItem } from '../types'
@@ -44,20 +47,33 @@ import SearchableSelect from '../components/common/SearchableSelect'
 import type { SelectOption } from '../components/common/SearchableSelect'
 import SelectField from '../components/common/SelectField'
 
+// Rótulos canônicos dos slots — usados tanto nas opções do SelectField quanto no buildStructure
 const FUNCOES_LABELS = [
-  'Cerimoniário - Mestre',
-  'Cerimoniário - Auxiliar 1',
-  'Cerimoniário - Auxiliar 2',
-  'Cerimoniário - Auxiliar 3',
-  'Cerimoniário - Auxiliar 4',
+  'Mestre',
+  '1º Auxiliar',
+  '2º Auxiliar',
+  '3º Auxiliar',
+  '4º Auxiliar',
   'Turiferário',
   'Môr',
   'Mitra',
   'Bácula',
 ]
 
-// Labels curtos usados como fallback quando a API não retorna funcao.titulo
-const FUNCAO_LABELS = ['Mestre', '1º Auxiliar', '2º Auxiliar', '3º Auxiliar', '4º Auxiliar', 'Turiferário']
+// Mapeamento funcao_id → rótulo canônico (evita depender do titulo do DB)
+const FUNCAO_ID_TO_LABEL: Record<number, string> = {
+  1: 'Mestre',
+  2: '1º Auxiliar',
+  3: '2º Auxiliar',
+  4: '3º Auxiliar',
+  5: '4º Auxiliar',
+  6: 'Turiferário',
+  7: 'Môr',
+  8: 'Mitra',
+  9: 'Bácula',
+}
+
+const FUNCAO_LABELS = FUNCOES_LABELS
 
 function buildStructure(c: Celebracao): Omit<EscalaItem, 'id'>[] {
   const base: Omit<EscalaItem, 'id'>[] = []
@@ -365,6 +381,89 @@ function buildWhatsAppText(celebracao: Celebracao, items: EscalaItem[]): string 
   return lines.join('\n').trim()
 }
 
+// ─── Grid View ───────────────────────────────────────────────────────────────
+
+function GridView({
+  items,
+  cerimoniarios,
+  celebracao,
+  onAssign,
+  conflictMap,
+}: {
+  items: EscalaItem[]
+  cerimoniarios: Cerimoniario[]
+  celebracao: Celebracao
+  onAssign: (itemId: string, cerimoniarioId: number | undefined) => void
+  conflictMap: Record<number, Array<{ horario: string; periodo_liturgico: string }>>
+}) {
+  return (
+    <div className="overflow-x-auto -mx-1">
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr className="bg-gray-50 border-b border-gray-200">
+            <th className="text-left px-3 py-2.5 font-semibold text-gray-600 sticky left-0 bg-gray-50 min-w-36 z-10">
+              Cerimoniário
+            </th>
+            {items.map((item, idx) => (
+              <th key={item.id} className="px-2 py-2.5 text-center min-w-14">
+                <div className="flex flex-col items-center gap-0.5">
+                  <span className="text-[10px] font-bold text-wine-400">{idx + 1}</span>
+                  <span className="text-xs font-semibold text-gray-700 leading-tight">{abbreviateFuncao(item.funcao_label)}</span>
+                </div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {cerimoniarios.map((cer) => {
+            const avail = getAvailabilityInfo(cer, celebracao)
+            const hasConflict = (conflictMap[cer.id]?.length ?? 0) > 0
+            const assignedCount = items.filter(i => i.cerimoniario_id === cer.id).length
+            return (
+              <tr key={cer.id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-3 py-2 sticky left-0 bg-white hover:bg-gray-50 z-10">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
+                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                      hasConflict    ? 'bg-orange-500' :
+                      avail.status === 'available'   ? 'bg-green-500' :
+                      avail.status === 'busy'        ? 'bg-amber-400' :
+                                                       'bg-red-500'
+                    }`} />
+                    <span className={`font-medium text-sm ${assignedCount > 0 ? 'text-wine-900' : 'text-gray-700'}`}>
+                      {cer.nome}
+                    </span>
+                  </div>
+                </td>
+                {items.map((item) => {
+                  const isAssigned = item.cerimoniario_id === cer.id
+                  return (
+                    <td key={item.id} className="px-2 py-2 text-center">
+                      <button
+                        type="button"
+                        onClick={() => onAssign(item.id, isAssigned ? undefined : cer.id)}
+                        title={isAssigned ? 'Remover' : `Atribuir ${cer.nome}`}
+                        className={[
+                          'w-7 h-7 rounded-lg border-2 flex items-center justify-center mx-auto',
+                          'transition-all duration-150 active:scale-90',
+                          isAssigned
+                            ? 'bg-wine-700 border-wine-700 text-white shadow-sm'
+                            : 'bg-white border-gray-200 hover:border-wine-400 hover:bg-wine-50',
+                        ].join(' ')}
+                      >
+                        {isAssigned && <Check size={12} strokeWidth={3} />}
+                      </button>
+                    </td>
+                  )
+                })}
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 // Step indicator
 function StepIndicator({ current }: { current: 1 | 2 | 3 }) {
   const steps = [
@@ -413,6 +512,7 @@ export default function EscalaForm() {
   const [sugerindo, setSugerindo]   = useState(false)
   const [saveAttempted, setSaveAttempted] = useState(false)
   const [conflictMap, setConflictMap] = useState<Record<number, Array<{ horario: string; periodo_liturgico: string }>>>({})
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -441,13 +541,13 @@ export default function EscalaForm() {
           try {
             const structR = await api.post<{
               celebracao: Celebracao
-              estrutura: Array<{ funcao_id: number; funcao: { titulo: string } | null; funcao_label: string | null; ordem: number }>
+              estrutura: Array<{ funcao_id: number | null; funcao: { titulo: string } | null; funcao_label: string | null; ordem: number }>
               especial: boolean
             }>('/escalas/gerar-estrutura', { celebracao_id: celebracao.id })
 
             const newItems: EscalaItem[] = structR.data.estrutura.map((item) => ({
               id: crypto.randomUUID(),
-              funcao_label: item.funcao?.titulo ?? item.funcao_label ?? '',
+              funcao_label: item.funcao_id ? (FUNCAO_ID_TO_LABEL[item.funcao_id] ?? item.funcao?.titulo ?? item.funcao_label ?? '') : (item.funcao_label ?? ''),
               ordem: item.ordem,
               cerimoniario_id: undefined,
               cerimoniario: undefined,
@@ -531,13 +631,17 @@ export default function EscalaForm() {
     setSelectedCelebracao(celebracao)
 
     try {
-      const r = await api.post<{ celebracao: Celebracao; estrutura: Array<{ funcao_label: string; ordem: number }>; especial: boolean }>(
+      const r = await api.post<{
+        celebracao: Celebracao
+        estrutura: Array<{ funcao_id: number | null; funcao: { titulo: string } | null; funcao_label: string | null; ordem: number }>
+        especial: boolean
+      }>(
         '/escalas/gerar-estrutura',
         { celebracao_id: celebracaoId }
       )
       const newItems: EscalaItem[] = r.data.estrutura.map((item) => ({
         id: crypto.randomUUID(),
-        funcao_label: item.funcao_label,
+        funcao_label: item.funcao_id ? (FUNCAO_ID_TO_LABEL[item.funcao_id] ?? item.funcao?.titulo ?? item.funcao_label ?? '') : (item.funcao_label ?? ''),
         ordem: item.ordem,
         cerimoniario_id: undefined,
         cerimoniario: undefined,
@@ -601,6 +705,29 @@ export default function EscalaForm() {
     } finally {
       setSugerindo(false)
     }
+  }
+
+  function handleGridAssign(itemId: string, cerimoniarioId: number | undefined) {
+    setItems((prev) => {
+      let updated = prev
+      // Auto-dedup: remove this cerimoniário from any other slot
+      if (cerimoniarioId !== undefined) {
+        updated = prev.map((item) =>
+          item.cerimoniario_id === cerimoniarioId && item.id !== itemId
+            ? { ...item, cerimoniario_id: undefined, cerimoniario: undefined }
+            : item
+        )
+      }
+      return updated.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              cerimoniario_id: cerimoniarioId,
+              cerimoniario: cerimoniarioId ? cerimoniarios.find((c) => c.id === cerimoniarioId) : undefined,
+            }
+          : item
+      )
+    })
   }
 
   function handleAddRow() {
@@ -823,6 +950,25 @@ export default function EscalaForm() {
               </span>
             </h2>
             <div className="flex items-center gap-2">
+              {/* View toggle */}
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('list')}
+                  title="Visualização em lista"
+                  className={`p-1.5 transition-colors ${viewMode === 'list' ? 'bg-wine-900 text-white' : 'bg-white text-gray-400 hover:text-gray-700'}`}
+                >
+                  <LayoutList size={15} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('grid')}
+                  title="Visualização em grade"
+                  className={`p-1.5 transition-colors ${viewMode === 'grid' ? 'bg-wine-900 text-white' : 'bg-white text-gray-400 hover:text-gray-700'}`}
+                >
+                  <LayoutGrid size={15} />
+                </button>
+              </div>
               <button
                 onClick={handleSugerir}
                 disabled={sugerindo}
@@ -832,13 +978,15 @@ export default function EscalaForm() {
                 {sugerindo ? <span className="animate-spin text-xs">↻</span> : <Sparkles size={14} />}
                 {sugerindo ? 'Sugerindo...' : 'Sugerir'}
               </button>
-              <button
-                onClick={handleAddRow}
-                className="flex items-center gap-1.5 text-wine-700 hover:text-wine-900 font-semibold text-sm py-1.5 px-3 rounded-lg hover:bg-wine-50 transition-all duration-200"
-              >
-                <Plus size={16} />
-                Adicionar
-              </button>
+              {viewMode === 'list' && (
+                <button
+                  onClick={handleAddRow}
+                  className="flex items-center gap-1.5 text-wine-700 hover:text-wine-900 font-semibold text-sm py-1.5 px-3 rounded-lg hover:bg-wine-50 transition-all duration-200"
+                >
+                  <Plus size={16} />
+                  Adicionar
+                </button>
+              )}
             </div>
           </div>
 
@@ -870,40 +1018,57 @@ export default function EscalaForm() {
             </div>
           )}
 
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-2">
-                {items.map((item, idx) => (
-                  <SortableRow
-                    key={item.id}
-                    item={item}
-                    index={idx}
-                    cerimoniarios={cerimoniarios}
-                    celebracao={selectedCelebracao}
-                    onChange={handleItemChange}
-                    onRemove={handleRemoveItem}
-                    hasDuplicateCerimoniario={!!item.cerimoniario_id && dupeIds.has(item.cerimoniario_id)}
-                    conflicts={conflictMap[item.cerimoniario_id ?? 0] ?? []}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-
-          {items.length === 0 && (
-            <div className="text-center py-8 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl mt-2">
-              <p className="text-sm font-medium">Nenhuma função adicionada</p>
-              <button
-                onClick={handleAddRow}
-                className="mt-2 text-wine-700 text-sm font-semibold hover:text-wine-900 transition-colors"
+          {viewMode === 'list' ? (
+            <>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
               >
-                + Adicionar função
-              </button>
-            </div>
+                <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-2">
+                    {items.map((item, idx) => (
+                      <SortableRow
+                        key={item.id}
+                        item={item}
+                        index={idx}
+                        cerimoniarios={cerimoniarios}
+                        celebracao={selectedCelebracao}
+                        onChange={handleItemChange}
+                        onRemove={handleRemoveItem}
+                        hasDuplicateCerimoniario={!!item.cerimoniario_id && dupeIds.has(item.cerimoniario_id)}
+                        conflicts={conflictMap[item.cerimoniario_id ?? 0] ?? []}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+              {items.length === 0 && (
+                <div className="text-center py-8 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl mt-2">
+                  <p className="text-sm font-medium">Nenhuma função adicionada</p>
+                  <button
+                    onClick={handleAddRow}
+                    className="mt-2 text-wine-700 text-sm font-semibold hover:text-wine-900 transition-colors"
+                  >
+                    + Adicionar função
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            items.length > 0 ? (
+              <GridView
+                items={items}
+                cerimoniarios={cerimoniarios}
+                celebracao={selectedCelebracao}
+                onAssign={handleGridAssign}
+                conflictMap={conflictMap}
+              />
+            ) : (
+              <div className="text-center py-8 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
+                <p className="text-sm font-medium">Nenhuma função — volte para lista para adicionar</p>
+              </div>
+            )
           )}
         </div>
       )}
