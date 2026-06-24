@@ -197,6 +197,10 @@ class RelatorioController extends Controller
         $justificado    = $historico->where('status', 'justificado')->count();
         $substituido    = $historico->where('status', 'substituido')->count();
         $semRegistro    = $historico->whereNull('status')->count();
+        // Taxa de presença individual:
+        //   Serviu ÷ (Serviu + Faltou) × 100
+        //   Apenas status definitivos entram no denominador.
+        //   Escalações sem registro (status null) e justificadas não afetam o cálculo.
         $taxaPresenca   = ($serviu + $faltou) > 0
             ? round($serviu / ($serviu + $faltou) * 100, 1)
             : null;
@@ -423,6 +427,10 @@ class RelatorioController extends Controller
             ->orderBy('total_escalados', 'desc')
             ->get()
             ->map(function ($row) {
+                // Taxa de assiduidade por período litúrgico:
+                //   Serviu ÷ (Serviu + Faltou) × 100
+                //   Justificados e substituídos não entram no denominador —
+                //   não penalizam nem beneficiam a taxa do período.
                 $sf = (int)$row->serviu + (int)$row->faltou;
                 $row->taxa_pct = $sf > 0 ? round($row->serviu / $sf * 100, 1) : null;
                 return $row;
@@ -509,11 +517,14 @@ class RelatorioController extends Controller
             ->orderBy('t.data')
             ->get()
             ->map(function ($row) {
+                // Taxa de presença em treinamento:
+                //   Presentes ÷ Total convocados × 100
+                //   O denominador inclui TODOS os convidados (inclusive sem status registrado).
+                //   Ex.: 3 presentes de 35 convidados = 8,6%, não 100%.
                 $presentes = (int) $row->presentes;
-                $ausentes  = (int) $row->ausentes;
                 $total     = (int) $row->total_convocados;
-                $row->taxa_presenca_pct = ($presentes + $ausentes) > 0
-                    ? round($presentes / ($presentes + $ausentes) * 100, 1)
+                $row->taxa_presenca_pct = $total > 0
+                    ? round($presentes / $total * 100, 1)
                     : null;
                 return $row;
             });
@@ -547,10 +558,13 @@ class RelatorioController extends Controller
             ->orderByRaw('presentes DESC')
             ->get()
             ->map(function ($row) {
+                // Taxa de presença do cerimoniário em treinamentos:
+                //   Presenças "presente" ÷ Total de convites recebidos × 100
+                //   Convites sem status registrado estão no denominador.
                 $presentes = (int) $row->presentes;
-                $ausentes  = (int) $row->ausentes;
-                $row->taxa_pct = ($presentes + $ausentes) > 0
-                    ? round($presentes / ($presentes + $ausentes) * 100, 1)
+                $total     = (int) $row->treinamentos_convocado;
+                $row->taxa_pct = $total > 0
+                    ? round($presentes / $total * 100, 1)
                     : null;
                 return $row;
             });

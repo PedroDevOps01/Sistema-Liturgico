@@ -361,7 +361,7 @@ class EscalaController extends Controller
 
     private function buildEstruturaSimples(Celebracao $celebracao): array
     {
-        $estrutura = [['funcao_label' => 'Cerimoniário - Mestre', 'ordem' => 0]];
+        $estrutura = [['funcao_label' => 'Mestre', 'ordem' => 0]];
 
         $especial = $celebracao->celebracao_6h || $celebracao->celebracao_palavra
             || $celebracao->celebracao_solene || $celebracao->casamento
@@ -373,7 +373,7 @@ class EscalaController extends Controller
 
         if (! $especial) {
             for ($i = 1; $i <= 4; $i++) {
-                $estrutura[] = ['funcao_label' => "Cerimoniário - Auxiliar {$i}", 'ordem' => count($estrutura)];
+                $estrutura[] = ['funcao_label' => "{$i}º Auxiliar", 'ordem' => count($estrutura)];
             }
         }
         if ($celebracao->celebracao_noite) {

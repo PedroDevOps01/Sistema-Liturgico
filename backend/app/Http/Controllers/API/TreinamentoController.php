@@ -17,6 +17,7 @@ class TreinamentoController extends Controller
         $treinamentos = Treinamento::with([
             'presencas',
             'presencas.cerimoniario',
+            'competencias',
         ])
         ->orderByDesc('data')
         ->orderByDesc('horario')
@@ -31,25 +32,29 @@ class TreinamentoController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'data'                     => 'required|date',
-            'horario'                  => 'required|string',
-            'tema'                     => 'required|string|max:255',
-            'local'                    => 'nullable|string|max:255',
-            'funcoes'                  => 'nullable|array',
-            'funcoes.*'                => 'string',
-            'periodo_liturgico'        => 'nullable|string|max:100',
-            'observacao'               => 'nullable|string',
-            'formacao_competencia_id'  => 'nullable|exists:formacao_competencias,id',
-            'cerimoniarios'            => 'nullable|array',
-            'cerimoniarios.*'          => 'exists:cerimoniarios,id',
+            'data'               => 'required|date',
+            'horario'            => 'required|string',
+            'tema'               => 'required|string|max:255',
+            'local'              => 'nullable|string|max:255',
+            'funcoes'            => 'nullable|array',
+            'funcoes.*'          => 'string',
+            'periodo_liturgico'  => 'nullable|string|max:100',
+            'observacao'         => 'nullable|string',
+            'competencia_ids'    => 'nullable|array',
+            'competencia_ids.*'  => 'exists:formacao_competencias,id',
+            'cerimoniarios'      => 'nullable|array',
+            'cerimoniarios.*'    => 'exists:cerimoniarios,id',
         ]);
 
-        $cerimoniarios = $validated['cerimoniarios'] ?? [];
-        unset($validated['cerimoniarios']);
+        $cerimoniarios  = $validated['cerimoniarios']  ?? [];
+        $competenciaIds = $validated['competencia_ids'] ?? [];
+        unset($validated['cerimoniarios'], $validated['competencia_ids']);
 
         DB::beginTransaction();
         try {
             $treinamento = Treinamento::create($validated);
+
+            $treinamento->competencias()->sync($competenciaIds);
 
             foreach ($cerimoniarios as $cerId) {
                 TreinamentoPresenca::create([
@@ -60,7 +65,7 @@ class TreinamentoController extends Controller
 
             DB::commit();
 
-            $treinamento->load(['presencas', 'presencas.cerimoniario']);
+            $treinamento->load(['presencas', 'presencas.cerimoniario', 'competencias']);
 
             return response()->json([
                 'data'    => $treinamento,
@@ -74,7 +79,7 @@ class TreinamentoController extends Controller
 
     public function show(Treinamento $treinamento): JsonResponse
     {
-        $treinamento->load(['presencas', 'presencas.cerimoniario']);
+        $treinamento->load(['presencas', 'presencas.cerimoniario', 'competencias']);
 
         return response()->json([
             'data'    => $treinamento,
@@ -85,25 +90,31 @@ class TreinamentoController extends Controller
     public function update(Request $request, Treinamento $treinamento): JsonResponse
     {
         $validated = $request->validate([
-            'data'                     => 'sometimes|date',
-            'horario'                  => 'sometimes|string',
-            'tema'                     => 'sometimes|string|max:255',
-            'local'                    => 'nullable|string|max:255',
-            'funcoes'                  => 'nullable|array',
-            'funcoes.*'                => 'string',
-            'periodo_liturgico'        => 'nullable|string|max:100',
-            'observacao'               => 'nullable|string',
-            'formacao_competencia_id'  => 'nullable|exists:formacao_competencias,id',
-            'cerimoniarios'            => 'nullable|array',
-            'cerimoniarios.*'          => 'exists:cerimoniarios,id',
+            'data'               => 'sometimes|date',
+            'horario'            => 'sometimes|string',
+            'tema'               => 'sometimes|string|max:255',
+            'local'              => 'nullable|string|max:255',
+            'funcoes'            => 'nullable|array',
+            'funcoes.*'          => 'string',
+            'periodo_liturgico'  => 'nullable|string|max:100',
+            'observacao'         => 'nullable|string',
+            'competencia_ids'    => 'nullable|array',
+            'competencia_ids.*'  => 'exists:formacao_competencias,id',
+            'cerimoniarios'      => 'nullable|array',
+            'cerimoniarios.*'    => 'exists:cerimoniarios,id',
         ]);
 
-        $cerimoniarios = isset($validated['cerimoniarios']) ? $validated['cerimoniarios'] : null;
-        unset($validated['cerimoniarios']);
+        $cerimoniarios  = isset($validated['cerimoniarios'])   ? $validated['cerimoniarios']   : null;
+        $competenciaIds = isset($validated['competencia_ids']) ? $validated['competencia_ids'] : null;
+        unset($validated['cerimoniarios'], $validated['competencia_ids']);
 
         DB::beginTransaction();
         try {
             $treinamento->update($validated);
+
+            if ($competenciaIds !== null) {
+                $treinamento->competencias()->sync($competenciaIds);
+            }
 
             if ($cerimoniarios !== null) {
                 $existingIds = $treinamento->presencas()->pluck('cerimoniario_id')->toArray();
@@ -125,7 +136,7 @@ class TreinamentoController extends Controller
 
             DB::commit();
 
-            $treinamento->load(['presencas', 'presencas.cerimoniario']);
+            $treinamento->load(['presencas', 'presencas.cerimoniario', 'competencias']);
 
             return response()->json([
                 'data'    => $treinamento,
@@ -162,19 +173,21 @@ class TreinamentoController extends Controller
             $validated
         );
 
-        $treinamento->load('competencia');
-        if ($presenca->status === 'presente' && $treinamento->formacao_competencia_id) {
-            \App\Models\CerimoniarioCompetencia::updateOrCreate(
-                [
-                    'cerimoniario_id'         => $cerimoniario->id,
-                    'formacao_competencia_id' => $treinamento->formacao_competencia_id,
-                ],
-                [
-                    'concluida'      => true,
-                    'data_conclusao' => now()->toDateString(),
-                    'concluido_por'  => auth()->id(),
-                ]
-            );
+        if ($presenca->status === 'presente') {
+            $treinamento->load('competencias');
+            foreach ($treinamento->competencias as $competencia) {
+                \App\Models\CerimoniarioCompetencia::updateOrCreate(
+                    [
+                        'cerimoniario_id'         => $cerimoniario->id,
+                        'formacao_competencia_id' => $competencia->id,
+                    ],
+                    [
+                        'concluida'      => true,
+                        'data_conclusao' => now()->toDateString(),
+                        'concluido_por'  => auth()->id(),
+                    ]
+                );
+            }
         }
 
         return response()->json([

@@ -3,60 +3,171 @@
 <head>
 <meta charset="UTF-8">
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: 'DejaVu Sans', sans-serif; background:#fff; color:#1a0a0f; }
-  .page { width:100%; height:100%; padding:40px 60px; border:8px double #8B0020; min-height:540px; }
-  .header { text-align:center; margin-bottom:30px; }
-  .header .ministerio { font-size:13px; color:#8B0020; letter-spacing:3px; text-transform:uppercase; font-weight:bold; }
-  .header h1 { font-size:38px; color:#8B0020; margin:8px 0 4px; font-weight:bold; letter-spacing:1px; }
-  .header .subtitle { font-size:13px; color:#555; letter-spacing:2px; text-transform:uppercase; }
-  .divider { height:2px; background:linear-gradient(to right, transparent, #8B0020, transparent); margin:20px auto; width:60%; }
-  .body-text { text-align:center; font-size:14px; color:#333; line-height:1.8; margin:20px 0; }
-  .nome { font-size:28px; color:#8B0020; font-weight:bold; margin:10px 0; border-bottom:2px solid #d4a017; display:inline-block; padding:0 20px 4px; }
-  .nivel-box { display:inline-block; background:#8B0020; color:#fff; padding:8px 24px; border-radius:4px; font-size:16px; font-weight:bold; margin:10px 0; letter-spacing:1px; }
-  .stats { display:flex; justify-content:center; gap:40px; margin:20px 0; }
-  .stat { text-align:center; }
-  .stat .num { font-size:24px; color:#8B0020; font-weight:bold; }
-  .stat .lbl { font-size:11px; color:#666; text-transform:uppercase; letter-spacing:1px; }
-  .footer { margin-top:30px; display:flex; justify-content:space-between; align-items:flex-end; }
-  .footer .date { font-size:12px; color:#666; }
-  .footer .sign { text-align:center; }
-  .footer .sign .line { width:180px; border-top:1px solid #333; margin:0 auto 4px; }
-  .footer .sign .label { font-size:11px; color:#666; }
-  .cross { font-size:28px; color:#d4a017; margin-bottom:4px; }
+  @page { size: A4 landscape; margin: 8mm; }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body { font-family: 'DejaVu Sans', sans-serif; background: #fff; color: #1a0a0f; }
+
+  /* Borda dupla: div externo (vermelho) + div interno (dourado) */
+  .border-outer {
+    border: 4px double #8B0020;
+    padding: 4px;
+  }
+  .border-inner {
+    border: 1px solid #c9a84c;
+    padding: 10mm 22mm 8mm;
+    text-align: center;
+  }
+
+  /* ─── Header ─── */
+  .paroquia {
+    font-size: 9pt;
+    color: #8B0020;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    font-weight: bold;
+  }
+  .titulo {
+    font-size: 30pt;
+    color: #8B0020;
+    font-weight: bold;
+    margin-top: 2mm;
+    line-height: 1.1;
+  }
+  .titulo .cruz { font-size: 22pt; color: #c9a84c; }
+  .ministerio-label {
+    font-size: 9pt;
+    color: #777;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-top: 2mm;
+  }
+
+  /* ─── Divisor ─── */
+  .divider {
+    margin: 6mm auto;
+    color: #c9a84c;
+    font-size: 13pt;
+    letter-spacing: 10px;
+  }
+
+  /* ─── Corpo ─── */
+  .certifica-texto {
+    font-size: 10pt;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 3mm;
+  }
+  .nome {
+    font-size: 26pt;
+    color: #8B0020;
+    font-weight: bold;
+    border-bottom: 2px solid #c9a84c;
+    display: inline-block;
+    padding: 0 24px 2px;
+    margin-bottom: 4mm;
+  }
+  .nivel-texto {
+    font-size: 10pt;
+    color: #666;
+    margin-bottom: 3mm;
+  }
+  .nivel-badge {
+    display: inline-block;
+    background: #8B0020;
+    color: #fff;
+    padding: 5px 22px;
+    border-radius: 3px;
+    font-size: 13pt;
+    font-weight: bold;
+    letter-spacing: 1px;
+  }
+  .nivel-descricao {
+    font-size: 9pt;
+    color: #888;
+    font-style: italic;
+    margin-top: 3mm;
+  }
+
+  /* ─── Stats (tabela) ─── */
+  .stats-wrap { margin: 6mm auto; width: 62%; }
+  .stats-wrap table { width: 100%; border-collapse: collapse; }
+  .stats-wrap td {
+    text-align: center;
+    padding: 0 12px;
+    border-right: 1px solid #dbb96a;
+  }
+  .stats-wrap td:last-child { border-right: none; }
+  .stat-num { font-size: 20pt; color: #8B0020; font-weight: bold; display: block; }
+  .stat-lbl { font-size: 8pt; color: #888; text-transform: uppercase; letter-spacing: 1px; display: block; margin-top: 1mm; }
+
+  /* ─── Footer (tabela) ─── */
+  .footer-wrap { margin-top: 5mm; }
+  .footer-wrap table { width: 100%; border-collapse: collapse; }
+  .footer-wrap td { vertical-align: bottom; padding: 0; }
+  .footer-date { font-size: 9pt; color: #888; text-align: left; }
+  .footer-sign { text-align: center; }
+  .sign-cruz { font-size: 16pt; color: #c9a84c; display: block; margin-bottom: 2mm; }
+  .sign-line { width: 130px; border-top: 1px solid #444; margin: 0 auto 2mm; }
+  .sign-label { font-size: 8pt; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+  .footer-num { font-size: 8pt; color: #bbb; text-align: right; }
 </style>
 </head>
 <body>
-<div class="page">
-  <div class="header">
-    <div class="ministerio">{{ $paroquia }}</div>
-    <h1>&#10013; Certificado de Formação</h1>
-    <div class="subtitle">Ministério dos Acólitos</div>
-  </div>
-  <div class="divider"></div>
-  <div class="body-text">
-    <p>Certificamos que o cerimoniário</p>
+<div class="border-outer">
+  <div class="border-inner">
+
+    <div class="paroquia">{{ $paroquia }}</div>
+    <div class="titulo"><span class="cruz">&#10013;</span> Certificado de Formação</div>
+    <div class="ministerio-label">Ministério dos Acólitos</div>
+
+    <div class="divider">&#10022; &nbsp; &#10022; &nbsp; &#10022;</div>
+
+    <div class="certifica-texto">Certificamos que o cerimoniário</div>
     <div class="nome">{{ $cerimoniario->nome }}</div>
-    <p style="margin-top:12px;">concluiu com êxito o nível</p>
-    <div class="nivel-box">{{ $nivel->nome }}</div>
+    <div class="nivel-texto">concluiu com êxito o nível</div>
+    <div class="nivel-badge">{{ $nivel->nome }}</div>
     @if($nivel->descricao)
-    <p style="margin-top:8px;font-size:12px;color:#666;">{{ $nivel->descricao }}</p>
+    <div class="nivel-descricao">{{ $nivel->descricao }}</div>
     @endif
-  </div>
-  <div class="stats">
-    <div class="stat"><div class="num">{{ $concluidas }}</div><div class="lbl">Competências concluídas</div></div>
-    <div class="stat"><div class="num">{{ $total }}</div><div class="lbl">Total de competências</div></div>
-    <div class="stat"><div class="num">{{ $pct }}%</div><div class="lbl">Aproveitamento</div></div>
-  </div>
-  <div class="divider"></div>
-  <div class="footer">
-    <div class="date">{{ $hoje }}</div>
-    <div class="sign">
-      <div class="cross">&#10013;</div>
-      <div class="line"></div>
-      <div class="label">Coordenação do Ministério</div>
+
+    <div class="stats-wrap">
+      <table>
+        <tr>
+          <td>
+            <span class="stat-num">{{ $concluidas }}</span>
+            <span class="stat-lbl">Competências concluídas</span>
+          </td>
+          <td>
+            <span class="stat-num">{{ $total }}</span>
+            <span class="stat-lbl">Total de competências</span>
+          </td>
+          <td>
+            <span class="stat-num">{{ $pct }}%</span>
+            <span class="stat-lbl">Aproveitamento</span>
+          </td>
+        </tr>
+      </table>
     </div>
-    <div style="font-size:11px;color:#999;">Nº {{ $cerimoniario->numero ?? '—' }}</div>
+
+    <div class="divider">&#10022; &nbsp; &#10022; &nbsp; &#10022;</div>
+
+    <div class="footer-wrap">
+      <table>
+        <tr>
+          <td class="footer-date">{{ $hoje }}</td>
+          <td class="footer-sign">
+            <span class="sign-cruz">&#10013;</span>
+            <div class="sign-line"></div>
+            <div class="sign-label">Coordenação do Ministério</div>
+          </td>
+          <td class="footer-num">Nº {{ $cerimoniario->numero ?? '—' }}</td>
+        </tr>
+      </table>
+    </div>
+
   </div>
 </div>
 </body>

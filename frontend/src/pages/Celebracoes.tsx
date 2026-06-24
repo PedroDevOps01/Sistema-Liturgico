@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Plus, Search, Pencil, Calendar, Clock, CheckCircle2, XCircle, Moon, X, Copy, MoreVertical, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Plus, Search, Pencil, Calendar, Clock, CheckCircle2, XCircle, Moon, X, Copy, MoreVertical, ToggleLeft, ToggleRight, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
 import api from '../lib/api'
@@ -16,6 +16,8 @@ import ActionsDrawer from '../components/common/ActionsDrawer'
 import InativosToggle from '../components/common/InativosToggle'
 import PageHeader from '../components/common/PageHeader'
 import Badge from '../components/common/Badge'
+import SelectField from '../components/common/SelectField'
+import CalcNote from '../components/common/CalcNote'
 import { SkeletonRow } from '../components/common/LoadingSpinner'
 
 const PERIODOS = [
@@ -131,7 +133,7 @@ const defaultFormValues: FormData = {
   data: '',
   horario: '',
   periodo_liturgico: 'Tempo Comum',
-  qtd_cerimoniarios: 6,
+  qtd_cerimoniarios: 5,
   celebracao_noite: false,
   possui_bispo: false,
   celebracao_6h: false,
@@ -282,12 +284,14 @@ export default function Celebracoes() {
 
   const watchedValues = watch()
 
-  // Auto set celebracao_noite when horario >= 17:00
+  // Auto set celebracao_noite + qtd_cerimoniarios when horario changes
   const horario = watch('horario')
   useEffect(() => {
     if (horario) {
       const [h] = horario.split(':').map(Number)
-      if (h >= 17) setValue('celebracao_noite', true)
+      setValue('celebracao_noite', h >= 17)
+      // Regra: antes das 18h → 5 cerimoniários; 18h+ → 6 (+ Turiferário)
+      setValue('qtd_cerimoniarios', h >= 18 ? 6 : 5)
     }
   }, [horario, setValue])
 
@@ -379,7 +383,14 @@ export default function Celebracoes() {
       }
       const celebracoes = batchForms.map((bf) => {
         const [h] = (bf.horario || '00:00').split(':').map(Number)
-        return { ...flags, data: bf.data, horario: bf.horario, periodo_liturgico: bf.periodo_liturgico, celebracao_noite: h >= 17 }
+        return {
+          ...flags,
+          data: bf.data,
+          horario: bf.horario,
+          periodo_liturgico: bf.periodo_liturgico,
+          celebracao_noite: h >= 17,
+          qtd_cerimoniarios: h >= 18 ? 6 : 5,   // regra: 5 antes das 18h, 6 a partir das 18h
+        }
       })
       await api.post('/celebracoes/batch', { celebracoes })
       toast.success(`${batchForms.length} celebrações criadas com sucesso!`)
@@ -594,7 +605,7 @@ export default function Celebracoes() {
     return getCorLiturgicaAutomatica(c.periodo_liturgico, c as Partial<Record<FlagKey, boolean>>)
   }
 
-  const isNight = horario && Number(horario.split(':')[0]) >= 17
+  // isNight kept for potential future use (slot banner uses horario directly)
 
   const FormModal = (
     <Modal
@@ -617,6 +628,28 @@ export default function Celebracoes() {
     >
       <form id="form-celebracao" onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* Final de Semana toggle (only when creating) */}
+        <CalcNote items={[
+              {
+                label: 'Horário < 18h',
+                formula: '5 cerimoniários',
+                note: 'Mestre · 1AUX · 2AUX · 3AUX · 4AUX — gerado automaticamente na escala.',
+              },
+              {
+                label: 'Horário ≥ 18h',
+                formula: '6 cerimoniários',
+                note: 'Mestre · 1AUX · 2AUX · 3AUX · 4AUX · Turiferário — slot extra gerado automaticamente.',
+              },
+              {
+                label: 'Possui Bispo',
+                formula: '+3 extra: Môr · Mitra · Bácula',
+                note: 'Adicionados além dos 5 ou 6 padrão, independentemente do horário.',
+              },
+              {
+                label: 'Casamento · Batismo · Crisma · Via Sacra etc.',
+                formula: 'Somente Mestre pré-preenchido',
+                note: 'Eventos especiais: demais funções ficam em branco para preenchimento manual.',
+              },
+            ]} />
         {!editing && (
           <div className="flex items-center justify-between px-4 py-3 bg-gold-500/10 border border-gold-500/30 rounded-xl">
             <div>
@@ -662,7 +695,8 @@ export default function Celebracoes() {
 
             <div className="space-y-3">
               {batchForms.map((bf, idx) => {
-                const isNightBatch = bf.horario && Number(bf.horario.split(':')[0]) >= 17
+                const batchHour = bf.horario ? Number(bf.horario.split(':')[0]) : -1
+                const qtdBatch = batchHour >= 18 ? 6 : 5
                 return (
                   <div key={idx} className="border-2 border-gray-200 rounded-xl p-4 space-y-3">
                     <p className="text-sm font-semibold text-wine-900">Celebração {idx + 1}</p>
@@ -694,18 +728,26 @@ export default function Celebracoes() {
                     </div>
                     <div>
                       <label className="label">Período Litúrgico *</label>
-                      <select
+                      <SelectField
                         value={bf.periodo_liturgico}
                         onChange={(e) => updateBatchForm(idx, 'periodo_liturgico', e.target.value)}
-                        className="select-field"
                       >
                         {PERIODOS.map((p) => <option key={p} value={p}>{p}</option>)}
-                      </select>
+                      </SelectField>
                     </div>
-                    {isNightBatch && (
-                      <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-xs">
-                        <Moon size={13} className="flex-shrink-0" />
-                        <span>Noturna detectada</span>
+                    {bf.horario && (
+                      <div className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs ${
+                        batchHour >= 18
+                          ? 'bg-indigo-50 border border-indigo-200 text-indigo-700'
+                          : 'bg-gray-50 border border-gray-200 text-gray-500'
+                      }`}>
+                        {batchHour >= 18 ? <Moon size={12} className="flex-shrink-0" /> : <Users size={12} className="flex-shrink-0" />}
+                        <span>
+                          {batchHour >= 18
+                            ? `${qtdBatch} cer. · Mestre + 4 Aux + Turiferário`
+                            : `${qtdBatch} cerimoniários · Mestre + 4 Aux`
+                          }
+                        </span>
                       </div>
                     )}
                   </div>
@@ -726,14 +768,28 @@ export default function Celebracoes() {
             </div>
 
             <div>
-              <label className="label">Qtd. Cerimoniários (por celebração)</label>
-              <input {...register('qtd_cerimoniarios', { valueAsNumber: true })} type="number" min={1} max={20} className="input-field" />
-            </div>
-
-            <div>
               <label className="label">Observação</label>
               <textarea {...register('observacao')} rows={2} className="input-field resize-none" />
             </div>
+
+            {/* Regras automáticas — lote */}
+            <CalcNote items={[
+              {
+                label: 'Qtd. cerimoniários',
+                formula: 'auto por horário de cada celebração',
+                note: '< 18h → 5 slots (Mestre + 4 Aux); ≥ 18h → 6 slots (+ Turiferário).',
+              },
+              {
+                label: 'Possui Bispo',
+                formula: '+3 extra: Môr · Mitra · Bácula',
+                note: 'Acrescentados em todas as celebrações do lote se a opção estiver ativa.',
+              },
+              {
+                label: 'Casamento · Batismo etc.',
+                formula: 'Somente Mestre pré-preenchido',
+                note: 'Eventos especiais: demais funções ficam em branco para preenchimento manual.',
+              },
+            ]} />
           </>
         ) : (
           <>
@@ -751,25 +807,38 @@ export default function Celebracoes() {
               </div>
             </div>
 
-            {/* Night detection banner */}
-            {isNight && (
-              <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-700 text-sm">
-                <Moon size={16} className="flex-shrink-0" />
-                <span>Celebração noturna detectada automaticamente</span>
+            {/* Slot preview banner — sempre visível quando horário está preenchido */}
+            {horario && (
+              <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm ${
+                Number(horario.split(':')[0]) >= 18
+                  ? 'bg-indigo-50 border border-indigo-200 text-indigo-800'
+                  : 'bg-gray-50 border border-gray-200 text-gray-600'
+              }`}>
+                {Number(horario.split(':')[0]) >= 18 ? <Moon size={15} className="flex-shrink-0" /> : <Users size={15} className="flex-shrink-0" />}
+                <span>
+                  {Number(horario.split(':')[0]) >= 18
+                    ? <><strong>6 cerimoniários:</strong> Mestre · 1AUX · 2AUX · 3AUX · 4AUX · Turiferário</>
+                    : <><strong>5 cerimoniários:</strong> Mestre · 1AUX · 2AUX · 3AUX · 4AUX</>
+                  }
+                </span>
+                <span className="ml-auto text-xs opacity-60 flex-shrink-0">auto-detectado</span>
               </div>
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="label">Período Litúrgico *</label>
-                <select {...register('periodo_liturgico')} className="select-field">
+                <SelectField {...register('periodo_liturgico')}>
                   {PERIODOS.map((p) => (
                     <option key={p} value={p}>{p}</option>
                   ))}
-                </select>
+                </SelectField>
               </div>
               <div>
-                <label className="label">Qtd. Cerimoniários</label>
+                <label className="label">
+                  Qtd. Cerimoniários
+                  <span className="ml-1.5 text-xs font-normal text-wine-400">(ajuste se necessário)</span>
+                </label>
                 <input {...register('qtd_cerimoniarios', { valueAsNumber: true })} type="number" min={1} max={20} className="input-field" />
               </div>
             </div>
@@ -823,6 +892,9 @@ export default function Celebracoes() {
               <label className="label">Observação</label>
               <textarea {...register('observacao')} rows={2} className="input-field resize-none" />
             </div>
+
+            {/* Regras automáticas da celebração */}
+            
           </>
         )}
 
@@ -1094,62 +1166,57 @@ export default function Celebracoes() {
       />
 
       {/* Modal: reutilizar última escala */}
-      {ultimaEscalaModal && ultimaEscala && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setUltimaEscalaModal(false)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-slide-up">
-            <div className="flex items-start gap-4 mb-5">
-              <div className="w-12 h-12 bg-gold-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Copy size={22} className="text-wine-900" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-1">Reutilizar última escala?</h3>
-                <p className="text-sm text-gray-500">
-                  Existe uma escala cadastrada.{' '}
-                  <strong>Deseja copiá-la para esta nova celebração?</strong>{' '}
-                  Você poderá editar os nomes depois.
-                </p>
-              </div>
-            </div>
+      <Modal
+        isOpen={ultimaEscalaModal && !!ultimaEscala}
+        onClose={() => setUltimaEscalaModal(false)}
+        title="Reutilizar última escala?"
+        size="sm"
+        footer={
+          <>
+            <button
+              onClick={() => {
+                setUltimaEscalaModal(false)
+                navigate(`/escalas/nova?celebracao_id=${newCelebracaoId}`)
+              }}
+              className="flex-1 px-4 py-2.5 rounded-xl border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-colors text-sm"
+            >
+              Não, criar do zero
+            </button>
+            <button
+              onClick={handleReutilizarEscala}
+              className="flex-1 btn-primary text-sm"
+            >
+              <Copy size={15} />
+              Sim, copiar escala
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">
+            Existe uma escala cadastrada.{' '}
+            <strong className="text-gray-700">Deseja copiá-la para esta nova celebração?</strong>{' '}
+            Você poderá editar os nomes depois.
+          </p>
 
-            {/* Preview da última escala */}
-            {ultimaEscala.escala_itens && ultimaEscala.escala_itens.length > 0 && (
-              <div className="bg-gray-50 rounded-xl p-3 mb-5 text-xs text-gray-600 space-y-1 max-h-40 overflow-y-auto">
-                {ultimaEscala.escala_itens.slice(0, 8).map((item, i) => (
-                  <div key={i} className="flex gap-2">
-                    <span className="font-semibold text-gray-900 w-24 flex-shrink-0 truncate">
-                      {item.funcao_label ?? item.funcao?.titulo ?? 'Função'}
-                    </span>
-                    <span>{item.cerimoniario?.nome ?? '—'}</span>
-                  </div>
-                ))}
-                {ultimaEscala.escala_itens.length > 8 && (
-                  <p className="text-gray-400">+ {ultimaEscala.escala_itens.length - 8} mais...</p>
-                )}
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setUltimaEscalaModal(false)
-                  navigate(`/escalas/nova?celebracao_id=${newCelebracaoId}`)
-                }}
-                className="flex-1 px-4 py-2.5 rounded-xl border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-colors text-sm"
-              >
-                Não, criar do zero
-              </button>
-              <button
-                onClick={handleReutilizarEscala}
-                className="flex-1 btn-primary text-sm"
-              >
-                <Copy size={15} />
-                Sim, copiar escala
-              </button>
+          {/* Preview da última escala */}
+          {ultimaEscala?.escala_itens && ultimaEscala.escala_itens.length > 0 && (
+            <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-600 space-y-1.5 max-h-48 overflow-y-auto">
+              {ultimaEscala.escala_itens.slice(0, 8).map((item, i) => (
+                <div key={i} className="flex gap-2">
+                  <span className="font-semibold text-gray-800 w-24 flex-shrink-0 truncate">
+                    {item.funcao_label ?? item.funcao?.titulo ?? 'Função'}
+                  </span>
+                  <span className="text-gray-600">{item.cerimoniario?.nome ?? '—'}</span>
+                </div>
+              ))}
+              {ultimaEscala.escala_itens.length > 8 && (
+                <p className="text-gray-400 pt-1">+ {ultimaEscala.escala_itens.length - 8} mais...</p>
+              )}
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </Modal>
     </div>
   )
 }

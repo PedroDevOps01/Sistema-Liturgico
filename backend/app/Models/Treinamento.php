@@ -4,8 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Treinamento extends Model
 {
@@ -21,7 +21,6 @@ class Treinamento extends Model
         'funcoes',
         'periodo_liturgico',
         'observacao',
-        'formacao_competencia_id',
     ];
 
     protected function casts(): array
@@ -37,8 +36,13 @@ class Treinamento extends Model
         return $this->hasMany(TreinamentoPresenca::class);
     }
 
-    public function competencia(): BelongsTo
+    public function competencias(): BelongsToMany
     {
-        return $this->belongsTo(FormacaoCompetencia::class, 'formacao_competencia_id');
+        return $this->belongsToMany(
+            FormacaoCompetencia::class,
+            'treinamento_competencias',
+            'treinamento_id',
+            'formacao_competencia_id'
+        );
     }
 }

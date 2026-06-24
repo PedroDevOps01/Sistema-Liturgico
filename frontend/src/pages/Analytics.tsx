@@ -10,6 +10,7 @@ import {
 import api from '../lib/api'
 import PageHeader from '../components/common/PageHeader'
 import LoadingSpinner from '../components/common/LoadingSpinner'
+import CalcNote from '../components/common/CalcNote'
 
 /* ── Types ────────────────────────────────────────────── */
 interface EvolucaoItem { mes: string; label: string; celebracoes: number; acolitos: number }
@@ -164,6 +165,25 @@ export default function Analytics() {
         </div>
       </div>
 
+      {/* Observação — Saúde do Ministério */}
+      <CalcNote items={[
+        {
+          label: 'Score de Saúde',
+          formula: 'Presença × 40% + Confirmações × 30% + Acólitos ativos × 20% + Treinamentos × 10%',
+          note: 'Cada fator normalizado 0–100. Treinamentos: 25 pts por treino nos últimos 3 meses (máx 100). Score final arredondado.',
+        },
+        {
+          label: 'Taxa de Confirmação',
+          formula: 'Confirmados via link ÷ (Confirmados + Recusados) × 100',
+          note: 'Padrão 75% quando não há confirmações registradas, para não penalizar ministérios sem uso do link de confirmação.',
+        },
+        {
+          label: 'Acólitos Ativos no mês',
+          formula: 'Acólitos que serviram no mês anterior ÷ Total de acólitos ativos × 100',
+          note: 'Mede o quanto do corpo ativo realmente está em serviço. Limitado a 100%.',
+        },
+      ]} />
+
       {/* ── Evolução + Projeção ─────────────────────────── */}
       <div className="card p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
@@ -237,6 +257,13 @@ export default function Analytics() {
                 </div>
               </div>
             </div>
+            <CalcNote items={[
+              {
+                label: 'Projeção do próximo mês',
+                formula: 'Média últimos 3m × 60% + Mesmo mês do ano anterior × 40%',
+                note: 'Combina tendência recente com sazonalidade anual. Quando não há histórico do mesmo mês no ano anterior, usa apenas a média dos últimos 3 meses.',
+              },
+            ]} />
             <ResponsiveContainer width="100%" height={winW < 640 ? 160 : 200}>
               <BarChart data={projecao.historico.concat([{ mes: 'proj', label: 'Projeção', total: projecao.projecao }])}
                 margin={{ top: 5, right: 8, left: winW < 640 ? -28 : -20, bottom: 0 }}>
@@ -262,9 +289,10 @@ export default function Analytics() {
 
         {/* ── Ranking de assiduidade ─────────────────────── */}
         <div className="card p-5 sm:p-6">
-          <h2 className="font-bold text-gray-900 flex items-center gap-2 mb-4">
+          <h2 className="font-bold text-gray-900 flex items-center gap-2 mb-3">
             <Award size={18} className="text-wine-700" /> Ranking de Assiduidade
           </h2>
+          
           {ranking.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-8">Sem dados de presença ainda.</p>
           ) : (
@@ -330,9 +358,21 @@ export default function Analytics() {
                   <p className="text-xs text-gray-400 text-center pt-2">{ranking.length} acólitos no total</p>
                 )}
               </div>
+              <br />
+              <CalcNote items={[
+            {
+              label: 'Frequência',
+              formula: 'Serviu ÷ Total com status registrado × 100',
+              note: 'Considera apenas presenças com status definitivo. Escalações sem resposta não entram no cálculo.',
+            },
+          
+          ]} />
+
+          
             </>
           )}
         </div>
+        
 
         {/* ── Funções mais escaladas ─────────────────────── */}
         <div className="card p-5 sm:p-6">

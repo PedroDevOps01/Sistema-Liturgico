@@ -13,6 +13,7 @@ import Modal from '../components/common/Modal'
 import ConfirmDialog from '../components/common/ConfirmDialog'
 import Badge from '../components/common/Badge'
 import SearchableSelect from '../components/common/SearchableSelect'
+import SelectField from '../components/common/SelectField'
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
@@ -445,30 +446,30 @@ export default function Tunicas() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Tamanho <span className="text-gray-400 font-normal">(opcional)</span></label>
-              <select {...tunicaForm.register('tamanho')} className="input-field">
+              <SelectField {...tunicaForm.register('tamanho')}>
                 <option value="">— Não informado</option>
                 {(['PP', 'P', 'M', 'G', 'GG'] as const).map(sz => (
                   <option key={sz} value={sz}>{sz}</option>
                 ))}
-              </select>
+              </SelectField>
             </div>
             <div>
               <label className="label">Cor</label>
-              <select {...tunicaForm.register('cor')} className="input-field">
+              <SelectField {...tunicaForm.register('cor')}>
                 <option value="branca">Branca</option>
                 <option value="vermelha">Vermelha</option>
                 <option value="preta">Preta</option>
-              </select>
+              </SelectField>
             </div>
           </div>
           <div>
             <label className="label">Estado</label>
-            <select {...tunicaForm.register('estado')} className="input-field">
+            <SelectField {...tunicaForm.register('estado')}>
               <option value="novo">Novo</option>
               <option value="bom">Bom</option>
               <option value="regular">Regular</option>
               <option value="ruim">Ruim</option>
-            </select>
+            </SelectField>
           </div>
           <div>
             <label className="label">Observação</label>

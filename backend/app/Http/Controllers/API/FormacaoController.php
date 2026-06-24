@@ -155,6 +155,7 @@ class FormacaoController extends Controller
             $totalGeral      += $total;
             $concluidasGeral += $concluidas;
 
+            // Progresso por nível: Concluídas ÷ Total do nível × 100 (1 decimal)
             $pct = $total > 0 ? round($concluidas / $total * 100, 1) : 0;
 
             return array_merge($nivel->toArray(), [
@@ -165,6 +166,7 @@ class FormacaoController extends Controller
             ]);
         });
 
+        // Progresso total: Concluídas em todos os níveis ÷ Total geral de competências × 100 (1 decimal)
         $pctTotal = $totalGeral > 0 ? round($concluidasGeral / $totalGeral * 100, 1) : 0;
 
         return response()->json([

@@ -7,6 +7,7 @@ import api from "../lib/api";
 import type { RelatorioFrequenciaData, Cerimoniario } from "../types";
 import PageHeader from "../components/common/PageHeader";
 import Badge from "../components/common/Badge";
+import CalcNote from "../components/common/CalcNote";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -320,6 +321,20 @@ export default function RelatorioFrequencia() {
               </div>
             ))}
           </div>
+
+          {/* Observação de cálculo */}
+          <CalcNote items={[
+            {
+              label: 'Taxa de Presença',
+              formula: 'Serviu ÷ (Serviu + Faltou) × 100',
+              note: 'Somente registros com status definitivo entram no cálculo. Escalações sem presença registrada, justificadas e substituições não afetam o denominador.',
+            },
+            {
+              label: 'Gráfico mensal — barra vinho',
+              formula: 'Serviu ÷ Total escalado no mês × 100',
+              note: 'Barra vermelha representa faltas sobre o mesmo total. A soma das duas barras pode ser menor que 100% quando há registros sem status.',
+            },
+          ]} />
 
           {/* Monthly bar chart */}
           {relatorio.por_mes.length > 0 && (

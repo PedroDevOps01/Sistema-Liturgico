@@ -42,6 +42,7 @@ import Badge from '../components/common/Badge'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import SearchableSelect from '../components/common/SearchableSelect'
 import type { SelectOption } from '../components/common/SearchableSelect'
+import SelectField from '../components/common/SelectField'
 
 const FUNCOES_LABELS = [
   'Cerimoniário - Mestre',
@@ -55,10 +56,13 @@ const FUNCOES_LABELS = [
   'Bácula',
 ]
 
+// Labels curtos usados como fallback quando a API não retorna funcao.titulo
+const FUNCAO_LABELS = ['Mestre', '1º Auxiliar', '2º Auxiliar', '3º Auxiliar', '4º Auxiliar', 'Turiferário']
+
 function buildStructure(c: Celebracao): Omit<EscalaItem, 'id'>[] {
   const base: Omit<EscalaItem, 'id'>[] = []
 
-  base.push({ funcao_label: 'Cerimoniário - Mestre', ordem: 0 })
+  base.push({ funcao_label: 'Mestre', ordem: 0 })
 
   const isSpecial = c.celebracao_6h || c.celebracao_palavra || c.celebracao_solene
     || c.casamento || c.batismo || c.crisma
@@ -67,7 +71,7 @@ function buildStructure(c: Celebracao): Omit<EscalaItem, 'id'>[] {
 
   if (!isSpecial) {
     for (let i = 1; i <= 4; i++) {
-      base.push({ funcao_label: `Cerimoniário - Auxiliar ${i}`, ordem: base.length })
+      base.push({ funcao_label: `${i}º Auxiliar`, ordem: base.length })
     }
   }
 
@@ -80,7 +84,9 @@ function buildStructure(c: Celebracao): Omit<EscalaItem, 'id'>[] {
   const qty = c.qtd_cerimoniarios ?? base.length
   const result = base.slice(0, qty)
   while (result.length < qty) {
-    result.push({ funcao_label: '', ordem: result.length })
+    // Preenche slots extras com rótulo sequencial ou vazio
+    const label = FUNCAO_LABELS[result.length] ?? ''
+    result.push({ funcao_label: label, ordem: result.length })
   }
 
   // Bispo adiciona Môr, Mitra e Bácula ALÉM do qtd base
@@ -218,16 +224,9 @@ function SortableRow({
 
         {/* Function Label — styled select */}
         <div className="flex-shrink-0 w-44 sm:w-52 min-w-0">
-          <select
+          <SelectField
             value={item.funcao_label || ''}
             onChange={(e) => onChange(item.id, 'funcao_label', e.target.value)}
-            className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-wine-900 focus:ring-2 focus:ring-wine-900/10 bg-white transition-all appearance-none cursor-pointer"
-            style={{
-              backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E\")",
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'right 10px center',
-              paddingRight: '32px',
-            }}
           >
             <option value="">— Função —</option>
             <optgroup label="Funções padrão">
@@ -235,7 +234,7 @@ function SortableRow({
                 <option key={f} value={f}>{f}</option>
               ))}
             </optgroup>
-          </select>
+          </SelectField>
         </div>
 
         {/* Cerimoniário SearchableSelect */}
@@ -318,12 +317,15 @@ function CelebracaoFlags({ c }: { c: Celebracao }) {
 function abbreviateFuncao(label: string | null | undefined): string {
   if (!label) return 'Função'
   const l = label.toLowerCase()
-  if (l.includes('mestre') || (l.startsWith('cerimoni') && !l.includes('aux'))) return 'Cerimoniário'
-  if (l.includes('auxiliar 1') || l.includes('primeiro') || l.includes('microfone')) return '1ª Aux'
-  if (l.includes('auxiliar 2') || l.includes('segundo')  || l.includes('missal'))    return '2ª Aux'
-  if (l.includes('auxiliar 3') || l.includes('terceiro') || l.includes('leitor'))    return '3ª Aux'
-  if (l.includes('auxiliar 4') || l.includes('quarto')   || l.includes('prece'))     return '4ª Aux'
-  if (l.includes('auxiliar 5') || l.includes('quinto')   || l.includes('turifer'))   return '5ª Aux'
+  if (l.includes('mestre'))                                                           return 'Mestre'
+  if (l.includes('1') && l.includes('aux') || l.includes('primeiro') || l.includes('microfone')) return '1º Aux'
+  if (l.includes('2') && l.includes('aux') || l.includes('segundo')  || l.includes('missal'))    return '2º Aux'
+  if (l.includes('3') && l.includes('aux') || l.includes('terceiro') || l.includes('leitor'))    return '3º Aux'
+  if (l.includes('4') && l.includes('aux') || l.includes('quarto')   || l.includes('prece'))     return '4º Aux'
+  if (l.includes('5') && l.includes('aux') || l.includes('quinto')   || l.includes('turifer'))   return 'Turífer.'
+  if (l.includes('môr') || l === 'mor')   return 'Môr'
+  if (l.includes('mitra'))                return 'Mitra'
+  if (l.includes('bácula') || l.includes('bacula')) return 'Bácula'
   return label
 }
 
@@ -747,30 +749,29 @@ export default function EscalaForm() {
           <span className="w-5 h-5 bg-wine-900 text-white rounded-full text-xs flex items-center justify-center font-bold">1</span>
           Selecionar Celebração
         </h2>
-        <select
+        <SelectField
           value={selectedCelebracaoId ?? ''}
           onChange={(e) => {
             const val = Number(e.target.value)
             if (val) handleCelebracaoChange(val)
           }}
           disabled={isEditing}
-          className="input-field max-w-lg"
+          wrapperClassName="max-w-lg"
         >
           <option value="">— Selecione uma celebração —</option>
           {celebracoes
             // Show: celebrations without scale OR the one currently being edited
             .filter((c) => !c.escala || c.id === selectedCelebracaoId)
             .map((c) => {
-              let label = c.data.substring(0, 10)
-              try { label = format(safeParseDate(c.data), "dd/MM/yyyy (EEE)", { locale: ptBR }) } catch { /* keep raw */ }
-              return (
-                <option key={c.id} value={c.id}>
-                  {label} - {c.horario.substring(0, 5)} - {c.periodo_liturgico}
-                </option>
-              )
+              let dateLabel = c.data.substring(5, 10).split('-').reverse().join('/')  // dd/MM fallback
+              try { dateLabel = format(safeParseDate(c.data), "EEE dd/MM", { locale: ptBR }) } catch { /* keep raw */ }
+              const hora = c.horario.substring(0, 5)
+              const tipo = getTipoCelebracao(c)
+              const label = `${dateLabel} · ${hora} · ${tipo} · ${c.periodo_liturgico}`
+              return <option key={c.id} value={c.id}>{label}</option>
             })
           }
-        </select>
+        </SelectField>
         {!isEditing && celebracoes.filter((c) => !c.escala).length === 0 && (
           <p className="text-amber-600 text-sm mt-2 flex items-center gap-1.5">
             <AlertCircle size={14} />

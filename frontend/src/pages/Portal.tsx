@@ -1489,7 +1489,7 @@ export default function Portal() {
                                 className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3 border border-white/10"
                               >
                                 <div className="flex h-10 w-10 flex-shrink-0 flex-col items-center justify-center rounded-xl bg-white/10 text-center">
-                                  <span className="text-[9px] font-semibold uppercase text-white/50">
+                                  <span className="text-[7px] font-semibold uppercase text-white/50">
                                     {dayName}
                                   </span>
                                   <span className="text-sm font-bold text-white">

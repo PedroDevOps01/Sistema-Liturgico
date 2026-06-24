@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import api from '../lib/api'
 import type { RelatorioTreinamentosData } from '../types'
 import PageHeader from '../components/common/PageHeader'
+import CalcNote from '../components/common/CalcNote'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -135,9 +136,13 @@ export default function RelatorioTreinamentos() {
                 { label: 'Participantes Únicos', value: relatorio.totais.total_participantes, color: 'text-wine-900', bg: 'bg-wine-50' },
                 {
                   label: 'Média de Presença',
-                  value: `${relatorio.totais.media_presenca_pct}%`,
-                  color: relatorio.totais.media_presenca_pct >= 80 ? 'text-green-700' : relatorio.totais.media_presenca_pct >= 60 ? 'text-amber-700' : 'text-red-700',
-                  bg: relatorio.totais.media_presenca_pct >= 80 ? 'bg-green-50' : relatorio.totais.media_presenca_pct >= 60 ? 'bg-amber-50' : 'bg-red-50',
+                  value: relatorio.totais.media_presenca_pct != null ? `${relatorio.totais.media_presenca_pct}%` : '—',
+                  color: relatorio.totais.media_presenca_pct != null
+                    ? (relatorio.totais.media_presenca_pct >= 80 ? 'text-green-700' : relatorio.totais.media_presenca_pct >= 60 ? 'text-amber-700' : 'text-red-700')
+                    : 'text-gray-400',
+                  bg: relatorio.totais.media_presenca_pct != null
+                    ? (relatorio.totais.media_presenca_pct >= 80 ? 'bg-green-50' : relatorio.totais.media_presenca_pct >= 60 ? 'bg-amber-50' : 'bg-red-50')
+                    : '',
                 },
               ].map(s => (
                 <div key={s.label} className={`card p-4 ${s.bg}`}>
@@ -154,6 +159,25 @@ export default function RelatorioTreinamentos() {
               {copied ? 'Copiado!' : 'Copiar Resumo'}
             </button>
           </div>
+
+          {/* Observação de cálculo */}
+          <CalcNote items={[
+            {
+              label: 'Taxa de Presença (por treinamento)',
+              formula: 'Presentes ÷ Total convocados × 100',
+              note: 'O denominador inclui todos os convidados, mesmo sem status registrado. Ex.: 3 presentes de 35 convidados = 8,6%, não 100%.',
+            },
+            {
+              label: 'Média de Presença (resumo)',
+              formula: 'Média aritmética das taxas de cada treinamento no período',
+              note: 'Calculada apenas sobre treinamentos com ao menos um convidado.',
+            },
+            {
+              label: 'Taxa por Cerimoniário',
+              formula: 'Presenças "presente" ÷ Total de convites recebidos × 100',
+              note: 'Convites sem status registrado contam no denominador e reduzem a frequência individual.',
+            },
+          ]} />
 
           {/* Toggle tabs */}
           <div className="flex gap-1 bg-gray-100 rounded-xl p-1 max-w-xs">

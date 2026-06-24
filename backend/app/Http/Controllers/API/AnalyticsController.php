@@ -135,6 +135,7 @@ class AnalyticsController extends Controller
             ->get()->keyBy('cerimoniario_id');
 
         $ranking = $rows->map(function ($r) use ($recente, $anterior) {
+            // Frequência geral: Serviu ÷ Total com status registrado × 100 (inteiro)
             $pct = $r->total > 0 ? round(($r->presente / $r->total) * 100) : null;
 
             $pctRec = ($recente[$r->id] ?? null);
@@ -143,6 +144,10 @@ class AnalyticsController extends Controller
             $pctAnt = ($anterior[$r->id] ?? null);
             $pctAnt = $pctAnt && $pctAnt->total > 0 ? ($pctAnt->presente / $pctAnt->total) * 100 : null;
 
+            // Tendência: compara taxa 0–3m com taxa 3–6m atrás.
+            // "subindo"  se diferença > +5 p.p.
+            // "caindo"   se diferença < -5 p.p.
+            // "estavel"  caso contrário ou quando não há dados suficientes.
             $tendencia = 'estavel';
             if ($pctRec !== null && $pctAnt !== null) {
                 if ($pctRec > $pctAnt + 5) $tendencia = 'subindo';
@@ -291,6 +296,11 @@ class AnalyticsController extends Controller
         $treinamentos = Treinamento::where('data', '>=', Carbon::now()->subMonths(3)->toDateString())->count();
         $treiScore    = min($treinamentos * 25, 100);
 
+        // Score de Saúde do Ministério (0–100):
+        //   Presença média  × 40%  (Serviu ÷ total com status × 100)
+        //   Confirmações    × 30%  (Confirmados ÷ (Confirmados + Recusados) × 100; padrão 75% se vazio)
+        //   Acólitos ativos × 20%  (Serviram mês anterior ÷ Total ativos × 100; máx 100)
+        //   Treinamentos    × 10%  (25 pts por treino nos últimos 3m; máx 100)
         $score = (int) round(
             $presMedia * 0.40 +
             $taxaConf  * 0.30 +
@@ -338,7 +348,10 @@ class AnalyticsController extends Controller
         $proxMes    = Carbon::now()->addMonth();
         $mesmoMesAnoAnterior = $counts[$proxMes->copy()->subYear()->format('Y-m')] ?? null;
 
-        // Se temos histórico do mesmo mês no ano anterior, ponderar
+        // Projeção do próximo mês:
+        //   Com histórico sazonal: Média últimos 3m × 60% + Mesmo mês do ano anterior × 40%
+        //   Sem histórico sazonal: Apenas média dos últimos 3 meses
+        //   Combina tendência recente com sazonalidade anual para melhor precisão.
         $projecao = $mesmoMesAnoAnterior !== null
             ? round($media * 0.6 + $mesmoMesAnoAnterior * 0.4)
             : round($media);

@@ -15,6 +15,7 @@ import {
   Copy,
   MessageCircle,
 } from 'lucide-react'
+import SelectField from '../components/common/SelectField'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
 import type { Cerimoniario, Escala, EscalaItem } from '../types'
@@ -495,10 +496,12 @@ export default function EscalaView() {
                       {statusPresenca === 'substituido' && (
                         <div className="flex items-center gap-1.5">
                           <RotateCcw size={11} className="text-amber-500 flex-shrink-0" />
-                          <select
+                          <SelectField
+                            variant="amber"
                             value={item.presenca?.substituto_id ?? ''}
                             onChange={(e) => handleSubstituto(item, e.target.value ? Number(e.target.value) : null)}
-                            className="text-xs border-2 border-amber-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:border-amber-400 text-gray-700 cursor-pointer max-w-[160px]"
+                            wrapperClassName="max-w-[160px]"
+                            className="text-xs py-1 px-2.5"
                           >
                             <option value="">— Quem serviu? —</option>
                             {cerimoniarios
@@ -506,7 +509,7 @@ export default function EscalaView() {
                               .map((c) => (
                                 <option key={c.id} value={c.id}>{c.nome}</option>
                               ))}
-                          </select>
+                          </SelectField>
                         </div>
                       )}
                     </div>

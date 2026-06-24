@@ -7,6 +7,7 @@ import api from '../lib/api'
 import PageHeader from '../components/common/PageHeader'
 import Badge from '../components/common/Badge'
 import { getPeriodoBadgeVariant } from '../lib/liturgico'
+import CalcNote from '../components/common/CalcNote'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -57,6 +58,7 @@ export default function RelatorioAssiduidade() {
   const [relatorio, setRelatorio] = useState<RelatorioAssiduidadeData | null>(null)
   const [loading, setLoading] = useState(false)
   const [expandedMeses, setExpandedMeses] = useState<Set<string>>(new Set())
+  const [filteredByUser, setFilteredByUser] = useState(false)
 
   async function carregar() {
     setLoading(true)
@@ -113,7 +115,11 @@ export default function RelatorioAssiduidade() {
               className="input-field"
             />
           </div>
-          <button onClick={carregar} disabled={loading} className="btn-primary">
+          <button
+            onClick={() => { setFilteredByUser(true); carregar() }}
+            disabled={loading}
+            className="btn-primary"
+          >
             <BarChart2 size={16} />
             {loading ? 'Gerando...' : 'Aplicar'}
           </button>
@@ -134,6 +140,20 @@ export default function RelatorioAssiduidade() {
       {/* ── Results ───────────────────────────────────────────────────────── */}
       {!loading && relatorio && (
         <div className="space-y-5">
+
+          {/* Observação de cálculo — só aparece após o usuário filtrar explicitamente */}
+          {filteredByUser && <CalcNote items={[
+            {
+              label: 'Taxa por Período Litúrgico',
+              formula: 'Serviu ÷ (Serviu + Faltou) × 100',
+              note: 'Justificados e substituídos não entram no denominador — não penalizam nem beneficiam a taxa. Mede apenas presença ou falta efetiva.',
+            },
+            {
+              label: 'Gráfico "Top Ausentes"',
+              formula: 'Largura da barra ∝ faltas do cerimoniário ÷ máximo de faltas no período',
+              note: 'Escala relativa: 100% = quem mais faltou no período. Não é uma taxa percentual de faltas — serve para comparação proporcional.',
+            },
+          ]} />}
 
           {/* Assiduidade por período litúrgico */}
           {relatorio.por_periodo.length > 0 && (

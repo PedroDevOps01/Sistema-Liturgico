@@ -18,6 +18,7 @@ import PageHeader from '../components/common/PageHeader'
 import Modal from '../components/common/Modal'
 import ConfirmDialog from '../components/common/ConfirmDialog'
 import Badge from '../components/common/Badge'
+import CalcNote from '../components/common/CalcNote'
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
@@ -498,6 +499,22 @@ export default function Formacao() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Observação de cálculo — progresso de formação */}
+          {!selectedCer && (
+            <CalcNote items={[
+              {
+                label: 'Progresso Total (barra)',
+                formula: 'Competências concluídas ÷ Total de competências de todos os níveis × 100',
+                note: 'Inclui competências obrigatórias e opcionais de todos os níveis cadastrados.',
+              },
+              {
+                label: 'Progresso por Nível',
+                formula: 'Competências concluídas no nível ÷ Total do nível × 100',
+                note: 'Calculado independentemente para cada nível — o progresso total não é a média dos níveis.',
+              },
+            ]} />
           )}
 
           {/* Overview mode */}

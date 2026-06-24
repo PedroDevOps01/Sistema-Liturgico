@@ -17,6 +17,7 @@ import Badge from '../components/common/Badge'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import { getPeriodoLiturgico, getPeriodoBadgeVariant } from '../lib/liturgico'
 import { parseDate, parseDateParts, formatHorario } from '../lib/dateUtils'
+import CalcNote from '../components/common/CalcNote'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,6 +46,7 @@ interface Treinamento {
   periodo_liturgico?: string
   observacao?: string
   presencas: TreinamentoPresenca[]
+  competencias?: { id: number; nome: string }[]
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -286,6 +288,14 @@ function FrequenciaTab({ treinamentos }: { treinamentos: Treinamento[] }) {
   }
 
   return (
+    <div className="space-y-4">
+    <CalcNote items={[
+      {
+        label: 'Frequência por cerimoniário',
+        formula: 'Presenças "presente" ÷ Total de convites recebidos × 100',
+        note: 'Cada treinamento em que o cerimoniário foi convidado conta como 1 convite. Convites sem status registrado estão no denominador e reduzem a frequência.',
+      },
+    ]} />
     <div className="card overflow-x-auto">
       <table className="w-full min-w-[480px]">
         <thead>
@@ -340,6 +350,7 @@ function FrequenciaTab({ treinamentos }: { treinamentos: Treinamento[] }) {
         </tbody>
       </table>
     </div>
+    </div>
   )
 }
 
@@ -354,12 +365,12 @@ interface FormState {
   periodo_liturgico: string
   observacao: string
   cerimoniarios: number[]
-  formacao_competencia_id: number | null
+  competencia_ids: number[]
 }
 
 function defaultForm(): FormState {
   const { periodo } = getPeriodoLiturgico()
-  return { data: '', horario: '', tema: '', local: '', funcoes: [], periodo_liturgico: periodo, observacao: '', cerimoniarios: [], formacao_competencia_id: null }
+  return { data: '', horario: '', tema: '', local: '', funcoes: [], periodo_liturgico: periodo, observacao: '', cerimoniarios: [], competencia_ids: [] }
 }
 
 export default function Treinamentos() {
@@ -404,15 +415,15 @@ export default function Treinamentos() {
   function openEdit(t: Treinamento) {
     setEditing(t)
     setForm({
-      data:                      t.data.substring(0, 10),
-      horario:                   t.horario.substring(0, 5),
-      tema:                      t.tema,
-      local:                     t.local ?? '',
-      funcoes:                   t.funcoes ?? [],
-      periodo_liturgico:         t.periodo_liturgico ?? '',
-      observacao:                t.observacao ?? '',
-      cerimoniarios:             t.presencas.map((p) => p.cerimoniario_id),
-      formacao_competencia_id:   (t as Treinamento & { formacao_competencia_id?: number | null }).formacao_competencia_id ?? null,
+      data:              t.data.substring(0, 10),
+      horario:           t.horario.substring(0, 5),
+      tema:              t.tema,
+      local:             t.local ?? '',
+      funcoes:           t.funcoes ?? [],
+      periodo_liturgico: t.periodo_liturgico ?? '',
+      observacao:        t.observacao ?? '',
+      cerimoniarios:     t.presencas.map((p) => p.cerimoniario_id),
+      competencia_ids:   (t.competencias ?? []).map((c) => c.id),
     })
     setModalOpen(true)
   }
@@ -632,28 +643,55 @@ export default function Treinamentos() {
             <textarea value={form.observacao} onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))} rows={2} className="input-field resize-none" placeholder="Detalhes que serão incluídos no convite..." />
           </div>
 
-          {/* Vincular a competência de formação */}
+          {/* Vincular competências de formação */}
           <div>
-            <label className="label">Vincular a competência de formação (opcional)</label>
-            <select
-              value={form.formacao_competencia_id ?? ''}
-              onChange={e => setForm(f => ({
-                ...f,
-                formacao_competencia_id: e.target.value ? Number(e.target.value) : null,
-              }))}
-              className="input-field"
-            >
-              <option value="">— Nenhuma —</option>
-              {niveis.map(nivel => (
-                <optgroup key={nivel.id} label={nivel.nome}>
-                  {(nivel.competencias ?? []).map(comp => (
-                    <option key={comp.id} value={comp.id}>{comp.nome}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+            <label className="label">
+              Competências de formação vinculadas{' '}
+              {form.competencia_ids.length > 0 && (
+                <span className="ml-1 text-xs font-semibold text-wine-700 bg-wine-100 px-2 py-0.5 rounded-full">
+                  {form.competencia_ids.length} selecionada{form.competencia_ids.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </label>
+            {niveis.filter((n) => (n.competencias ?? []).length > 0).length === 0 ? (
+              <p className="text-xs text-gray-400 italic">Nenhuma competência cadastrada.</p>
+            ) : (
+              <div className="border-2 border-wine-100 rounded-xl overflow-hidden max-h-44 overflow-y-auto">
+                {niveis.filter((n) => (n.competencias ?? []).length > 0).map((nivel) => (
+                  <div key={nivel.id}>
+                    <div className="px-4 py-1.5 bg-wine-50 border-b border-wine-100">
+                      <span className="text-[11px] font-bold text-wine-800 uppercase tracking-wide">{nivel.nome}</span>
+                    </div>
+                    {(nivel.competencias ?? []).map((comp) => {
+                      const sel = form.competencia_ids.includes(comp.id)
+                      return (
+                        <label
+                          key={comp.id}
+                          className="flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-wine-50/30 border-b border-gray-50 last:border-b-0 transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={sel}
+                            onChange={() =>
+                              setForm((f) => ({
+                                ...f,
+                                competencia_ids: sel
+                                  ? f.competencia_ids.filter((id) => id !== comp.id)
+                                  : [...f.competencia_ids, comp.id],
+                              }))
+                            }
+                            className="rounded border-wine-300 text-wine-700 focus:ring-wine-500"
+                          />
+                          <span className="text-sm text-gray-800">{comp.nome}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                ))}
+              </div>
+            )}
             <p className="text-xs text-gray-400 mt-1.5">
-              Ao registrar presença como "presente", a competência selecionada será marcada automaticamente como concluída para cada cerimoniário.
+              Ao registrar presença como "presente", todas as competências selecionadas serão marcadas como concluídas para cada cerimoniário.
             </p>
           </div>
 
