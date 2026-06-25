@@ -25,6 +25,7 @@ import {
   BookOpen,
   TrendingUp,
   UserCheck,
+  ShieldCheck,
 } from 'lucide-react'
 import logogrupo from '../../assets/logogrupo.png'
 import { removeToken, removeUser, getUser } from '../../lib/auth'
@@ -102,6 +103,7 @@ const modules: Module[] = [
       { label: 'Treinamentos',             icon: GraduationCap, to: '/relatorios/treinamentos'    },
       { label: 'Empréstimos de Túnicas',   icon: Shirt,         to: '/relatorios/tunicas'         },
       { label: 'Assiduidade',              icon: UserCheck,     to: '/relatorios/assiduidade'     },
+      { label: 'Auditoria do Sistema',     icon: ShieldCheck,   to: '/relatorios/auditoria'       },
       { label: 'Analytics',                icon: Activity,      to: '/analytics'                  },
     ],
   },
@@ -259,7 +261,7 @@ export default function Sidebar({
       )}
 
       {/* ── Navigation ────────────────────────── */}
-      <nav className={`flex-1 py-3 overflow-y-auto ${collapsed ? 'px-2' : 'px-3'}`}>
+      <nav className={`flex-1 py-3 overflow-y-auto sidebar-scroll ${collapsed ? 'px-2' : 'px-3'}`}>
         {collapsed ? (
           /* ── Icon-only mode ── */
           <div className="space-y-1">

@@ -38,6 +38,7 @@ import RelatorioCrescimento from './pages/RelatorioCrescimento'
 import RelatorioTreinamentos from './pages/RelatorioTreinamentos'
 import RelatorioTunicas from './pages/RelatorioTunicas'
 import RelatorioAssiduidade from './pages/RelatorioAssiduidade'
+import RelatorioAuditoria from './pages/RelatorioAuditoria'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated()) {
@@ -118,6 +119,7 @@ export default function App() {
           <Route path="/relatorios/treinamentos" element={<RelatorioTreinamentos />} />
           <Route path="/relatorios/tunicas" element={<RelatorioTunicas />} />
           <Route path="/relatorios/assiduidade" element={<RelatorioAssiduidade />} />
+          <Route path="/relatorios/auditoria" element={<RelatorioAuditoria />} />
         </Route>
 
         {/* Fallback */}

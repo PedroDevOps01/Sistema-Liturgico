@@ -10,6 +10,7 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable
 {
     use HasApiTokens, Notifiable, SoftDeletes;
+    use \App\Traits\Auditavel;
 
     protected $fillable = [
         'nome',

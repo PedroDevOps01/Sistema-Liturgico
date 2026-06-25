@@ -29,6 +29,7 @@ const routeLabels: Record<string, string> = {
   '/relatorios/treinamentos': 'Presenças em Treinamentos',
   '/relatorios/tunicas': 'Relatório de Empréstimos',
   '/relatorios/assiduidade': 'Assiduidade por Período Litúrgico',
+  '/relatorios/auditoria': 'Auditoria do Sistema',
 }
 
 function getCurrentLabel(pathname: string): string {

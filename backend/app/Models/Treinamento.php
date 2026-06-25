@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 class Treinamento extends Model
 {
     use SoftDeletes;
+    use \App\Traits\Auditavel;
 
     protected $table = 'treinamentos';
 

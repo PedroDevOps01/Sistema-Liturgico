@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class FormacaoCompetencia extends Model
 {
+    use \App\Traits\Auditavel;
+
     protected $table = 'formacao_competencias';
 
     protected $fillable = [

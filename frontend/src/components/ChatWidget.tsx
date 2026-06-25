@@ -67,12 +67,15 @@ const CATEGORIES = [
       { label: 'Todos os cerimoniários ativos',  tipo: 'cerimoniarios_ativos' },
       { label: 'Cerimoniários inativos',          tipo: 'cerimoniarios_inativos' },
       { label: 'Cerimoniários experientes',       tipo: 'cerimoniarios_experientes' },
+      { label: 'Cerimoniários mestres',           tipo: 'mestres' },
       { label: 'Indisponíveis temporariamente',   tipo: 'indisponiveis_temporario' },
       { label: 'Disponíveis — Domingo manhã',     tipo: 'disponiveis_domingo_manha' },
       { label: 'Disponíveis — Domingo tarde',     tipo: 'disponiveis_domingo_tarde' },
       { label: 'Disponíveis — Domingo noite',     tipo: 'disponiveis_domingo_noite' },
       { label: 'Disponíveis — Sábado',            tipo: 'disponiveis_sabado' },
       { label: 'Disponíveis — Semana manhã',      tipo: 'disponiveis_semana_manha' },
+      { label: 'Disponíveis — Semana tarde',      tipo: 'disponiveis_semana_tarde' },
+      { label: 'Disponíveis — Semana noite',      tipo: 'disponiveis_semana_noite' },
     ],
   },
   {
@@ -81,13 +84,47 @@ const CATEGORIES = [
       { label: 'Resumo geral de presenças',          tipo: 'resumo_presencas' },
       { label: 'Quem mais faltou?',                  tipo: 'mais_faltaram' },
       { label: 'Presenças pendentes de confirmação', tipo: 'presencas_pendentes' },
+      { label: 'Cerimoniários em risco (3+ faltas)', tipo: 'cerimoniarios_risco' },
     ],
   },
   {
     icon: '🎓', label: 'Treinamentos',
     questions: [
-      { label: 'Próximos treinamentos',     tipo: 'proximos_treinamentos' },
-      { label: 'Histórico de treinamentos', tipo: 'historico_treinamentos' },
+      { label: 'Próximos treinamentos',              tipo: 'proximos_treinamentos' },
+      { label: 'Histórico de treinamentos',          tipo: 'historico_treinamentos' },
+      { label: 'Treinamentos com competências',      tipo: 'treinamentos_competencias' },
+    ],
+  },
+  {
+    icon: '📚', label: 'Formação',
+    questions: [
+      { label: 'Níveis e competências cadastradas',  tipo: 'formacao_niveis' },
+      { label: 'Cerimoniários sem competências',     tipo: 'cerimoniarios_sem_formacao' },
+      { label: 'Progresso geral da formação',        tipo: 'progresso_formacao' },
+    ],
+  },
+  {
+    icon: '👔', label: 'Túnicas',
+    questions: [
+      { label: 'Túnicas disponíveis',                tipo: 'tunicas_disponiveis' },
+      { label: 'Túnicas emprestadas',                tipo: 'tunicas_emprestadas' },
+      { label: 'Devoluções em atraso',               tipo: 'tunicas_atrasadas' },
+      { label: 'Túnicas perdidas',                   tipo: 'tunicas_perdidas' },
+    ],
+  },
+  {
+    icon: '📈', label: 'Analytics',
+    questions: [
+      { label: 'Saúde do ministério',                tipo: 'saude_ministerio' },
+      { label: 'Cerimoniários em risco de evasão',   tipo: 'cerimoniarios_risco' },
+    ],
+  },
+  {
+    icon: '⛪', label: 'Celebrações especiais',
+    questions: [
+      { label: 'Crismas agendadas',                  tipo: 'crismas' },
+      { label: 'Ordenações agendadas',               tipo: 'ordenacoes' },
+      { label: 'Celebrações com Bispo/Arcebispo',    tipo: 'celebracoes_bispo' },
     ],
   },
   {
@@ -111,6 +148,8 @@ function renderMarkdown(text: string) {
       els.push(<p key={key++} className="font-bold text-gray-900 mt-2 mb-0.5">{fmt(line.replace(/^#{1,3} /, ''))}</p>)
     } else if (/^[-*] /.test(line)) {
       els.push(<div key={key++} className="flex gap-2 my-0.5 ml-1"><span className="mt-2 w-1 h-1 rounded-full bg-current flex-shrink-0" /><span>{fmt(line.replace(/^[-*] /, ''))}</span></div>)
+    } else if (/^_.*_$/.test(line.trim())) {
+      els.push(<p key={key++} className="text-xs text-gray-400 mt-1">{line.trim().slice(1, -1)}</p>)
     } else if (line.trim() === '') {
       els.push(<div key={key++} className="h-1.5" />)
     } else {
@@ -121,9 +160,10 @@ function renderMarkdown(text: string) {
 }
 
 function fmt(text: string): React.ReactNode {
-  return text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((p, i) => {
+  return text.split(/(\*\*[^*]+\*\*|`[^`]+`|_[^_]+_)/g).map((p, i) => {
     if (p.startsWith('**') && p.endsWith('**')) return <strong key={i}>{p.slice(2, -2)}</strong>
     if (p.startsWith('`') && p.endsWith('`')) return <code key={i} className="bg-black/10 px-1 rounded text-xs font-mono">{p.slice(1, -1)}</code>
+    if (p.startsWith('_') && p.endsWith('_')) return <span key={i} className="text-gray-400 text-xs">{p.slice(1, -1)}</span>
     return p
   })
 }

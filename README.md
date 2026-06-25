@@ -115,15 +115,16 @@ bash redeploy.sh                          # no servidor
 - Cadastro individual ou **em lote para final de semana**
 - Flag "Repetir mesmo dia" no cadastro em lote
 - Detecção automática de celebração noturna (horário ≥ 17h)
+- **Quantidade de cerimoniários calculada automaticamente** ao preencher o horário: < 18h → 5; ≥ 18h → 6 (Turiferário incluso) — com preview visual no formulário
 - **Cor litúrgica CNBB** configurável por celebração
 - Flags: Possui Bispo/Arcebispo · Celebração das 6h · Celebração da Palavra · Celebração Solene · Casamento · Batismo · Crisma · Primeira Eucaristia · Adoração ao Santíssimo · Procissão · Via-Sacra · Exéquias · Vigília Pascal · Paixão do Senhor · Ordenação
 - Ordenação por data com badge "Data passada" para celebrações anteriores
 
 ### Escalas
 - Estrutura **automática** gerada pelas flags da celebração
-- Funções geradas automaticamente por tipo (Turiferário só em noturnas, Môr/Mitra/Bácula com Bispo)
+- **Regra de slots por horário**: horário < 18h → 5 slots (Mestre + 4 Aux); ≥ 18h → 6 slots (+ Turiferário); com Bispo → +3 extras (Môr/Mitra/Bácula); eventos especiais (Casamento, Batismo etc.) → apenas Mestre pré-preenchido
 - **Sugestão automática** por disponibilidade, rotatividade justa e priorização de mestres
-- **Drag & drop** para reordenar funções
+- **Dois modos de visualização**: lista (drag & drop para reordenar) e **grade/matriz** (cerimoniários nas linhas × funções nas colunas, marcação direta por célula)
 - Select de cerimoniário com indicadores visuais de disponibilidade (verde/âmbar/vermelho/laranja)
 - Alertas de conflito e duplicatas
 
@@ -146,7 +147,7 @@ bash redeploy.sh                          # no servidor
 - Cadastro com data, horário, tema, local, período litúrgico e funções alvo
 - Registro de presença por cerimoniário com status individual
 - Geração de convite formatado para WhatsApp
-- **Vínculo com competência de Formação** — ao marcar presença como "presente", a competência selecionada avança automaticamente para "concluída" no perfil do cerimoniário
+- **Múltiplas competências por treinamento** — seletor com checkboxes agrupados por nível de formação; ao marcar presença como "presente", todas as competências vinculadas avançam automaticamente para "concluída" no perfil do cerimoniário
 
 ### Formação
 - **Níveis de formação** (ex.: Introdutório, Básico, Avançado) com descrição
@@ -171,15 +172,17 @@ bash redeploy.sh                          # no servidor
 - **Presenças**: total de serviços, faltas, substituições e justificativas por cerimoniário
 - **Frequência Individual**: evolução mensal de presenças de um cerimoniário específico com gráfico de barras
 - **Crescimento do Ministério**: evolução do número de cerimoniários ativos mês a mês com gráfico de linha
-- **Presenças em Treinamentos**: taxa de presença por treinamento e ranking de participação dos cerimoniários
+- **Presenças em Treinamentos**: taxa de presença por treinamento e ranking de participação — `Frequência = presenças "presente" ÷ total de convites × 100`
 - **Empréstimos de Túnicas**: tempo médio de devolução, cerimoniários com mais empréstimos, túnicas com mais ocorrências de perda e histórico completo com filtro por período
-- **Assiduidade**: por período litúrgico (Advento, Quaresma, Tempo Comum etc.), top ausentes, faltas por mês com top 5 por mês — padrão inclui próximos 30 dias para capturar faltas pré-registradas
-- **Analytics**: ranking de assiduidade com tendência (subindo/estável/caindo), cerimoniários em risco (≥ 3 faltas consecutivas), score de saúde do ministério (0–100), projeção de celebrações para o próximo mês
+- **Assiduidade**: por período litúrgico (Advento, Quaresma, Tempo Comum etc.), top ausentes, faltas por mês com top 5 por mês — padrão inclui próximos 30 dias para capturar faltas pré-registradas; CalcNote com fórmulas visível após filtrar
+- **Analytics**: ranking de assiduidade com tendência (subindo/estável/caindo), cerimoniários em risco (≥ 3 faltas consecutivas), score de saúde do ministério (0–100), projeção de celebrações para o próximo mês; **fórmulas exibidas via CalcNote**: score = Presença×40% + Confirmações×30% + Ativos×20% + Treinamentos×10%; projeção = média 3m×60% + mesmo mês ano anterior×40%
 - Meses sempre em **português** (Jan, Fev, Mar…) independente do locale do servidor
 
-### Chat — Consultas Rápidas
-- Interface de chat com respostas em linguagem natural
-- Reconhece perguntas sobre: ranking, escalas, celebrações, cerimoniários, treinamentos, presenças e funções litúrgicas
+### Chat — Consultas Rápidas (Sávio)
+- Interface de chat lateral com respostas em linguagem natural
+- **8 categorias**: Visão Geral, Escalas, Celebrações, Cerimoniários, Presenças, Treinamentos, Formação, Túnicas, Funções, Histórico
+- Consultas pré-definidas por categoria + aba de **Pergunta Livre** (limite de 20 por dia por dispositivo)
+- Reconhece: ranking de serviços, disponibilidade por turno, mestres, cerimoniários em risco, saúde do ministério, túnicas disponíveis/emprestadas/atrasadas/perdidas, progresso de formação e muito mais
 
 ### Busca Global (Ctrl+K)
 - Pesquisa simultânea em cerimoniários, celebrações e escalas

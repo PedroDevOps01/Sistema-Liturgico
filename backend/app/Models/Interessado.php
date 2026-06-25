@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Interessado extends Model
 {
+    use \App\Traits\Auditavel;
+
     protected $fillable = ['nome', 'telefone', 'email', 'mensagem', 'lido'];
 
     protected function casts(): array

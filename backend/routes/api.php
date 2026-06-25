@@ -147,4 +147,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('formacao/cerimoniario/{cerimoniario}/historico', [FormacaoController::class, 'historico']);
     Route::get('formacao/cerimoniario/{cerimoniario}', [FormacaoController::class, 'progressoCerimoniario']);
     Route::put('formacao/cerimoniario/{cerimoniario}/competencia/{competencia}', [FormacaoController::class, 'updateProgresso']);
+
+    // Auditoria
+    Route::get('auditorias/tabelas', [\App\Http\Controllers\API\AuditoriaController::class, 'tabelas']);
+    Route::get('auditorias', [\App\Http\Controllers\API\AuditoriaController::class, 'index']);
 });

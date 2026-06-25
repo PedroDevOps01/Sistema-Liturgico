@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Tunica extends Model
 {
     use SoftDeletes;
+    use \App\Traits\Auditavel;
 
     protected $table = 'tunicas';
 

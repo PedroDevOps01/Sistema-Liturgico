@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Escala extends Model
 {
     use SoftDeletes;
+    use \App\Traits\Auditavel;
 
     protected $table = 'escalas';
 

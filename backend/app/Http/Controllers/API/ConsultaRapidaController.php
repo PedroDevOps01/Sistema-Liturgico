@@ -6,10 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Cerimoniario;
 use App\Models\Celebracao;
 use App\Models\Escala;
+use App\Models\FormacaoNivel;
 use App\Models\Funcao;
 use App\Models\HistoricoEscala;
 use App\Models\Presenca;
 use App\Models\Treinamento;
+use App\Models\Tunica;
+use App\Models\TunicaEmprestimo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -42,11 +45,27 @@ class ConsultaRapidaController extends Controller
             'disponiveis_domingo_noite' => $this->disponiveis('domingo_noite'),
             'disponiveis_sabado'        => $this->disponiveis('sabado'),
             'disponiveis_semana_manha'  => $this->disponiveis('semana_manha'),
+            'disponiveis_semana_tarde'  => $this->disponiveis('semana_tarde'),
+            'disponiveis_semana_noite'  => $this->disponiveis('semana_noite'),
+            'mestres'                   => $this->mestres(),
             'resumo_presencas'          => $this->resumoPresencas(),
             'mais_faltaram'             => $this->maisFaltaram(),
             'presencas_pendentes'       => $this->presencasPendentes(),
+            'cerimoniarios_risco'       => $this->cerimoniáriosRisco(),
             'proximos_treinamentos'     => $this->proximosTreinamentos(),
             'historico_treinamentos'    => $this->historicoTreinamentos(),
+            'treinamentos_competencias' => $this->treinamentosComCompetencias(),
+            'formacao_niveis'           => $this->formacaoNiveis(),
+            'cerimoniarios_sem_formacao'=> $this->cerimoniáriosSemFormacao(),
+            'progresso_formacao'        => $this->progressoFormacao(),
+            'tunicas_disponiveis'       => $this->tunicasDisponiveis(),
+            'tunicas_emprestadas'       => $this->tunicasEmprestadas(),
+            'tunicas_atrasadas'         => $this->tunicasAtrasadas(),
+            'tunicas_perdidas'          => $this->tunicasPerdidas(),
+            'saude_ministerio'          => $this->saudeMinisterio(),
+            'crismas'                   => $this->crismas(),
+            'ordenacoes'                => $this->ordenacoes(),
+            'celebracoes_bispo'         => $this->celebracoesBispo(),
             'funcoes_liturgicas'        => $this->funcoesLiturgicas(),
             'historico_escalas'         => $this->historicoEscalas(),
             default                     => "Consulta '$tipo' não encontrada.",
@@ -422,5 +441,281 @@ class ConsultaRapidaController extends Controller
             "- **{$h->acao}** — Escala de {$h->escala?->celebracao?->data?->format('d/m/Y')} por {$h->user?->nome} em {$h->created_at?->format('d/m/Y H:i')}"
         )->implode("\n");
         return "## 📋 Histórico de Alterações\n\n{$linhas}";
+    }
+
+    // ── Cerimoniários — novos ─────────────────────────────────────────────
+
+    private function mestres(): string
+    {
+        $lista = Cerimoniario::where('ativo', true)->where('mestre', true)->orderBy('nome')->get();
+        if ($lista->isEmpty()) return "## 👑 Mestres\n\nNenhum cerimoniário marcado como Mestre.";
+        $linhas = $lista->map(fn($c) => "- **M - {$c->nome}**" . ($c->numero ? " (Nº {$c->numero})" : ''))->implode("\n");
+        return "## 👑 Cerimoniários Mestres ({$lista->count()})\n\n{$linhas}";
+    }
+
+    // ── Presenças — novos ─────────────────────────────────────────────────
+
+    private function cerimoniáriosRisco(): string
+    {
+        $lista = DB::table('cerimoniarios as c')
+            ->select('c.id', 'c.nome')
+            ->selectRaw('COUNT(p.id) as faltas_consecutivas')
+            ->join('escala_itens as ei', 'ei.cerimoniario_id', '=', 'c.id')
+            ->join('presencas as p', fn($j) => $j->on('p.escala_item_id', '=', 'ei.id')->where('p.status', 'ausente'))
+            ->join('escalas as e', fn($j) => $j->on('e.id', '=', 'ei.escala_id')->where('e.ativo', true))
+            ->where('c.ativo', true)
+            ->groupBy('c.id', 'c.nome')
+            ->havingRaw('COUNT(p.id) >= 3')
+            ->orderByDesc('faltas_consecutivas')
+            ->get();
+
+        if ($lista->isEmpty()) return "## ⚠️ Cerimoniários em Risco\n\nNenhum cerimoniário com 3 ou mais faltas registradas.";
+
+        $linhas = $lista->map(fn($c) =>
+            "- **{$c->nome}** — {$c->faltas_consecutivas} " . ($c->faltas_consecutivas == 1 ? 'falta' : 'faltas')
+        )->implode("\n");
+
+        return "## ⚠️ Cerimoniários em Risco ({$lista->count()})\n\n{$linhas}\n\n_Critério: 3 ou mais faltas registradas._";
+    }
+
+    // ── Treinamentos — novos ──────────────────────────────────────────────
+
+    private function treinamentosComCompetencias(): string
+    {
+        $lista = Treinamento::with('competencias')->orderByDesc('data')
+            ->get()
+            ->filter(fn($t) => $t->competencias->isNotEmpty());
+
+        if ($lista->isEmpty()) return "## 🎓 Treinamentos com Competências\n\nNenhum treinamento vinculado a competências de formação.";
+
+        $linhas = $lista->map(fn($t) =>
+            "- **{$t->data?->format('d/m/Y')}** — {$t->tema} · " . $t->competencias->pluck('nome')->implode(', ')
+        )->implode("\n");
+
+        return "## 🎓 Treinamentos com Competências ({$lista->count()})\n\n{$linhas}";
+    }
+
+    // ── Formação ──────────────────────────────────────────────────────────
+
+    private function formacaoNiveis(): string
+    {
+        $niveis = FormacaoNivel::with('competencias')->orderBy('ordem')->get();
+        if ($niveis->isEmpty()) return "## 📚 Formação\n\nNenhum nível de formação cadastrado.";
+
+        $linhas = $niveis->map(fn($n) =>
+            "**{$n->nome}** ({$n->competencias->count()} competências)\n"
+            . $n->competencias->map(fn($c) => "  - {$c->nome}")->implode("\n")
+        )->implode("\n\n");
+
+        return "## 📚 Níveis e Competências de Formação\n\n{$linhas}";
+    }
+
+    private function cerimoniáriosSemFormacao(): string
+    {
+        $comConcluida = DB::table('cerimoniario_competencias')
+            ->where('concluida', true)
+            ->distinct()
+            ->pluck('cerimoniario_id');
+
+        $lista = Cerimoniario::where('ativo', true)
+            ->whereNotIn('id', $comConcluida)
+            ->orderBy('nome')
+            ->get();
+
+        if ($lista->isEmpty()) return "## 📚 Cerimoniários sem Formação\n\nTodos os cerimoniários têm ao menos uma competência concluída.";
+
+        $linhas = $lista->map(fn($c) => "- {$c->nome}")->implode("\n");
+        return "## 📚 Cerimoniários sem Competências Concluídas ({$lista->count()})\n\n{$linhas}";
+    }
+
+    private function progressoFormacao(): string
+    {
+        $total = Cerimoniario::where('ativo', true)->count();
+        if ($total === 0) return "## 📚 Progresso de Formação\n\nNenhum cerimoniário ativo.";
+
+        $comAlguma = DB::table('cerimoniario_competencias')
+            ->where('concluida', true)
+            ->distinct()
+            ->count('cerimoniario_id');
+
+        $totalCompetencias = DB::table('formacao_competencias')->count();
+        $concluidas        = DB::table('cerimoniario_competencias')->where('concluida', true)->count();
+
+        $pctCer = $total > 0 ? round(($comAlguma / $total) * 100) : 0;
+
+        return "## 📚 Progresso Geral de Formação\n\n"
+            . "**Cerimoniários com ao menos 1 competência concluída:** {$comAlguma} de {$total} ({$pctCer}%)\n\n"
+            . "**Competências cadastradas:** {$totalCompetencias}\n"
+            . "- Registros concluídos: **{$concluidas}**";
+    }
+
+    // ── Túnicas ───────────────────────────────────────────────────────────
+
+    private function tunicasDisponiveis(): string
+    {
+        $lista = Tunica::whereNull('deleted_at')
+            ->whereDoesntHave('emprestimos', fn($q) => $q->whereIn('status', ['emprestada', 'perdida']))
+            ->orderBy('codigo')
+            ->get();
+
+        if ($lista->isEmpty()) return "## 👔 Túnicas Disponíveis\n\nNenhuma túnica disponível no momento.";
+
+        $linhas = $lista->map(fn($t) => "- **{$t->codigo}**" . ($t->tamanho ? " · Tam. {$t->tamanho}" : '') . ($t->cor ? " · {$t->cor}" : ''))->implode("\n");
+        return "## 👔 Túnicas Disponíveis ({$lista->count()})\n\n{$linhas}";
+    }
+
+    private function tunicasEmprestadas(): string
+    {
+        $lista = TunicaEmprestimo::with(['tunica', 'cerimoniario'])
+            ->where('status', 'emprestada')
+            ->orderBy('data_devolucao_prevista')
+            ->get();
+
+        if ($lista->isEmpty()) return "## 👔 Túnicas Emprestadas\n\nNenhuma túnica emprestada no momento.";
+
+        $linhas = $lista->map(fn($e) =>
+            "- **{$e->tunica?->codigo}** → {$e->cerimoniario?->nome}"
+            . ($e->data_devolucao_prevista ? " (prev. devolução: {$e->data_devolucao_prevista->format('d/m/Y')})" : '')
+        )->implode("\n");
+
+        return "## 👔 Túnicas Emprestadas ({$lista->count()})\n\n{$linhas}";
+    }
+
+    private function tunicasAtrasadas(): string
+    {
+        $lista = TunicaEmprestimo::with(['tunica', 'cerimoniario'])
+            ->where('status', 'emprestada')
+            ->whereNotNull('data_devolucao_prevista')
+            ->where('data_devolucao_prevista', '<', now()->toDateString())
+            ->orderBy('data_devolucao_prevista')
+            ->get();
+
+        if ($lista->isEmpty()) return "## ⏰ Devoluções em Atraso\n\nNenhuma devolução em atraso.";
+
+        $linhas = $lista->map(fn($e) =>
+            "- **{$e->tunica?->codigo}** → {$e->cerimoniario?->nome} (previsto: {$e->data_devolucao_prevista?->format('d/m/Y')})"
+        )->implode("\n");
+
+        return "## ⏰ Devoluções em Atraso ({$lista->count()})\n\n{$linhas}";
+    }
+
+    private function tunicasPerdidas(): string
+    {
+        $lista = TunicaEmprestimo::with(['tunica', 'cerimoniario'])
+            ->where('status', 'perdida')
+            ->orderByDesc('updated_at')
+            ->get();
+
+        if ($lista->isEmpty()) return "## 🔍 Túnicas Perdidas\n\nNenhuma túnica registrada como perdida.";
+
+        $linhas = $lista->map(fn($e) =>
+            "- **{$e->tunica?->codigo}**" . ($e->tunica?->cor ? " · {$e->tunica->cor}" : '') . " → último responsável: {$e->cerimoniario?->nome}"
+        )->implode("\n");
+
+        return "## 🔍 Túnicas Perdidas ({$lista->count()})\n\n{$linhas}";
+    }
+
+    // ── Analytics / Saúde ────────────────────────────────────────────────
+
+    private function saudeMinisterio(): string
+    {
+        $ativos = Cerimoniario::where('ativo', true)->count();
+        if ($ativos === 0) return "## 📈 Saúde do Ministério\n\nNenhum cerimoniário ativo.";
+
+        $mesPassado = now()->subMonth()->format('Y-m');
+        $serviramMes = DB::table('presencas as p')
+            ->join('escala_itens as ei', 'ei.id', '=', 'p.escala_item_id')
+            ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
+            ->join('celebracoes as c', 'c.id', '=', 'e.celebracao_id')
+            ->where('p.status', 'serviu')
+            ->where('e.ativo', true)
+            ->whereRaw("to_char(c.data, 'YYYY-MM') = ?", [$mesPassado])
+            ->distinct('ei.cerimoniario_id')
+            ->count('ei.cerimoniario_id');
+
+        $taxaAtiv = $ativos > 0 ? min(100, round(($serviramMes / $ativos) * 100)) : 0;
+
+        $totalStatus = DB::table('presencas as p')
+            ->join('escala_itens as ei', 'ei.id', '=', 'p.escala_item_id')
+            ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
+            ->where('e.ativo', true)
+            ->whereIn('p.status', ['serviu', 'ausente', 'justificado', 'substituido'])
+            ->count();
+
+        $serviram = DB::table('presencas as p')
+            ->join('escala_itens as ei', 'ei.id', '=', 'p.escala_item_id')
+            ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
+            ->where('e.ativo', true)
+            ->where('p.status', 'serviu')
+            ->count();
+
+        $presencaMedia = $totalStatus > 0 ? round(($serviram / $totalStatus) * 100) : 0;
+
+        $treinamentos3m = Treinamento::where('data', '>=', now()->subMonths(3)->toDateString())->count();
+        $scoreTreino = min(100, $treinamentos3m * 25);
+
+        $score = round($presencaMedia * 0.4 + 75 * 0.3 + $taxaAtiv * 0.2 + $scoreTreino * 0.1);
+        $nivel = $score >= 80 ? 'Excelente' : ($score >= 60 ? 'Bom' : ($score >= 40 ? 'Atenção' : 'Crítico'));
+
+        return "## 📈 Saúde do Ministério\n\n"
+            . "**Score geral: {$score}/100** — {$nivel}\n\n"
+            . "- Presença média (×40%): {$presencaMedia}%\n"
+            . "- Taxa de confirmação (×30%): estimada em 75%\n"
+            . "- Acólitos ativos no mês (×20%): {$taxaAtiv}% ({$serviramMes}/{$ativos})\n"
+            . "- Treinamentos últimos 3 meses (×10%): {$treinamentos3m} treino(s)\n\n"
+            . "_Fórmula: Presença×40% + Confirmações×30% + Ativos×20% + Treinamentos×10%_";
+    }
+
+    // ── Celebrações especiais ─────────────────────────────────────────────
+
+    private function crismas(): string
+    {
+        $lista = Celebracao::where('ativo', true)->where('crisma', true)
+            ->where('data', '>=', now()->toDateString())
+            ->withCount('escala')
+            ->orderBy('data')->get();
+
+        if ($lista->isEmpty()) return "## ✝️ Crismas\n\nNenhuma crisma agendada.";
+
+        $linhas = $lista->map(fn($c) =>
+            "- **{$c->data?->format('d/m/Y')}** às {$c->horario}"
+            . ($c->escala_count > 0 ? ' ✅ com escala' : ' ⚠️ sem escala')
+        )->implode("\n");
+
+        return "## ✝️ Crismas Agendadas ({$lista->count()})\n\n{$linhas}";
+    }
+
+    private function ordenacoes(): string
+    {
+        $lista = Celebracao::where('ativo', true)->where('ordenacao', true)
+            ->where('data', '>=', now()->toDateString())
+            ->withCount('escala')
+            ->orderBy('data')->get();
+
+        if ($lista->isEmpty()) return "## ⛪ Ordenações\n\nNenhuma ordenação agendada.";
+
+        $linhas = $lista->map(fn($c) =>
+            "- **{$c->data?->format('d/m/Y')}** às {$c->horario}"
+            . ($c->escala_count > 0 ? ' ✅ com escala' : ' ⚠️ sem escala')
+        )->implode("\n");
+
+        return "## ⛪ Ordenações Agendadas ({$lista->count()})\n\n{$linhas}";
+    }
+
+    private function celebracoesBispo(): string
+    {
+        $lista = Celebracao::where('ativo', true)->where('possui_bispo', true)
+            ->where('data', '>=', now()->toDateString())
+            ->withCount('escala')
+            ->orderBy('data')->get();
+
+        if ($lista->isEmpty()) return "## 👑 Celebrações com Bispo\n\nNenhuma celebração com Bispo/Arcebispo agendada.";
+
+        $linhas = $lista->map(fn($c) =>
+            "- **{$c->data?->format('d/m/Y')}** às {$c->horario} — {$c->periodo_liturgico}"
+            . ($c->escala_count > 0 ? ' ✅' : ' ⚠️')
+        )->implode("\n");
+
+        return "## 👑 Celebrações com Bispo/Arcebispo ({$lista->count()})\n\n{$linhas}\n\n_✅ com escala · ⚠️ sem escala_";
     }
 }

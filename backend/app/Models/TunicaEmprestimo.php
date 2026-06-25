@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TunicaEmprestimo extends Model
 {
+    use \App\Traits\Auditavel;
+
     protected $table = 'tunica_emprestimos';
 
     protected $fillable = [

@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class EscalaItem extends Model
 {
+    use \App\Traits\Auditavel;
+
     protected $table = 'escala_itens';
 
     protected $fillable = [

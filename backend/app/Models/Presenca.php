@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Presenca extends Model
 {
+    use \App\Traits\Auditavel;
+
     protected $table = 'presencas';
 
     protected $fillable = [

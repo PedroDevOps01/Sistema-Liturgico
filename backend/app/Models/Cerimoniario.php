@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 class Cerimoniario extends Model
 {
     use SoftDeletes;
+    use \App\Traits\Auditavel;
 
     protected $table = 'cerimoniarios';
 

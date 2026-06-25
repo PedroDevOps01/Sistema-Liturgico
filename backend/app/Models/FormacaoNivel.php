@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class FormacaoNivel extends Model
 {
+    use \App\Traits\Auditavel;
+
     protected $table = 'formacao_niveis';
 
     protected $fillable = [
