@@ -198,9 +198,9 @@ export default function Login() {
         </div>
 
         {/* Rodapé */}
-        <p className="relative z-10 text-center text-white/20 text-xs font-medium">
+        {/* <p className="relative z-10 text-center text-white/20 text-xs font-medium">
           © {new Date().getFullYear()} Sistema de Gestão Litúrgica
-        </p>
+        </p> */}
       </div>
 
       {/* ════════════════════════════════════════════
