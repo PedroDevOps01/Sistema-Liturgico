@@ -517,6 +517,7 @@ export default function EscalaForm() {
   const [infoSugestaoOpen, setInfoSugestaoOpen] = useState(false)
   const [saveAttempted, setSaveAttempted] = useState(false)
   const [conflictMap, setConflictMap] = useState<Record<number, Array<{ horario: string; periodo_liturgico: string }>>>({})
+  const [blockedIds, setBlockedIds] = useState<Set<number>>(new Set())
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
 
   const sensors = useSensors(
@@ -563,12 +564,17 @@ export default function EscalaForm() {
             generateStructure(celebracao)
           }
 
-          // Load conflict map for this celebration's date
+          // Load conflict map + blocked dates for this celebration's date
+          const dateStr = celebracao.data.substring(0, 10)
           try {
             const confR = await api.get<Record<number, Array<{ horario: string; periodo_liturgico: string }>>>(
-              `/escalas/conflitos-data?data=${celebracao.data.substring(0, 10)}`
+              `/escalas/conflitos-data?data=${dateStr}`
             )
             setConflictMap(confR.data ?? {})
+          } catch { /* ignore */ }
+          try {
+            const blkR = await api.get<number[]>(`/cerimoniarios/bloqueados-em?data=${dateStr}`)
+            setBlockedIds(new Set(Array.isArray(blkR.data) ? blkR.data : []))
           } catch { /* ignore */ }
         }
       }
@@ -596,12 +602,17 @@ export default function EscalaForm() {
         }))
         setItems(loadedItems)
 
-        // Load conflict map for this escala's date
+        // Load conflict map + blocked dates for this escala's date
+        const editDateStr = escala.celebracao.data.substring(0, 10)
         try {
           const confR = await api.get<Record<number, Array<{ horario: string; periodo_liturgico: string }>>>(
-            `/escalas/conflitos-data?data=${escala.celebracao.data.substring(0, 10)}&escala_id=${id}`
+            `/escalas/conflitos-data?data=${editDateStr}&escala_id=${id}`
           )
           setConflictMap(confR.data ?? {})
+        } catch { /* ignore */ }
+        try {
+          const blkR = await api.get<number[]>(`/cerimoniarios/bloqueados-em?data=${editDateStr}`)
+          setBlockedIds(new Set(Array.isArray(blkR.data) ? blkR.data : []))
         } catch { /* ignore */ }
       }
     } catch {
@@ -656,15 +667,21 @@ export default function EscalaForm() {
       generateStructure(celebracao)
     }
 
-    // Fetch conflicts for this date
+    // Fetch conflicts + blocked dates for this date
+    const dateStr = celebracao.data.substring(0, 10)
     try {
-      const dateStr = celebracao.data.substring(0, 10)
       const conflitosR = await api.get<Record<number, Array<{ horario: string; periodo_liturgico: string; escala_id: number }>>>(
         `/escalas/conflitos-data?data=${dateStr}&escala_id=${escalaId ?? ''}`
       )
       setConflictMap(conflitosR.data ?? {})
     } catch {
       setConflictMap({})
+    }
+    try {
+      const blkR = await api.get<number[]>(`/cerimoniarios/bloqueados-em?data=${dateStr}`)
+      setBlockedIds(new Set(Array.isArray(blkR.data) ? blkR.data : []))
+    } catch {
+      setBlockedIds(new Set())
     }
   }
 
@@ -1049,7 +1066,7 @@ export default function EscalaForm() {
                         key={item.id}
                         item={item}
                         index={idx}
-                        cerimoniarios={cerimoniarios}
+                        cerimoniarios={cerimoniarios.filter(c => !blockedIds.has(c.id) || item.cerimoniario_id === c.id)}
                         celebracao={selectedCelebracao}
                         onChange={handleItemChange}
                         onRemove={handleRemoveItem}
@@ -1076,7 +1093,11 @@ export default function EscalaForm() {
             items.length > 0 ? (
               <GridView
                 items={items}
-                cerimoniarios={cerimoniarios}
+                cerimoniarios={cerimoniarios.filter(c => {
+                  if (!blockedIds.has(c.id)) return true
+                  // Manter na grade se já está atribuído em algum slot
+                  return items.some(i => i.cerimoniario_id === c.id)
+                })}
                 celebracao={selectedCelebracao}
                 onAssign={handleGridAssign}
                 conflictMap={conflictMap}

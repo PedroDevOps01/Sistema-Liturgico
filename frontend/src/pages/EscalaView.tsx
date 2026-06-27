@@ -14,6 +14,13 @@ import {
   MinusCircle,
   Copy,
   MessageCircle,
+  Unlock,
+  Lock,
+  UserCheck,
+  UserX,
+  ArrowLeftRight,
+  Info,
+  AlertTriangle,
 } from 'lucide-react'
 import SelectField from '../components/common/SelectField'
 import toast from 'react-hot-toast'
@@ -87,6 +94,8 @@ export default function EscalaView() {
   const [escala, setEscala] = useState<Escala | null>(null)
   const [loading, setLoading] = useState(true)
   const [cerimoniarios, setCerimoniarios] = useState<Cerimoniario[]>([])
+  const [substituindoItemId, setSubstituindoItemId] = useState<string | null>(null)
+  const [janelaLoading, setJanelaLoading] = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
 
   const loadEscala = useCallback(async () => {
@@ -154,6 +163,45 @@ export default function EscalaView() {
       loadEscala()
     } catch {
       toast.error('Erro ao registrar substituto')
+    }
+  }
+
+  async function handleAbrirJanela() {
+    if (!escala) return
+    setJanelaLoading(true)
+    try {
+      await api.post(`/escalas/${escala.id}/presenca/abrir`)
+      toast.success('Janela de presença aberta!')
+      loadEscala()
+    } catch {
+      toast.error('Erro ao abrir janela')
+    } finally {
+      setJanelaLoading(false)
+    }
+  }
+
+  async function handleFecharJanela() {
+    if (!escala) return
+    setJanelaLoading(true)
+    try {
+      await api.post(`/escalas/${escala.id}/presenca/fechar`)
+      toast.success('Janela fechada. Faltas automáticas aplicadas.')
+      loadEscala()
+    } catch {
+      toast.error('Erro ao fechar janela')
+    } finally {
+      setJanelaLoading(false)
+    }
+  }
+
+  async function handleSubstituirNoControle(item: EscalaItem, novoCerimoniarioId: number | null) {
+    try {
+      await api.patch(`/escala-itens/${item.id}/substituir`, { cerimoniario_id: novoCerimoniarioId })
+      toast.success('Substituição registrada!')
+      setSubstituindoItemId(null)
+      loadEscala()
+    } catch {
+      toast.error('Erro ao registrar substituição')
     }
   }
 
@@ -403,6 +451,18 @@ export default function EscalaView() {
                         </>
                       )}
                     </div>
+                    {/* Pedido de substituição */}
+                    {item.pedido_substituto && !item.pedido_substituto.resolvido && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <AlertTriangle size={11} className="text-orange-500 flex-shrink-0" />
+                        <span className="text-xs text-orange-700 font-semibold">
+                          Pediu substituto
+                          {item.pedido_substituto.motivo && (
+                            <span className="font-normal text-orange-500"> — {item.pedido_substituto.motivo}</span>
+                          )}
+                        </span>
+                      </div>
+                    )}
                     {/* Substituto display */}
                     {statusPresenca === 'substituido' && item.presenca?.substituto && (
                       <div className="flex items-center gap-1 mt-1">
@@ -523,6 +583,177 @@ export default function EscalaView() {
           )}
         </div>
       </div>
+
+      {/* ── CONTROLE DE PRESENÇA ───────────────────────────────────────── */}
+      {celebracao && (() => {
+        const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
+        const dataCel = new Date(celebracao.data.substring(0, 10) + 'T00:00:00')
+        const isPastOrToday = dataCel <= hoje
+        if (!isPastOrToday) return null
+
+        const itens = (escala.escala_itens ?? escala.itens ?? []).filter(i => i.cerimoniario_id)
+        const abertaEm = escala.presenca_aberta_em
+          ? new Date(escala.presenca_aberta_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+          : null
+        const fechadaEm = escala.presenca_fechada_em
+          ? new Date(escala.presenca_fechada_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+          : null
+
+        const statusBadge = (item: EscalaItem) => {
+          const s = item.presenca?.status
+          if (s === 'serviu')     return { label: 'Serviu',      cls: 'bg-blue-100 text-blue-700' }
+          if (s === 'justificado') return { label: 'Justificou', cls: 'bg-gray-100 text-gray-600' }
+          if (s === 'substituido') return { label: 'Substituído', cls: 'bg-amber-100 text-amber-700' }
+          if (s === 'faltou')     return { label: 'Faltou',      cls: 'bg-red-100 text-red-700' }
+          return escala.presenca_aberta
+            ? { label: 'Aguardando', cls: 'bg-yellow-100 text-yellow-700' }
+            : { label: 'Sem registro', cls: 'bg-gray-100 text-gray-400' }
+        }
+
+        return (
+          <div className="card overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                {escala.presenca_aberta
+                  ? <Unlock size={16} className="text-green-600" />
+                  : escala.presenca_fechada_em
+                    ? <Lock size={16} className="text-gray-500" />
+                    : <Lock size={16} className="text-gray-300" />
+                }
+                <h2 className="font-bold text-gray-900 text-sm">Controle de Presença</h2>
+                {escala.presenca_aberta && (
+                  <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                    Aberta desde {abertaEm}
+                  </span>
+                )}
+                {!escala.presenca_aberta && escala.presenca_fechada_em && (
+                  <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                    Fechada às {fechadaEm}
+                  </span>
+                )}
+                {!escala.presenca_aberta && !escala.presenca_fechada_em && (
+                  <span className="text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">
+                    Não iniciada
+                  </span>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                {!escala.presenca_aberta && !escala.presenca_fechada_em && (
+                  <button
+                    onClick={handleAbrirJanela}
+                    disabled={janelaLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-xs font-semibold rounded-xl transition-colors"
+                  >
+                    <Unlock size={13} />
+                    Abrir Janela
+                  </button>
+                )}
+                {escala.presenca_aberta && (
+                  <button
+                    onClick={handleFecharJanela}
+                    disabled={janelaLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-xs font-semibold rounded-xl transition-colors"
+                  >
+                    <Lock size={13} />
+                    Fechar Janela
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Info bar */}
+            {escala.presenca_aberta && (
+              <div className="flex items-center gap-2 px-5 py-2.5 bg-green-50 border-b border-green-100">
+                <Info size={13} className="text-green-600 flex-shrink-0" />
+                <p className="text-xs text-green-700">
+                  Janela aberta — os cerimoniários podem registrar a presença. Ao fechar, quem não respondeu recebe falta automática.
+                </p>
+              </div>
+            )}
+
+            {/* Member list */}
+            {itens.length === 0 ? (
+              <div className="px-5 py-8 text-center text-gray-400 text-sm">
+                Nenhum cerimoniário atribuído nesta escala.
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-50">
+                {itens.map(item => {
+                  const badge = statusBadge(item)
+                  const isSubstituindo = substituindoItemId === item.id
+                  return (
+                    <div key={item.id} className="flex items-center gap-3 px-5 py-3.5">
+                      {/* Status icon */}
+                      <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-gray-100">
+                        {item.presenca?.status === 'serviu'
+                          ? <UserCheck size={14} className="text-blue-600" />
+                          : item.presenca?.status === 'faltou'
+                            ? <UserX size={14} className="text-red-500" />
+                            : item.presenca?.status
+                              ? <RotateCcw size={14} className="text-amber-500" />
+                              : <Clock size={14} className="text-gray-400" />
+                        }
+                      </div>
+
+                      {/* Name + function */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 leading-tight truncate">
+                          {item.cerimoniario?.nome}
+                        </p>
+                        <p className="text-xs text-gray-400 truncate">{item.funcao_label || item.funcao?.titulo}</p>
+                      </div>
+
+                      {/* Badge */}
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${badge.cls}`}>
+                        {badge.label}
+                      </span>
+
+                      {/* Substituição */}
+                      {(escala.presenca_aberta || !escala.presenca_fechada_em) && (
+                        isSubstituindo ? (
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <select
+                              autoFocus
+                              className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-wine-300 max-w-[160px]"
+                              defaultValue=""
+                              onChange={e => {
+                                if (e.target.value) handleSubstituirNoControle(item, Number(e.target.value))
+                              }}
+                            >
+                              <option value="">— Escolher substituto —</option>
+                              {cerimoniarios
+                                .filter(c => c.ativo && c.id !== item.cerimoniario_id)
+                                .map(c => (
+                                  <option key={c.id} value={c.id}>{c.nome}</option>
+                                ))}
+                            </select>
+                            <button
+                              onClick={() => setSubstituindoItemId(null)}
+                              className="text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                              <XCircle size={15} />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setSubstituindoItemId(item.id)}
+                            title="Substituir cerimoniário"
+                            className="flex-shrink-0 flex items-center gap-1 text-xs text-gray-400 hover:text-wine-700 transition-colors px-1.5 py-1 rounded-lg hover:bg-wine-50"
+                          >
+                            <ArrowLeftRight size={13} />
+                          </button>
+                        )
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Observação */}
       {escala.observacao && (

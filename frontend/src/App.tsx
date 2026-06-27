@@ -39,6 +39,26 @@ import RelatorioTreinamentos from './pages/RelatorioTreinamentos'
 import RelatorioTunicas from './pages/RelatorioTunicas'
 import RelatorioAssiduidade from './pages/RelatorioAssiduidade'
 import RelatorioAuditoria from './pages/RelatorioAuditoria'
+import RelatorioReunioes from './pages/RelatorioReunioes'
+import { ConfigProvider } from './contexts/ConfigContext'
+import Reunioes from './pages/Reunioes'
+import MembroLayout from './components/MembroLayout/MembroLayout'
+import MembroLogin from './pages/membro/Login'
+import MembroDashboard from './pages/membro/Dashboard'
+import MembroEscalas from './pages/membro/Escalas'
+import MembroCalendario from './pages/membro/Calendario'
+import MembroAniversariantes from './pages/membro/Aniversariantes'
+import MembroPerfil from './pages/membro/Perfil'
+import MembroPresencas from './pages/membro/Presencas'
+import MembroComunicados from './pages/membro/Comunicados'
+import MembroReunioes from './pages/membro/ReunioesMembro'
+import MembroTreinamentos from './pages/membro/TreinamentosMembro'
+import MembroContatos from './pages/membro/Contatos'
+import MembroEstatisticas from './pages/membro/Estatisticas'
+import MembroBloqueioDatas from './pages/membro/BloqueioDatas'
+import MembroSubstituicoes from './pages/membro/Substituicoes'
+import MembroDocumentos from './pages/membro/Documentos'
+import AdminDocumentos from './pages/Documentos'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated()) {
@@ -76,6 +96,25 @@ export default function App() {
         <Route path="/portal" element={<Portal />} />
         <Route path="/confirmar/:token" element={<Confirmar />} />
 
+        {/* Portal do Membro (Cerimoniário) */}
+        <Route path="/membro/login" element={<MembroLogin />} />
+        <Route element={<MembroLayout />}>
+          <Route path="/membro/dashboard"      element={<MembroDashboard />} />
+          <Route path="/membro/escalas"        element={<MembroEscalas />} />
+          <Route path="/membro/calendario"     element={<MembroCalendario />} />
+          <Route path="/membro/presencas"        element={<MembroPresencas />} />
+          <Route path="/membro/comunicados"      element={<MembroComunicados />} />
+          <Route path="/membro/reunioes"         element={<MembroReunioes />} />
+          <Route path="/membro/treinamentos"     element={<MembroTreinamentos />} />
+          <Route path="/membro/contatos"         element={<MembroContatos />} />
+          <Route path="/membro/estatisticas"     element={<MembroEstatisticas />} />
+          <Route path="/membro/bloqueio-datas"   element={<MembroBloqueioDatas />} />
+          <Route path="/membro/substituicoes"    element={<MembroSubstituicoes />} />
+          <Route path="/membro/documentos"       element={<MembroDocumentos />} />
+          <Route path="/membro/aniversariantes" element={<MembroAniversariantes />} />
+          <Route path="/membro/perfil"         element={<MembroPerfil />} />
+        </Route>
+
         {/* Telão - standalone, no sidebar */}
         <Route
           path="/telao"
@@ -90,7 +129,9 @@ export default function App() {
         <Route
           element={
             <PrivateRoute>
-              <Layout />
+              <ConfigProvider>
+                <Layout />
+              </ConfigProvider>
             </PrivateRoute>
           }
         >
@@ -108,6 +149,7 @@ export default function App() {
           <Route path="/relatorio" element={<Relatorio />} />
           <Route path="/historico" element={<Historico />} />
           <Route path="/treinamentos" element={<Treinamentos />} />
+          <Route path="/reunioes" element={<Reunioes />} />
           <Route path="/portal-config" element={<PortalConfig />} />
           <Route path="/interessados" element={<Interessados />} />
           <Route path="/analytics" element={<Analytics />} />
@@ -120,6 +162,8 @@ export default function App() {
           <Route path="/relatorios/tunicas" element={<RelatorioTunicas />} />
           <Route path="/relatorios/assiduidade" element={<RelatorioAssiduidade />} />
           <Route path="/relatorios/auditoria" element={<RelatorioAuditoria />} />
+          <Route path="/relatorios/reunioes" element={<RelatorioReunioes />} />
+          <Route path="/documentos" element={<AdminDocumentos />} />
         </Route>
 
         {/* Fallback */}

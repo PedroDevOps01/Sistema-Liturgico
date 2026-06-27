@@ -48,4 +48,9 @@ class EscalaItem extends Model
     {
         return $this->hasOne(Presenca::class, 'escala_item_id');
     }
+
+    public function pedidoSubstituto(): HasOne
+    {
+        return $this->hasOne(\App\Models\PedidoSubstituto::class);
+    }
 }

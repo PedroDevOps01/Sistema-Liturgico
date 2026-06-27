@@ -67,6 +67,23 @@ class ConfiguracaoController extends Controller
         ]);
     }
 
+    public function uploadLogoMinisterio(Request $request): JsonResponse
+    {
+        $request->validate([
+            'logo_ministerio_base64' => 'nullable|string',
+        ]);
+
+        $configuracao = $this->getOrCreate();
+        $configuracao->update(['logo_ministerio_base64' => $request->logo_ministerio_base64]);
+
+        $msg = $request->logo_ministerio_base64 ? 'Logo do ministério salvo.' : 'Logo do ministério removido.';
+
+        return response()->json([
+            'data'    => ['logo_ministerio_base64' => $request->logo_ministerio_base64],
+            'message' => $msg,
+        ]);
+    }
+
     public function showAniversarioTemplate(): JsonResponse
     {
         $cfg = $this->getOrCreate();

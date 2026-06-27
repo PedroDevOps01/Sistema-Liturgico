@@ -22,8 +22,12 @@ use App\Http\Controllers\API\AnalyticsController;
 use App\Http\Controllers\API\RelatorioMensalController;
 use App\Http\Controllers\API\TunicaController;
 use App\Http\Controllers\API\FormacaoController;
+use App\Http\Controllers\API\ControlePresencaController;
+use App\Http\Controllers\API\MembroAuthController;
+use App\Http\Controllers\API\MembroController;
 use App\Http\Controllers\API\RelatorioController;
 use App\Http\Controllers\API\TreinamentoController;
+use App\Http\Controllers\API\ReuniaoController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -55,10 +59,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Cerimoniários
     Route::get('cerimoniarios/aniversarios', [CerimoniarioController::class, 'aniversarios']);
+    Route::get('cerimoniarios/bloqueados-em', [CerimoniarioController::class, 'bloqueadosEm']);
     Route::apiResource('cerimoniarios', CerimoniarioController::class);
     Route::get('cerimoniarios/{id}/disponibilidade', [CerimoniarioController::class, 'disponibilidade']);
     Route::get('cerimoniarios/{id}/dashboard', [CerimoniarioController::class, 'dashboard']);
     Route::patch('cerimoniarios/{cerimoniario}/toggle-ativo', [CerimoniarioController::class, 'toggleAtivo']);
+    Route::post('cerimoniarios/{cerimoniario}/reset-senha-portal', [CerimoniarioController::class, 'resetSenhaPortal']);
 
     // Celebrações
     Route::get('celebracoes/sem-escala', [CelebracaoController::class, 'semEscala']);
@@ -90,6 +96,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('configuracoes', [ConfiguracaoController::class, 'show']);
     Route::put('configuracoes', [ConfiguracaoController::class, 'update']);
     Route::post('configuracoes/logo', [ConfiguracaoController::class, 'uploadLogo']);
+    Route::post('configuracoes/logo-ministerio', [ConfiguracaoController::class, 'uploadLogoMinisterio']);
     Route::get('configuracoes/aniversario-template', [ConfiguracaoController::class, 'showAniversarioTemplate']);
     Route::put('configuracoes/aniversario-template', [ConfiguracaoController::class, 'updateAniversarioTemplate']);
 
@@ -99,6 +106,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Presenças
     Route::put('escala-itens/{item}/presenca', [PresencaController::class, 'update']);
+    Route::patch('escala-itens/{item}/substituir', [ControlePresencaController::class, 'substituir']);
+    Route::put('escala-itens/{item}/presenca/membro', [ControlePresencaController::class, 'marcarMembro']);
+
+    // Controle de janela de presença (mestre)
+    Route::post('escalas/{escala}/presenca/abrir', [ControlePresencaController::class, 'abrir']);
+    Route::post('escalas/{escala}/presenca/fechar', [ControlePresencaController::class, 'fechar']);
 
     // Conflitos
     Route::get('conflitos/verificar', [ConflitosController::class, 'verificar']);
@@ -113,6 +126,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('relatorios/treinamentos', [RelatorioController::class, 'treinamentos']);
     Route::get('relatorios/emprestimos', [RelatorioController::class, 'emprestimos']);
     Route::get('relatorios/assiduidade', [RelatorioController::class, 'assiduidade']);
+    Route::get('relatorios/reunioes', [RelatorioController::class, 'reunioes']);
 
     // Analytics
     Route::get('analytics', [AnalyticsController::class, 'index']);
@@ -126,6 +140,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('treinamentos/{treinamento}/convite', [\App\Http\Controllers\API\TreinamentoController::class, 'convite']);
     Route::put('treinamentos/{treinamento}/presencas/{cerimoniario}', [\App\Http\Controllers\API\TreinamentoController::class, 'updatePresenca']);
     Route::apiResource('treinamentos', \App\Http\Controllers\API\TreinamentoController::class);
+
+    // Reuniões
+    Route::get('reunioes/{reuniao}/convite', [ReuniaoController::class, 'convite']);
+    Route::put('reunioes/{reuniao}/presencas/{cerimoniario}', [ReuniaoController::class, 'updatePresenca']);
+    Route::apiResource('reunioes', ReuniaoController::class);
 
     // Túnicas
     Route::get('tunicas/disponiveis', [TunicaController::class, 'disponiveis']);
@@ -150,7 +169,47 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('formacao/cerimoniario/{cerimoniario}', [FormacaoController::class, 'progressoCerimoniario']);
     Route::put('formacao/cerimoniario/{cerimoniario}/competencia/{competencia}', [FormacaoController::class, 'updateProgresso']);
 
+    // Documentos (admin)
+    Route::apiResource('documentos', \App\Http\Controllers\API\DocumentoController::class)->only(['index', 'store', 'update', 'destroy']);
+
     // Auditoria
     Route::get('auditorias/tabelas', [\App\Http\Controllers\API\AuditoriaController::class, 'tabelas']);
     Route::get('auditorias', [\App\Http\Controllers\API\AuditoriaController::class, 'index']);
+});
+
+// ── Portal do Membro (Cerimoniário) ──────────────────────────────────────────
+Route::prefix('membro')->group(function () {
+    Route::post('login', [MembroAuthController::class, 'login']);
+
+    Route::middleware(['auth:sanctum', 'membro'])->group(function () {
+        Route::post('logout',            [MembroAuthController::class, 'logout']);
+        Route::get('me',                 [MembroAuthController::class, 'me']);
+        Route::put('senha',              [MembroAuthController::class, 'updateSenha']);
+
+        Route::get('dashboard',          [MembroController::class, 'dashboard']);
+        Route::get('escalas',            [MembroController::class, 'escalas']);
+        Route::get('calendario',         [MembroController::class, 'calendario']);
+        Route::get('aniversariantes',    [MembroController::class, 'aniversariantes']);
+        Route::put('perfil',             [MembroController::class, 'updatePerfil']);
+        Route::post('foto',              [MembroController::class, 'uploadFoto']);
+        Route::put('escala-itens/{item}/presenca',               [MembroController::class, 'marcarPresenca']);
+        Route::get('presencas-dia',                               [MembroController::class, 'presencasDia']);
+        Route::post('escalas/{escala}/presenca/abrir',            [MembroController::class, 'abrirPresenca']);
+        Route::post('escalas/{escala}/presenca/fechar',           [MembroController::class, 'fecharPresenca']);
+        Route::get('comunicados',                                 [MembroController::class, 'comunicados']);
+        Route::get('reunioes',                                    [MembroController::class, 'reunioesMembro']);
+        Route::put('reunioes/{reuniao}/presenca',                 [MembroController::class, 'marcarPresencaReuniao']);
+        Route::get('treinamentos',                                [MembroController::class, 'treinamentosMembro']);
+        Route::put('treinamentos/{treinamento}/presenca',         [MembroController::class, 'marcarPresencaTreinamento']);
+        Route::get('contatos',                                    [MembroController::class, 'contatos']);
+        Route::get('estatisticas',                                [MembroController::class, 'estatisticas']);
+        Route::get('datas-bloqueadas',                            [MembroController::class, 'datasBlockeadas']);
+        Route::post('datas-bloqueadas',                           [MembroController::class, 'bloquearData']);
+        Route::delete('datas-bloqueadas/{data}',                  [MembroController::class, 'desbloquearData']);
+        Route::get('substituicoes',                               [MembroController::class, 'escalasSubstituicao']);
+        Route::post('escala-itens/{item}/pedir-substituto',       [MembroController::class, 'pedirSubstituto']);
+        Route::delete('escala-itens/{item}/pedir-substituto',     [MembroController::class, 'cancelarSubstituto']);
+        Route::get('documentos',                                  [MembroController::class, 'documentos']);
+        Route::get('documentos/{documento}/download',             [MembroController::class, 'downloadDocumento']);
+    });
 });

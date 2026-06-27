@@ -46,8 +46,23 @@ import {
   type PortalConfig,
   type CarrosselSlide,
 } from "./PortalConfig";
+import { getPeriodoLiturgico } from "../lib/liturgico";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+function temaFromPeriodo(): string {
+  const { periodo } = getPeriodoLiturgico()
+  const map: Record<string, string> = {
+    'Advento':        'purple',
+    'Tempo do Natal': 'blue',
+    'Quaresma':       'purple',
+    'Tríduo Pascal':  'red',
+    'Tempo Pascal':   'gold',
+    'Pentecostes':    'red',
+    'Tempo Comum':    'green',
+  }
+  return map[periodo] ?? 'wine'
+}
 
 /* ── Portal Stats types ────────────────────────────────── */
 interface ProxCelebracao {
@@ -505,10 +520,10 @@ const glossario = [
   },
   {
     termo: "Casula",
-    def: "Veste exterior que o sacerdote usa sobre a alba e a estola durante a Missa. Sua cor varia conforme o tempo litúrgico.",
+    def: "Veste exterior que o sacerdote usa sobre a Alva e a estola durante a Missa. Sua cor varia conforme o tempo litúrgico.",
   },
   {
-    termo: "Alba",
+    termo: "Alva",
     def: "Veste branca comprida, usada por ministros ordenados e acólitos. Simboliza a pureza batismal e a vida nova em Cristo.",
   },
   {
@@ -527,7 +542,7 @@ const glossario = [
 
 const paramentos = [
   {
-    nome: "Alba",
+    nome: "Alva",
     desc: "Veste comprida de linho branco, símbolo da pureza batismal. Usada por sacerdotes, diáconos e acólitos em todas as celebrações.",
     cor: "#f8fafc",
     corBorda: "#cbd5e1",
@@ -544,7 +559,7 @@ const paramentos = [
   },
   {
     nome: "Casula / Planeta",
-    desc: "Veste principal do sacerdote na Missa. Cobre a alba e a estola. Sua cor litúrgica é o elemento mais visível do tempo da Igreja.",
+    desc: "Veste principal do sacerdote na Missa. Cobre a Alva e a estola. Sua cor litúrgica é o elemento mais visível do tempo da Igreja.",
     cor: "#fff7ed",
     corBorda: "#f97316",
     corTexto: "#7c2d12",
@@ -1022,7 +1037,8 @@ export default function Portal() {
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
   const [config, setConfig] = useState<PortalConfig>(loadPortalConfig);
-  const tema = TEMA_COLORS[config.tema ?? "wine"] ?? TEMA_COLORS.wine;
+  const temaKey = config.tema === 'liturgico' ? temaFromPeriodo() : (config.tema ?? 'wine')
+  const tema = TEMA_COLORS[temaKey] ?? TEMA_COLORS.wine;
 
   const heroSection = useVisible(0.05);
   const statsSection = useVisible(0.2);

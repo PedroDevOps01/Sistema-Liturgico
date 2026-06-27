@@ -8,6 +8,8 @@ use App\Models\Celebracao;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Carbon\Carbon;
 
 class CerimoniarioController extends Controller
 {
@@ -50,6 +52,12 @@ class CerimoniarioController extends Controller
             'mestre' => 'boolean',
         ]);
 
+        $validated['usuario'] = Cerimoniario::gerarUsuario($validated['nome']);
+        if (!empty($validated['data_nascimento'])) {
+            $validated['senha'] = Hash::make(
+                Carbon::parse($validated['data_nascimento'])->format('dmY')
+            );
+        }
         $cerimoniario = Cerimoniario::create($validated);
 
         return response()->json([
@@ -91,6 +99,21 @@ class CerimoniarioController extends Controller
         return response()->json([
             'data' => $cerimoniario->fresh(),
             'message' => 'Cerimoniário atualizado com sucesso.',
+        ]);
+    }
+
+    public function resetSenhaPortal(Cerimoniario $cerimoniario): JsonResponse
+    {
+        if (! $cerimoniario->data_nascimento) {
+            return response()->json(['message' => 'Cerimoniário não possui data de nascimento cadastrada.'], 422);
+        }
+
+        $senha = Carbon::parse($cerimoniario->data_nascimento)->format('dmY');
+        $cerimoniario->update(['senha' => Hash::make($senha)]);
+
+        return response()->json([
+            'data'    => ['usuario' => $cerimoniario->usuario, 'senha_padrao' => $senha],
+            'message' => "Senha redefinida para {$senha} (data de nascimento).",
         ]);
     }
 
@@ -349,5 +372,18 @@ class CerimoniarioController extends Controller
             ],
             'message' => $disponivel ? 'Cerimoniário disponível.' : 'Cerimoniário indisponível.',
         ]);
+    }
+
+    public function bloqueadosEm(Request $request): JsonResponse
+    {
+        $request->validate(['data' => 'required|date']);
+        $data = substr($request->data, 0, 10);
+
+        $ids = \App\Models\DataBloqueada::whereDate('data', $data)
+            ->pluck('cerimoniario_id')
+            ->unique()
+            ->values();
+
+        return response()->json(['data' => $ids, 'message' => 'Cerimoniários bloqueados.']);
     }
 }

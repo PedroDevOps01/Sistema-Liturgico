@@ -5,10 +5,11 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
   Plus, ArrowRight, CheckCircle2, AlertCircle,
-  ListChecks, Calendar, Users, Cross, Clock, X,
+  ListChecks, Calendar, Users, Cross, Clock, X, Gift,
 } from 'lucide-react'
 import api from '../lib/api'
 import type { Dashboard as DashboardData } from '../types'
+import type { AniversarioCerimoniario } from '../types'
 import toast from 'react-hot-toast'
 import { formatHorario, parseDateParts } from '../lib/dateUtils'
 import { getPeriodoLiturgico, getPeriodoBadgeVariant } from '../lib/liturgico'
@@ -62,12 +63,17 @@ export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [alertasModal, setAlertasModal] = useState<'confirmacao' | 'conflito' | null>(null)
+  const [aniversariantes, setAniversariantes] = useState<AniversarioCerimoniario[]>([])
 
   useEffect(() => {
     api.get<DashboardData>('/dashboard')
       .then(r => setData(r.data))
       .catch(() => toast.error('Erro ao carregar dashboard'))
       .finally(() => setLoading(false))
+
+    api.get<AniversarioCerimoniario[]>('/cerimoniarios/aniversarios')
+      .then(r => setAniversariantes(r.data.filter(a => a.dias_para_aniversario === 0)))
+      .catch(() => {})
   }, [])
 
   const periodo = getPeriodoLiturgico()
@@ -342,6 +348,39 @@ export default function Dashboard() {
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* ── ANIVERSARIANTES DO DIA ─────────────────────────────────────── */}
+      {aniversariantes.length > 0 && (
+        <div className="card overflow-hidden">
+          <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-gray-100">
+            <Gift size={15} className="text-amber-500" />
+            <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.14em]">
+              Aniversariantes de Hoje
+            </h2>
+            <span className="ml-auto text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
+              {aniversariantes.length}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-3 px-5 py-4">
+            {aniversariantes.map(a => (
+              <div
+                key={a.id}
+                className="flex items-center gap-2.5 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2"
+              >
+                <div className="w-8 h-8 rounded-full bg-wine-900 flex items-center justify-center flex-shrink-0">
+                  <span className="text-gold-400 text-[10px] font-bold">
+                    {a.nome.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900 leading-tight">{a.nome}</p>
+                  <p className="text-xs text-amber-600 font-medium">{a.idade} anos 🎂</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

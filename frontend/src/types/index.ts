@@ -8,6 +8,8 @@ export interface User {
 export interface Cerimoniario {
   id: number
   nome: string
+  usuario?: string
+  foto_base64?: string | null
   numero?: string
   observacao?: string
   data_nascimento?: string
@@ -85,6 +87,17 @@ export interface Escala {
   escala_itens?: EscalaItem[]   // API returns "escala_itens" (Laravel snake_case)
   itens?: EscalaItem[]          // alias used in some views
   observacao?: string
+  presenca_aberta: boolean
+  presenca_aberta_em?: string | null
+  presenca_fechada_em?: string | null
+  created_at: string
+}
+
+export interface PedidoSubstituto {
+  id: number
+  escala_item_id: number
+  motivo: string | null
+  resolvido: boolean
   created_at: string
 }
 
@@ -100,6 +113,7 @@ export interface EscalaItem {
   presenca?: Presenca
   token_confirmacao?: string
   status_confirmacao?: 'confirmado' | 'recusado' | null
+  pedido_substituto?: PedidoSubstituto | null
 }
 
 export interface Interessado {
@@ -276,4 +290,11 @@ export interface RelatorioTreinamentosData {
   totais: { total_treinamentos: number; total_participantes: number; media_presenca_pct: number }
   por_treinamento: { id: number; data: string; tema: string; local?: string; total_convocados: number; presentes: number; ausentes: number; justificados: number; sem_registro: number; taxa_presenca_pct: number }[]
   por_cerimoniario: { id: number; nome: string; treinamentos_convocado: number; presentes: number; ausentes: number; justificados: number; taxa_pct: number }[]
+}
+
+export interface RelatorioReunioesData {
+  totais: { total_do_mes: number; total_formacao: number; media_presenca_pct: number | null; media_do_mes_pct: number | null; media_formacao_pct: number | null }
+  por_reuniao_do_mes: { id: number; data: string; tema: string; local?: string; tipo: string; total_convocados: number; presentes: number; ausentes: number; justificados: number; taxa_presenca_pct: number | null }[]
+  por_reuniao_formacao: { id: number; data: string; tema: string; local?: string; tipo: string; total_convocados: number; presentes: number; ausentes: number; justificados: number; taxa_presenca_pct: number | null }[]
+  por_cerimoniario: { id: number; nome: string; reunioes_convocado: number; presentes: number; ausentes: number; justificados: number; taxa_pct: number | null }[]
 }

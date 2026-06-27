@@ -408,6 +408,7 @@ function cachePortalConfig(cfg: PortalConfig) {
 }
 
 const TEMAS = [
+  { value: "liturgico", label: "Automático — Período Litúrgico", dot: "bg-gradient-to-r from-violet-600 via-emerald-600 to-amber-500" },
   { value: "wine", label: "Vinho / Borgonha", dot: "bg-red-900" },
   { value: "blue", label: "Azul Litúrgico", dot: "bg-blue-700" },
   { value: "green", label: "Verde Esperança", dot: "bg-emerald-700" },

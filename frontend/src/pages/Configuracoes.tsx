@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useConfig } from '../contexts/ConfigContext'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -35,6 +36,7 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 export default function Configuracoes() {
+  const { refreshConfig } = useConfig()
   const [loading, setLoading]     = useState(true)
   const [logoBase64, setLogoBase64] = useState<string | null>(null)
   const [logoUploading, setLogoUploading] = useState(false)
@@ -84,6 +86,7 @@ export default function Configuracoes() {
       const base64 = await fileToBase64(file)
       await api.post('/configuracoes/logo', { logo_base64: base64 })
       setLogoBase64(base64)
+      refreshConfig()
       toast.success('Logo salvo!')
     } catch {
       toast.error('Erro ao salvar logo')
@@ -96,6 +99,7 @@ export default function Configuracoes() {
     try {
       await api.post('/configuracoes/logo', { logo_base64: null })
       setLogoBase64(null)
+      refreshConfig()
       toast.success('Logo removido')
     } catch {
       toast.error('Erro ao remover logo')

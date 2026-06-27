@@ -582,4 +582,95 @@ class RelatorioController extends Controller
             'message' => 'Relatório de treinamentos gerado com sucesso.',
         ]);
     }
+
+    public function reunioes(Request $request): JsonResponse
+    {
+        $request->validate([
+            'de'  => 'nullable|date',
+            'ate' => 'nullable|date',
+        ]);
+
+        $inicio = $request->de  ?? now()->subYear()->toDateString();
+        $fim    = $request->ate ?? now()->toDateString();
+
+        $tiposDoMes    = ['ordinaria', 'extraordinaria', 'planejamento', 'outra'];
+        $tiposFormacao = ['formacao'];
+
+        // ── Por reunião ────────────────────────────────────────────────────
+        $porReuniao = DB::table('reunioes as r')
+            ->leftJoin('reuniao_presencas as rp', 'rp.reuniao_id', '=', 'r.id')
+            ->whereNull('r.deleted_at')
+            ->whereBetween('r.data', [$inicio, $fim])
+            ->groupBy('r.id', 'r.data', 'r.tema', 'r.local', 'r.tipo')
+            ->selectRaw("
+                r.id,
+                r.data,
+                r.tema,
+                r.local,
+                r.tipo,
+                COUNT(rp.id)                                                     as total_convocados,
+                COUNT(CASE WHEN rp.status = 'presente'    THEN 1 END)           as presentes,
+                COUNT(CASE WHEN rp.status = 'ausente'     THEN 1 END)           as ausentes,
+                COUNT(CASE WHEN rp.status = 'justificado' THEN 1 END)           as justificados
+            ")
+            ->orderBy('r.data')
+            ->get()
+            ->map(function ($row) {
+                $presentes = (int) $row->presentes;
+                $total     = (int) $row->total_convocados;
+                $row->taxa_presenca_pct = $total > 0
+                    ? round($presentes / $total * 100, 1)
+                    : null;
+                return $row;
+            });
+
+        $reunioesDoMes    = $porReuniao->whereIn('tipo', $tiposDoMes)->values();
+        $reunioesFormacao = $porReuniao->whereIn('tipo', $tiposFormacao)->values();
+
+        $mediaGeral    = $porReuniao->whereNotNull('taxa_presenca_pct')->avg('taxa_presenca_pct');
+        $mediaDoMes    = $reunioesDoMes->whereNotNull('taxa_presenca_pct')->avg('taxa_presenca_pct');
+        $mediaFormacao = $reunioesFormacao->whereNotNull('taxa_presenca_pct')->avg('taxa_presenca_pct');
+
+        // ── Por cerimoniário ───────────────────────────────────────────────
+        $porCerimoniario = DB::table('reuniao_presencas as rp')
+            ->join('reunioes as r',      'r.id',  '=', 'rp.reuniao_id')
+            ->join('cerimoniarios as c', 'c.id',  '=', 'rp.cerimoniario_id')
+            ->whereNull('r.deleted_at')
+            ->whereBetween('r.data', [$inicio, $fim])
+            ->groupBy('c.id', 'c.nome')
+            ->selectRaw("
+                c.id,
+                c.nome,
+                COUNT(rp.id)                                              as reunioes_convocado,
+                COUNT(CASE WHEN rp.status = 'presente'    THEN 1 END)   as presentes,
+                COUNT(CASE WHEN rp.status = 'ausente'     THEN 1 END)   as ausentes,
+                COUNT(CASE WHEN rp.status = 'justificado' THEN 1 END)   as justificados
+            ")
+            ->orderByRaw('presentes DESC')
+            ->get()
+            ->map(function ($row) {
+                $presentes = (int) $row->presentes;
+                $total     = (int) $row->reunioes_convocado;
+                $row->taxa_pct = $total > 0
+                    ? round($presentes / $total * 100, 1)
+                    : null;
+                return $row;
+            });
+
+        return response()->json([
+            'data' => [
+                'totais' => [
+                    'total_do_mes'       => $reunioesDoMes->count(),
+                    'total_formacao'     => $reunioesFormacao->count(),
+                    'media_presenca_pct' => $mediaGeral    ? round($mediaGeral,    1) : null,
+                    'media_do_mes_pct'   => $mediaDoMes    ? round($mediaDoMes,    1) : null,
+                    'media_formacao_pct' => $mediaFormacao ? round($mediaFormacao, 1) : null,
+                ],
+                'por_reuniao_do_mes'   => $reunioesDoMes,
+                'por_reuniao_formacao' => $reunioesFormacao,
+                'por_cerimoniario'     => $porCerimoniario,
+            ],
+            'message' => 'Relatório de reuniões gerado com sucesso.',
+        ]);
+    }
 }

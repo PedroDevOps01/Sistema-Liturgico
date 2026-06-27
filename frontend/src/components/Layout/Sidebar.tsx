@@ -12,6 +12,7 @@ import {
   LogOut,
   History,
   GraduationCap,
+  ClipboardList,
   Globe,
   Heart,
   Search,
@@ -26,9 +27,11 @@ import {
   TrendingUp,
   UserCheck,
   ShieldCheck,
+  Camera,
 } from 'lucide-react'
 import logogrupo from '../../assets/logogrupo.png'
 import { removeToken, removeUser, getUser } from '../../lib/auth'
+import { useConfig } from '../../contexts/ConfigContext'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 
@@ -80,6 +83,7 @@ const modules: Module[] = [
     items: [
       { label: 'Histórico',       icon: History,       to: '/historico'      },
       { label: 'Treinamentos',    icon: GraduationCap, to: '/treinamentos'   },
+      { label: 'Reuniões',        icon: ClipboardList, to: '/reunioes'       },
       { label: 'Aniversariantes', icon: Gift,          to: '/aniversariantes'},
     ],
   },
@@ -101,6 +105,7 @@ const modules: Module[] = [
       { label: 'Frequência Individual',    icon: UserCheck,     to: '/relatorios/frequencia'      },
       { label: 'Crescimento',              icon: TrendingUp,    to: '/relatorios/crescimento'     },
       { label: 'Treinamentos',             icon: GraduationCap, to: '/relatorios/treinamentos'    },
+      { label: 'Reuniões',                 icon: ClipboardList, to: '/relatorios/reunioes'         },
       { label: 'Empréstimos de Túnicas',   icon: Shirt,         to: '/relatorios/tunicas'         },
       { label: 'Assiduidade',              icon: UserCheck,     to: '/relatorios/assiduidade'     },
       { label: 'Auditoria do Sistema',     icon: ShieldCheck,   to: '/relatorios/auditoria'       },
@@ -200,6 +205,34 @@ export default function Sidebar({
     }
   }
 
+  const { config, refreshConfig } = useConfig()
+  const logoCustom = config?.logo_ministerio_base64 ?? null
+  const logoFileRef = useRef<HTMLInputElement>(null)
+
+  async function handleLogoMinisterio(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) { toast.error('Imagem deve ter no máximo 2 MB'); return }
+    const reader = new FileReader()
+    reader.onload = async () => {
+      try {
+        await api.post('/configuracoes/logo-ministerio', { logo_ministerio_base64: reader.result as string })
+        await refreshConfig()
+        toast.success('Logo do ministério atualizado!')
+      } catch { toast.error('Erro ao salvar logo') }
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  async function handleRemoveLogoMinisterio() {
+    try {
+      await api.post('/configuracoes/logo-ministerio', { logo_ministerio_base64: null })
+      await refreshConfig()
+      toast.success('Logo removido.')
+    } catch { toast.error('Erro ao remover logo') }
+  }
+
   const initials = user?.nome
     ? user.nome.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
     : 'U'
@@ -215,11 +248,49 @@ export default function Sidebar({
           ? 'flex-col items-center gap-2 px-2 py-4'
           : 'flex-row items-center gap-3 px-5 py-5'
       }`}>
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg p-1.5"
-          style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)' }}
-        >
-          <img src={logogrupo} alt="Ministério dos Acólitos" className="w-full h-10 object-contain" />
+        <div className="relative group flex-shrink-0">
+          {/* Card — fills completely when há logo customizado, padding quando padrão */}
+          <div
+            className="w-10 h-10 rounded-xl shadow-lg overflow-hidden cursor-pointer"
+            style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)' }}
+            onClick={() => logoFileRef.current?.click()}
+            title="Clique para trocar o logo do ministério"
+          >
+            {logoCustom ? (
+              <img
+                src={logoCustom}
+                alt="Logo do ministério"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center p-1.5">
+                <img src={logogrupo} alt="Ministério dos Acólitos" className="w-full h-full object-contain" />
+              </div>
+            )}
+          </div>
+
+          {/* Trocar logo (camera) */}
+          <button
+            onClick={() => logoFileRef.current?.click()}
+            title="Trocar logo"
+            className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white/90 text-wine-900 flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity z-10"
+          >
+            <Camera size={10} />
+          </button>
+
+          {/* Remover logo — só aparece quando há logo customizado */}
+          {logoCustom && (
+            <button
+              onClick={e => { e.stopPropagation(); handleRemoveLogoMinisterio() }}
+              title="Remover logo"
+              className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity z-10 font-bold text-[10px] leading-none"
+              style={{ background: '#ef4444', color: 'white' }}
+            >
+              ×
+            </button>
+          )}
+
+          <input ref={logoFileRef} type="file" accept="image/*" className="hidden" onChange={handleLogoMinisterio} />
         </div>
 
         {!collapsed && (

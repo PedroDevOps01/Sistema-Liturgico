@@ -133,6 +133,7 @@ class EscalaController extends Controller
             'escalaItens.cerimoniario',
             'escalaItens.funcao',
             'escalaItens.presenca.substituto',
+            'escalaItens.pedidoSubstituto',
             'historicos.user',
         ]);
 

@@ -15,6 +15,7 @@ import {
   MoreVertical,
   Upload,
   Download,
+  KeyRound,
 } from "lucide-react";
 import { formatPhone } from "../lib/dateUtils";
 import toast from "react-hot-toast";
@@ -401,6 +402,22 @@ export default function Cerimoniarios() {
     }
   }
 
+  async function resetSenhaPortal(c: Cerimoniario) {
+    try {
+      const r = await api.post<{ usuario: string; senha_padrao: string }>(
+        `/cerimoniarios/${c.id}/reset-senha-portal`
+      );
+      toast.success(
+        `Senha de ${r.data.usuario} redefinida para ${r.data.senha_padrao}`
+      );
+      setMenuTarget(null);
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      toast.error(msg ?? "Erro ao redefinir senha");
+    }
+  }
+
   async function saveBulk(data: BulkData) {
     try {
       await Promise.all(
@@ -617,16 +634,24 @@ export default function Cerimoniarios() {
                 >
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-wine-900 flex items-center justify-center flex-shrink-0">
-                        <span className="text-gold-400 text-xs font-bold">
-                          {c.nome
-                            .split(" ")
-                            .slice(0, 2)
-                            .map((n) => n[0])
-                            .join("")
-                            .toUpperCase()}
-                        </span>
-                      </div>
+                      {c.foto_base64 ? (
+                        <img
+                          src={c.foto_base64}
+                          alt={c.nome}
+                          className="w-9 h-9 rounded-full object-cover flex-shrink-0 ring-2 ring-wine-100"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-wine-900 flex items-center justify-center flex-shrink-0">
+                          <span className="text-gold-400 text-xs font-bold">
+                            {c.nome
+                              .split(" ")
+                              .slice(0, 2)
+                              .map((n) => n[0])
+                              .join("")
+                              .toUpperCase()}
+                          </span>
+                        </div>
+                      )}
                       <div>
                         <div className="font-semibold text-gray-900 text-sm flex items-center gap-1.5">
                           {c.nome}
@@ -634,6 +659,11 @@ export default function Cerimoniarios() {
                             <span title="Aniversário hoje!">🎂</span>
                           )}
                         </div>
+                        {c.usuario && (
+                          <div className="text-xs text-gray-400 mt-0.5 font-mono">
+                            @{c.usuario}
+                          </div>
+                        )}
                         {c.observacao && (
                           <div className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">
                             {c.observacao}
@@ -722,16 +752,24 @@ export default function Cerimoniarios() {
             >
               {/* Top row: avatar + info + status + menu */}
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-wine-900 flex items-center justify-center flex-shrink-0">
-                  <span className="text-gold-400 text-xs font-bold">
-                    {c.nome
-                      .split(" ")
-                      .slice(0, 2)
-                      .map((n) => n[0])
-                      .join("")
-                      .toUpperCase()}
-                  </span>
-                </div>
+                {c.foto_base64 ? (
+                  <img
+                    src={c.foto_base64}
+                    alt={c.nome}
+                    className="w-10 h-10 rounded-full object-cover flex-shrink-0 ring-2 ring-wine-100"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-wine-900 flex items-center justify-center flex-shrink-0">
+                    <span className="text-gold-400 text-xs font-bold">
+                      {c.nome
+                        .split(" ")
+                        .slice(0, 2)
+                        .map((n) => n[0])
+                        .join("")
+                        .toUpperCase()}
+                    </span>
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -1237,6 +1275,12 @@ export default function Cerimoniarios() {
                   label: "Editar",
                   icon: <Pencil size={18} />,
                   onClick: () => openEdit(menuTarget),
+                },
+                {
+                  label: "Redefinir Senha do Portal",
+                  icon: <KeyRound size={18} />,
+                  onClick: () => resetSenhaPortal(menuTarget),
+                  variant: "warning" as const,
                 },
                 {
                   label: menuTarget.ativo ? "Desativar" : "Ativar",

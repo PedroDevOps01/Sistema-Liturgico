@@ -20,6 +20,15 @@ class Escala extends Model
         'criado_por',
         'editado_por',
         'observacao',
+        'presenca_aberta',
+        'presenca_aberta_em',
+        'presenca_fechada_em',
+    ];
+
+    protected $casts = [
+        'presenca_aberta'    => 'boolean',
+        'presenca_aberta_em' => 'datetime',
+        'presenca_fechada_em'=> 'datetime',
     ];
 
     public function celebracao(): BelongsTo

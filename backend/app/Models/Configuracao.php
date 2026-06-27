@@ -11,6 +11,7 @@ class Configuracao extends Model
     protected $fillable = [
         'nome_paroquia',
         'logo_base64',
+        'logo_ministerio_base64',
         'endereco',
         'telefone',
         'nome_coordenador',
