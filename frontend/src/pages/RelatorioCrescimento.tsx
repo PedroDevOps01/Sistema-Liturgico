@@ -38,7 +38,7 @@ export default function RelatorioCrescimento() {
     : 1
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20">
       <PageHeader
         title="Crescimento do Ministério"
         subtitle="Evolução de membros ao longo do tempo"

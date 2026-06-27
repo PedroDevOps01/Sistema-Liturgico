@@ -381,9 +381,12 @@ export default function EscalaView() {
                                 const num = item.cerimoniario!.numero!.replace(/\D/g, '')
                                 const full = num.startsWith('55') ? num : `55${num}`
                                 const link = `${window.location.origin}/confirmar/${item.token_confirmacao}`
+                                const dataCel = escala.celebracao ? formatData(escala.celebracao.data) : ''
+                                const horarioCel = escala.celebracao ? formatHorario(escala.celebracao.horario) : ''
+                                const infoData = dataCel && horarioCel ? `\n📅 *${dataCel}* às *${horarioCel}*` : ''
                                 const msg = linkStatus === 'recusado'
-                                  ? `Olá ${item.cerimoniario!.nome}! Estamos reenviando o link de confirmação para *${item.funcao_label || 'sua função'}*.\n\nConfirme sua presença: ${link}`
-                                  : `Olá ${item.cerimoniario!.nome}! Você foi escalado(a) para *${item.funcao_label || 'sua função'}*.\n\nConfirme sua presença: ${link}`
+                                  ? `Olá ${item.cerimoniario!.nome}! Estamos reenviando o link de confirmação para *${item.funcao_label || 'sua função'}*.${infoData}\n\nConfirme sua presença: ${link}`
+                                  : `Olá ${item.cerimoniario!.nome}! Você foi escalado(a) para *${item.funcao_label || 'sua função'}*.${infoData}\n\nConfirme sua presença: ${link}`
                                 window.open(`https://wa.me/${full}?text=${encodeURIComponent(msg)}`, '_blank')
                               }}
                               className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white transition-colors ${

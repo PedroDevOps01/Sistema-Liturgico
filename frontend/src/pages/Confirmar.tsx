@@ -55,9 +55,11 @@ export default function Confirmar() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-100 to-amber-50 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-wine-950 via-wine-900 to-wine-800 flex flex-col items-center justify-center p-4">
       {/* Logo */}
-      <img src={logoGrupo} alt="Logo" className="h-14 w-14 rounded-2xl shadow-md mb-6" />
+      <div className="w-20 h-20 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center shadow-xl mb-6 flex-shrink-0">
+        <img src={logoGrupo} alt="Logo" className="w-14 h-14 object-contain" />
+      </div>
 
       <div className="w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-xl">
         {loading ? (

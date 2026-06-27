@@ -162,15 +162,15 @@ export default function RelatorioAssiduidade() {
                 <h3 className="font-semibold text-gray-900">Assiduidade por Período Litúrgico</h3>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[640px] text-sm">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="text-left px-5 py-3 font-semibold text-gray-600">Período</th>
                       <th className="text-center px-4 py-3 font-semibold text-gray-600">Escalados</th>
-                      <th className="text-center px-4 py-3 font-semibold text-gray-600 hidden sm:table-cell">Serviu</th>
-                      <th className="text-center px-4 py-3 font-semibold text-gray-600 hidden sm:table-cell">Faltou</th>
-                      <th className="text-center px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">Justificado</th>
-                      <th className="text-center px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">Substituído</th>
+                      <th className="text-center px-4 py-3 font-semibold text-gray-600">Serviu</th>
+                      <th className="text-center px-4 py-3 font-semibold text-gray-600">Faltou</th>
+                      <th className="text-center px-4 py-3 font-semibold text-gray-600">Justificado</th>
+                      <th className="text-center px-4 py-3 font-semibold text-gray-600">Substituído</th>
                       <th className="text-center px-4 py-3 font-semibold text-gray-600">Taxa</th>
                     </tr>
                   </thead>
@@ -183,10 +183,10 @@ export default function RelatorioAssiduidade() {
                           </Badge>
                         </td>
                         <td className="px-4 py-3 text-center text-gray-700">{row.total_escalados}</td>
-                        <td className="px-4 py-3 text-center font-semibold text-green-700 hidden sm:table-cell">{row.serviu}</td>
-                        <td className="px-4 py-3 text-center font-semibold text-red-600 hidden sm:table-cell">{row.faltou}</td>
-                        <td className="px-4 py-3 text-center font-semibold text-amber-600 hidden md:table-cell">{row.justificado}</td>
-                        <td className="px-4 py-3 text-center text-gray-500 hidden md:table-cell">{row.substituido}</td>
+                        <td className="px-4 py-3 text-center font-semibold text-green-700">{row.serviu}</td>
+                        <td className="px-4 py-3 text-center font-semibold text-red-600">{row.faltou}</td>
+                        <td className="px-4 py-3 text-center font-semibold text-amber-600">{row.justificado}</td>
+                        <td className="px-4 py-3 text-center text-gray-500">{row.substituido}</td>
                         <td className="px-4 py-3 text-center">
                           <span className={`font-bold text-sm ${taxaColor(row.taxa_pct)}`}>
                             {row.taxa_pct !== null ? `${row.taxa_pct}%` : '—'}

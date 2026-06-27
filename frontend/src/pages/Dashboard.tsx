@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import type { DashboardAlertaConfirmacao, DashboardAlertaConflito } from '../types'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
   Plus, ArrowRight, CheckCircle2, AlertCircle,
-  ListChecks, Calendar, Users, Cross, Clock,
+  ListChecks, Calendar, Users, Cross, Clock, X,
 } from 'lucide-react'
 import api from '../lib/api'
 import type { Dashboard as DashboardData } from '../types'
@@ -60,6 +61,7 @@ function LiveClock() {
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [alertasModal, setAlertasModal] = useState<'confirmacao' | 'conflito' | null>(null)
 
   useEffect(() => {
     api.get<DashboardData>('/dashboard')
@@ -73,7 +75,7 @@ export default function Dashboard() {
   const hex = hexFromPeriodo(periodo.periodo)
   const hoje = new Date()
   const semEscala = data?.celebracoesSemEscala ?? 0
-  const conflitos = data?.alertasConflito ?? 0
+  const conflitos = data?.alertasConflito?.length ?? 0
 
   const nextCelebration = data?.proximasCelebracoes?.[0]
   const daysUntilNext = (() => {
@@ -345,36 +347,135 @@ export default function Dashboard() {
       )}
 
       {/* ── ALERTAS WIDGET ─────────────────────────────────────────────── */}
-      {!loading && (data?.alertasConfirmacao?.length || (data?.alertasConflito ?? 0) > 0) && (
+      {!loading && (data?.alertasConfirmacao?.length || conflitos > 0) && (
         <div className="space-y-2">
-          {(data?.alertasConflito ?? 0) > 0 && (
-            <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
-              <AlertCircle size={16} className="text-red-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm font-medium text-red-800">
-                {data!.alertasConflito} conflito{data!.alertasConflito > 1 ? 's' : ''} detectado{data!.alertasConflito > 1 ? 's' : ''} nas escalas
-              </p>
-              <Link to="/escalas" className="ml-auto text-xs font-bold text-red-700 hover:text-red-900 flex-shrink-0">
-                Ver →
-              </Link>
+
+          {/* Conflitos — primeiro card + ver mais */}
+          {conflitos > 0 && (() => {
+            const first = data!.alertasConflito[0]
+            const extra = conflitos - 1
+            return (
+              <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
+                <AlertCircle size={16} className="text-red-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm font-medium text-red-800">
+                  <span className="font-bold">{first.cerimoniario_nome}</span>
+                  {' '}escalado em{' '}
+                  <span className="font-bold">{first.qtd_escalas} celebrações</span>
+                  {' '}— {format(new Date(first.data.substring(0, 10) + 'T12:00:00'), "dd/MM", { locale: ptBR })} às {formatHorario(first.horario)}
+                  {extra > 0 && (
+                    <button
+                      onClick={() => setAlertasModal('conflito')}
+                      className="ml-2 underline text-red-700 font-semibold hover:text-red-900"
+                    >
+                      +{extra} conflito{extra > 1 ? 's' : ''}
+                    </button>
+                  )}
+                </p>
+                <Link to="/escalas" className="ml-auto text-xs font-bold text-red-700 hover:text-red-900 flex-shrink-0">
+                  Ver →
+                </Link>
+              </div>
+            )
+          })()}
+
+          {/* Confirmações — primeiro card + ver mais */}
+          {(data?.alertasConfirmacao?.length ?? 0) > 0 && (() => {
+            const list = data!.alertasConfirmacao!
+            const first = list[0]
+            const extra = list.length - 1
+            return (
+              <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">
+                <AlertCircle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm font-medium text-amber-800">
+                  <span className="font-bold">{first.pendentes} confirmaç{first.pendentes > 1 ? 'ões' : 'ão'} pendente{first.pendentes > 1 ? 's' : ''}</span>
+                  {' '}— {format(new Date(first.data.substring(0, 10) + 'T12:00:00'), "dd/MM", { locale: ptBR })} às {formatHorario(first.horario)}
+                  {' · '}{first.periodo_liturgico}
+                  {extra > 0 && (
+                    <button
+                      onClick={() => setAlertasModal('confirmacao')}
+                      className="ml-2 underline text-amber-700 font-semibold hover:text-amber-900"
+                    >
+                      +{extra} celebraç{extra > 1 ? 'ões' : 'ão'}
+                    </button>
+                  )}
+                </p>
+                <Link
+                  to="/celebracoes"
+                  state={{ openCelebracaoId: first.celebracao_id }}
+                  className="ml-auto text-xs font-bold text-amber-700 hover:text-amber-900 flex-shrink-0"
+                >
+                  Ver →
+                </Link>
+              </div>
+            )
+          })()}
+        </div>
+      )}
+
+      {/* ── MODAL: todos os alertas ──────────────────────────────────────── */}
+      {alertasModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <AlertCircle size={16} className={alertasModal === 'conflito' ? 'text-red-600' : 'text-amber-600'} />
+                <h2 className="font-bold text-gray-900 text-sm">
+                  {alertasModal === 'conflito' ? 'Conflitos de escala' : 'Confirmações pendentes'}
+                </h2>
+              </div>
+              <button onClick={() => setAlertasModal(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X size={18} />
+              </button>
             </div>
-          )}
-          {data?.alertasConfirmacao?.map(alerta => (
-            <div
-              key={alerta.celebracao_id}
-              className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200"
-            >
-              <AlertCircle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm font-medium text-amber-800">
-                <span className="font-bold">{alerta.pendentes} confirmação{alerta.pendentes > 1 ? 'ões' : ''} pendente{alerta.pendentes > 1 ? 's' : ''}</span>
-                {' '}—{' '}
-                {format(new Date(alerta.data.substring(0, 10) + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR })}
-                {' '}{formatHorario(alerta.horario)}
-              </p>
-              <Link to="/escalas" className="ml-auto text-xs font-bold text-amber-700 hover:text-amber-900 flex-shrink-0">
-                Ver →
-              </Link>
+
+            {/* List */}
+            <div className="max-h-80 overflow-y-auto">
+              {alertasModal === 'conflito'
+                ? (data?.alertasConflito ?? []).map((c: DashboardAlertaConflito, i: number, arr) => (
+                  <div key={i} className={`px-5 py-3.5 flex items-start gap-3 ${i < arr.length - 1 ? 'border-b border-gray-200' : ''}`}>
+                    <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-2 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{c.cerimoniario_nome}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {c.qtd_escalas} celebrações simultâneas —{' '}
+                        {format(new Date(c.data.substring(0, 10) + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR })} às {formatHorario(c.horario)}
+                      </p>
+                    </div>
+                  </div>
+                ))
+                : (data?.alertasConfirmacao ?? []).map((a: DashboardAlertaConfirmacao, i: number, arr) => (
+                  <Link
+                    key={a.celebracao_id}
+                    to="/celebracoes"
+                    state={{ openCelebracaoId: a.celebracao_id }}
+                    onClick={() => setAlertasModal(null)}
+                    className={`w-full px-5 py-3.5 flex items-start gap-3 hover:bg-gray-50 transition-colors ${i < arr.length - 1 ? 'border-b border-gray-200' : ''}`}
+                  >
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {format(new Date(a.data.substring(0, 10) + 'T12:00:00'), "dd/MM/yyyy (EEEE)", { locale: ptBR })}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {formatHorario(a.horario)} · {a.periodo_liturgico} · {a.pendentes} pendente{a.pendentes > 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <ArrowRight size={13} className="text-gray-300 flex-shrink-0 mt-1" />
+                  </Link>
+                ))
+              }
             </div>
-          ))}
+
+            <div className="px-5 py-3.5 border-t border-gray-100">
+              <button
+                onClick={() => setAlertasModal(null)}
+                className="w-full py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -395,7 +496,7 @@ export default function Dashboard() {
           <div className="px-5 py-4">
             {loading ? (
               <div className="space-y-5">
-                {Array.from({ length: 5 }).map((_, i) => (
+                {Array.from({ length: 3 }).map((_, i) => (
                   <div key={i} className="flex gap-4">
                     <div className="skeleton w-11 h-11 rounded-full flex-shrink-0" />
                     <div className="flex-1 space-y-2 pt-1">
@@ -408,10 +509,10 @@ export default function Dashboard() {
             ) : data?.proximasCelebracoes?.length ? (
               <div className="relative">
                 {/* Connecting line */}
-                <div className="absolute left-[21px] top-6 bottom-6 w-px bg-gradient-to-b from-gray-200 via-gray-100 to-transparent" />
+                <div className="absolute left-[21px] top-6 bottom-6 w-px bg-gradient-to-b from-gray-200 via-gray-100 to-transparent pointer-events-none" />
 
-                <div className="space-y-1">
-                  {data.proximasCelebracoes.slice(0, 8).map((c, i) => {
+                <div className="space-y-1 max-h-[252px] overflow-y-auto pr-1 -mr-1">
+                  {data.proximasCelebracoes.map((c, i) => {
                     const dateStr = c.data.substring(0, 10)
                     const { day, month, weekday } = parseDateParts(dateStr)
                     const cHex = hexFromPeriodo(c.periodo_liturgico)
@@ -420,6 +521,7 @@ export default function Dashboard() {
                       <Link
                         key={c.id}
                         to="/celebracoes"
+                        state={{ openCelebracaoId: c.id }}
                         className={`relative flex items-start gap-4 p-3 rounded-xl hover:bg-gray-50 transition-colors group ${isFirst ? 'bg-gray-50/70 ring-1 ring-gray-100' : ''}`}
                       >
                         {/* Date node */}

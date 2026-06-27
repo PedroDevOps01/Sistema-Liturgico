@@ -138,6 +138,13 @@ export interface DashboardCelebracaoHoje {
   }
 }
 
+export interface DashboardAlertaConflito {
+  cerimoniario_nome: string
+  data: string
+  horario: string
+  qtd_escalas: number
+}
+
 export interface DashboardAlertaConfirmacao {
   celebracao_id: number
   data: string
@@ -151,7 +158,7 @@ export interface Dashboard {
   escalasDoMes: number
   cerimoniarios_ativos: number
   celebracoesSemEscala: number
-  alertasConflito: number
+  alertasConflito: DashboardAlertaConflito[]
   celebracoesHoje?: DashboardCelebracaoHoje[]
   alertasConfirmacao?: DashboardAlertaConfirmacao[]
 }

@@ -90,6 +90,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('configuracoes', [ConfiguracaoController::class, 'show']);
     Route::put('configuracoes', [ConfiguracaoController::class, 'update']);
     Route::post('configuracoes/logo', [ConfiguracaoController::class, 'uploadLogo']);
+    Route::get('configuracoes/aniversario-template', [ConfiguracaoController::class, 'showAniversarioTemplate']);
+    Route::put('configuracoes/aniversario-template', [ConfiguracaoController::class, 'updateAniversarioTemplate']);
 
     // Upload de imagens do portal
     Route::post('portal-images', [PortalImageController::class, 'upload']);

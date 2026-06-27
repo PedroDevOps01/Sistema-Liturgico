@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Gift, Copy, Check, Phone } from 'lucide-react'
+import { Gift, Copy, Check, Phone, Pencil, Save, X } from 'lucide-react'
 import { formatPhone } from '../lib/dateUtils'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
@@ -9,23 +9,24 @@ import { SkeletonRow } from '../components/common/LoadingSpinner'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
+const TEMPLATE_PADRAO =
+  `Olá, {nome}! 🎉🎂\n\n` +
+  `Em nome de todo o Ministério dos Acólitos, viemos te desejar um lindo aniversário!\n\n` +
+  `Que Deus, nosso Pai, te abençoe neste dia especial e que Nossa Senhora te cubra com seu manto. ` +
+  `Que este novo ano de vida seja cheio de saúde, alegria, paz e muitas graças divinas! 🙏\n\n` +
+  `É uma honra servir ao Senhor ao seu lado. ` +
+  `Continue sendo essa bênção para a nossa comunidade litúrgica! ✨\n\n` +
+  `Com muito carinho,\nMinistério dos Acólitos`
+
 function formatDateBR(iso: string): string {
   if (!iso) return '—'
   const [y, m, d] = iso.split('-')
   return `${d}/${m}/${y}`
 }
 
-function gerarMensagem(nome: string): string {
+function aplicarTemplate(template: string, nome: string): string {
   const primeiro = nome.split(' ')[0]
-  return (
-    `Olá, ${primeiro}! 🎉🎂\n\n` +
-    `Em nome de todo o Ministério dos Acólitos, viemos te desejar um lindo aniversário!\n\n` +
-    `Que Deus, nosso Pai, te abençoe neste dia especial e que Nossa Senhora te cubra com seu manto. ` +
-    `Que este novo ano de vida seja cheio de saúde, alegria, paz e muitas graças divinas! 🙏\n\n` +
-    `É uma honra servir ao Senhor ao seu lado. ` +
-    `Continue sendo essa bênção para a nossa comunidade litúrgica! ✨\n\n` +
-    `Com muito carinho,\nMinistério dos Acólitos`
-  )
+  return template.replace(/\{nome\}/g, primeiro)
 }
 
 type Filtro = 'hoje' | 'semana' | 'mes' | 'todos'
@@ -45,6 +46,13 @@ export default function Aniversariantes() {
   const [filtro, setFiltro] = useState<Filtro>('mes')
   const [copiedId, setCopiedId] = useState<number | null>(null)
 
+  const [textoSalvo, setTextoSalvo] = useState<string | null>(null)
+  const [editando, setEditando] = useState(false)
+  const [editTexto, setEditTexto] = useState('')
+  const [salvando, setSalvando] = useState(false)
+
+  const textoAtivo = textoSalvo ?? TEMPLATE_PADRAO
+
   const loadAniversarios = useCallback(async () => {
     setLoading(true)
     try {
@@ -57,13 +65,50 @@ export default function Aniversariantes() {
     }
   }, [])
 
-  useEffect(() => { loadAniversarios() }, [loadAniversarios])
+  const loadTemplate = useCallback(async () => {
+    try {
+      const r = await api.get<{ texto: string | null }>('/configuracoes/aniversario-template')
+      setTextoSalvo(r.data.texto)
+    } catch {
+      // silently fall back to default
+    }
+  }, [])
 
-  function copiarMensagem(nome: string, id: number) {
-    navigator.clipboard.writeText(gerarMensagem(nome)).then(() => {
+  useEffect(() => {
+    loadAniversarios()
+    loadTemplate()
+  }, [loadAniversarios, loadTemplate])
+
+  function iniciarEdicao() {
+    setEditTexto(textoAtivo)
+    setEditando(true)
+  }
+
+  async function salvarTemplate() {
+    setSalvando(true)
+    try {
+      const r = await api.put<{ texto: string | null }>('/configuracoes/aniversario-template', {
+        texto: editTexto || null,
+      })
+      setTextoSalvo(r.data.texto)
+      setEditando(false)
+      toast.success('Modelo de mensagem salvo!')
+    } catch {
+      toast.error('Erro ao salvar modelo')
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  async function copiarMensagem(nome: string, id: number) {
+    const texto = aplicarTemplate(textoAtivo, nome)
+    try {
+      await navigator.clipboard.writeText(texto)
       setCopiedId(id)
       setTimeout(() => setCopiedId(null), 2500)
-    })
+    } catch {
+      toast.error('Não foi possível copiar')
+    }
   }
 
   const currentMonth = new Date().getMonth() + 1
@@ -200,18 +245,69 @@ export default function Aniversariantes() {
           )}
         </div>
 
-        {/* ── Message preview panel ─────────────────────────────────── */}
-        <div className="card p-5 sticky top-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Gift size={16} className="text-wine-700" />
-            <p className="text-sm font-semibold text-gray-700">Modelo de mensagem</p>
+        {/* ── Message template panel ────────────────────────────────── */}
+        <div className="card p-5 sticky top-6 space-y-3">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Gift size={16} className="text-wine-700" />
+              <p className="text-sm font-semibold text-gray-700">Modelo de mensagem</p>
+            </div>
+            {!editando && (
+              <button
+                onClick={iniciarEdicao}
+                className="flex items-center gap-1 text-xs text-wine-700 hover:text-wine-900 font-medium transition-colors"
+              >
+                <Pencil size={13} />
+                Editar
+              </button>
+            )}
           </div>
-          <p className="text-xs text-gray-400 mb-3">
-            Clique em "Copiar mensagem" ao lado do nome para copiar a versão personalizada.
-          </p>
-          <pre className="text-xs text-gray-600 whitespace-pre-wrap font-sans leading-relaxed bg-gray-50 rounded-xl p-4 border border-gray-100">
-            {gerarMensagem('Nome')}
-          </pre>
+
+          {editando ? (
+            <div className="space-y-3">
+              <p className="text-xs text-gray-400">
+                Use <code className="bg-gray-100 px-1 rounded text-gray-600">{'{nome}'}</code> para inserir o primeiro nome do aniversariante.
+              </p>
+              <textarea
+                value={editTexto}
+                onChange={(e) => setEditTexto(e.target.value)}
+                rows={12}
+                className="w-full text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-xl p-3 font-sans leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-wine-300"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={salvarTemplate}
+                  disabled={salvando}
+                  className="flex-1 flex items-center justify-center gap-1.5 bg-wine-900 hover:bg-wine-800 disabled:opacity-60 text-white text-xs font-semibold py-2 rounded-lg transition-colors"
+                >
+                  <Save size={13} />
+                  {salvando ? 'Salvando…' : 'Salvar'}
+                </button>
+                <button
+                  onClick={() => setEditando(false)}
+                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 px-3 py-2 rounded-lg border border-gray-200 transition-colors"
+                >
+                  <X size={13} />
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="text-xs text-gray-400">
+                Clique em "Copiar mensagem" ao lado do nome para copiar a versão personalizada.
+              </p>
+              <pre className="text-xs text-gray-600 whitespace-pre-wrap font-sans leading-relaxed bg-gray-50 rounded-xl p-4 border border-gray-100">
+                {aplicarTemplate(textoAtivo, 'Nome')}
+              </pre>
+              {!textoSalvo && (
+                <p className="text-xs text-gray-400 italic text-center">
+                  Modelo padrão · clique em Editar para personalizar
+                </p>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

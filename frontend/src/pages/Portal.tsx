@@ -1578,12 +1578,12 @@ export default function Portal() {
         </div>
 
         {/* Scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 text-gray-400">
+        {/* <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 text-gray-400">
           <span className="text-xs tracking-widest uppercase">Explorar</span>
           <div className="h-8 w-5 rounded-full border-2 border-gray-300 flex items-start justify-center pt-1.5">
             <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400" />
           </div>
-        </div>
+        </div> */}
       </section>
 
       {/* ── Seções dinâmicas (ordem configurável) ──────── */}

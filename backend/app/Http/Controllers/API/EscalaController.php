@@ -335,20 +335,57 @@ class EscalaController extends Controller
             return ['cerimoniario' => $c, 'score' => $dias];
         })->sortByDesc('score')->values();
 
-        // Slot 0 (Mestre): prefere quem tem flag mestre=true
-        $mestres = $scored->filter(fn ($s) => $s['cerimoniario']->mestre);
-        $normais = $scored->filter(fn ($s) => ! $s['cerimoniario']->mestre);
-        $pool    = $mestres->merge($normais)->values();
-
         // Monta estrutura de slots
         $estrutura = $this->buildEstruturaSimples($celebracao);
 
+        // Slots que exigem cerimoniário experiente ou mestre
+        $slotsExperientes = ['Mestre', '2º Auxiliar', 'Turiferário'];
+
+        $usados    = collect();
         $sugestoes = [];
+
         foreach ($estrutura as $idx => $slot) {
-            $sug = $pool->get($idx);
+            $label = $slot['funcao_label'];
+
+            // Filtra candidatos ainda não atribuídos
+            $disponiveis = $scored->filter(fn ($s) => ! $usados->contains($s['cerimoniario']->id));
+
+            if (in_array($label, $slotsExperientes)) {
+                // Pool restrito: apenas experiente=true OU mestre=true
+                $qualificados = $disponiveis->filter(
+                    fn ($s) => $s['cerimoniario']->experiente || $s['cerimoniario']->mestre
+                );
+                if ($label === 'Mestre') {
+                    // Dentro dos qualificados, prefere mestre=true primeiro
+                    $candidatos = $qualificados->filter(fn ($s) => $s['cerimoniario']->mestre);
+                    if ($candidatos->isEmpty()) {
+                        $candidatos = $qualificados;
+                    }
+                } else {
+                    $candidatos = $qualificados;
+                }
+                // Último recurso: qualquer disponível (evita slot vazio)
+                if ($candidatos->isEmpty()) {
+                    $candidatos = $disponiveis;
+                }
+            } else {
+                // Demais funções: prioriza quem não é experiente nem mestre
+                $candidatos = $disponiveis->filter(
+                    fn ($s) => ! $s['cerimoniario']->experiente && ! $s['cerimoniario']->mestre
+                );
+                if ($candidatos->isEmpty()) {
+                    $candidatos = $disponiveis;
+                }
+            }
+
+            $sug = $candidatos->first();
+            if ($sug) {
+                $usados->push($sug['cerimoniario']->id);
+            }
+
             $sugestoes[] = [
                 'slot'         => $idx,
-                'funcao_label' => $slot['funcao_label'],
+                'funcao_label' => $label,
                 'cerimoniario' => $sug ? $sug['cerimoniario'] : null,
             ];
         }

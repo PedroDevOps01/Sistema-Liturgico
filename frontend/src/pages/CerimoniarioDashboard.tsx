@@ -417,7 +417,8 @@ export default function CerimoniarioDashboard() {
         ) : (
           <>
             {/* Desktop */}
-            <table className="w-full hidden md:table">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] hidden md:table">
               <thead>
                 <tr className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                   <th className="text-left px-5 py-3">Data</th>
@@ -461,6 +462,7 @@ export default function CerimoniarioDashboard() {
                 ))}
               </tbody>
             </table>
+            </div>
 
             {/* Mobile */}
             <div className="md:hidden divide-y divide-gray-100">

@@ -43,7 +43,7 @@ class RelatorioController extends Controller
                 COUNT(CASE WHEN p.status = 'substituido' THEN 1 END) as substituido,
                 COUNT(CASE WHEN p.status = 'justificado' THEN 1 END) as justificado,
                 COUNT(CASE WHEN p.status = 'confirmado'  THEN 1 END) as confirmado,
-                COUNT(CASE WHEN p.id IS NULL             THEN 1 END) as sem_registro
+                COUNT(CASE WHEN p.id IS NULL AND c.data < CURRENT_DATE THEN 1 END) as sem_registro
             ")
             ->first();
 
@@ -67,7 +67,7 @@ class RelatorioController extends Controller
                 COUNT(CASE WHEN p.status = 'substituido' THEN 1 END) as substituido,
                 COUNT(CASE WHEN p.status = 'justificado' THEN 1 END) as justificado,
                 COUNT(CASE WHEN p.status = 'confirmado'  THEN 1 END) as confirmado,
-                COUNT(CASE WHEN p.id IS NULL             THEN 1 END) as sem_registro
+                COUNT(CASE WHEN p.id IS NULL AND c.data < CURRENT_DATE THEN 1 END) as sem_registro
             ")
             ->orderByRaw('serviu DESC, total DESC')
             ->get();
@@ -94,7 +94,7 @@ class RelatorioController extends Controller
                 COUNT(CASE WHEN p.status = 'substituido' THEN 1 END) as substituido,
                 COUNT(CASE WHEN p.status = 'justificado' THEN 1 END) as justificado,
                 COUNT(CASE WHEN p.status = 'confirmado'  THEN 1 END) as confirmado,
-                COUNT(CASE WHEN p.id IS NULL             THEN 1 END) as sem_registro
+                COUNT(CASE WHEN p.id IS NULL AND c.data < CURRENT_DATE THEN 1 END) as sem_registro
             ")
             ->orderBy('c.data')
             ->orderBy('c.horario')

@@ -45,15 +45,23 @@ class DashboardController extends Controller
             ->count();
 
         // Alertas de conflito: cerimoniários escalados em 2+ celebrações no mesmo horário
-        $alertasConflito = DB::table(DB::raw('(
-            SELECT ei.cerimoniario_id, c.data, c.horario, COUNT(*) as cnt
-            FROM escala_itens ei
-            JOIN escalas e ON e.id = ei.escala_id
-            JOIN celebracoes c ON c.id = e.celebracao_id
-            WHERE ei.cerimoniario_id IS NOT NULL AND c.data >= \'' . $hoje . '\'
-            GROUP BY ei.cerimoniario_id, c.data, c.horario
-            HAVING COUNT(*) > 1
-        ) as conflitos'))->count();
+        $alertasConflito = DB::table('escala_itens as ei')
+            ->join('escalas as e', function ($j) {
+                $j->on('e.id', '=', 'ei.escala_id')->where('e.ativo', true);
+            })
+            ->join('celebracoes as c', function ($j) use ($hoje) {
+                $j->on('c.id', '=', 'e.celebracao_id')
+                  ->where('c.ativo', true)
+                  ->where('c.data', '>=', $hoje);
+            })
+            ->join('cerimoniarios as cer', 'cer.id', '=', 'ei.cerimoniario_id')
+            ->whereNotNull('ei.cerimoniario_id')
+            ->selectRaw('cer.nome as cerimoniario_nome, c.data, c.horario, COUNT(*) as qtd_escalas')
+            ->groupBy('ei.cerimoniario_id', 'c.data', 'c.horario', 'cer.nome')
+            ->havingRaw('COUNT(*) > 1')
+            ->orderBy('c.data')
+            ->orderBy('c.horario')
+            ->get();
 
         // Celebrações de hoje com escala e cerimoniários
         $celebracoesHoje = Celebracao::with([
@@ -74,7 +82,7 @@ class DashboardController extends Controller
             ->whereNotNull('ei.cerimoniario_id')
             ->where('c.data', '>', $hoje)
             ->where('c.data', '<=', now()->addDays(7)->toDateString())
-            ->where('ei.status_confirmacao', 'pendente')
+            ->whereNull('ei.status_confirmacao')
             ->selectRaw('c.id as celebracao_id, c.data, c.horario, c.periodo_liturgico, COUNT(ei.id) as pendentes')
             ->groupBy('c.id', 'c.data', 'c.horario', 'c.periodo_liturgico')
             ->orderBy('c.data')

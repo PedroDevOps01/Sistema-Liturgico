@@ -6,7 +6,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Plus, Search, Pencil, Calendar, Clock, CheckCircle2, XCircle, Moon, X, Copy, MoreVertical, ToggleLeft, ToggleRight, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import api from '../lib/api'
 import { getPeriodoLiturgico, getPeriodoBadgeVariant } from '../lib/liturgico'
 import type { Celebracao, Escala } from '../types'
@@ -259,6 +259,7 @@ function defaultBatchForm(): BatchForm {
 
 export default function Celebracoes() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [list, setList] = useState<Celebracao[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -415,6 +416,17 @@ export default function Celebracoes() {
   }, [])
 
   useEffect(() => { loadList() }, [loadList])
+
+  // Abre o drawer de ações da celebração passada via state (ex: clique na timeline do dashboard)
+  useEffect(() => {
+    const id = (location.state as { openCelebracaoId?: number } | null)?.openCelebracaoId
+    if (!id || list.length === 0) return
+    const cel = list.find(c => c.id === id)
+    if (cel) {
+      setMenuTarget(cel)
+      window.history.replaceState({}, '')
+    }
+  }, [list, location.state])
 
   function openCreate() {
     setEditing(null)
@@ -940,7 +952,8 @@ export default function Celebracoes() {
       {/* Card rows list */}
       <div className="card overflow-hidden">
         {/* Desktop table header */}
-        <table className="w-full hidden md:table">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] hidden md:table">
           <thead>
             <tr className="bg-wine-900 text-white">
               <th className="text-left px-5 py-3.5 font-semibold text-sm">Data</th>
@@ -1057,6 +1070,7 @@ export default function Celebracoes() {
             )}
           </tbody>
         </table>
+        </div>
 
         {/* Mobile cards */}
         <div className="md:hidden divide-y divide-gray-100">

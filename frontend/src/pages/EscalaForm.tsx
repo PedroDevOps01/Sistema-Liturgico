@@ -38,6 +38,8 @@ import {
   Check,
   LayoutGrid,
   LayoutList,
+  Info,
+  X,
 } from 'lucide-react'
 import api from '../lib/api'
 import type { Celebracao, Cerimoniario, EscalaItem } from '../types'
@@ -213,7 +215,7 @@ function SortableRow({
       <div
         ref={setNodeRef}
         style={style}
-        className={`flex items-center gap-2 sm:gap-3 p-3 rounded-xl border-2 transition-all duration-200 ${
+        className={`p-3 rounded-xl border-2 transition-all duration-200 ${
           isDragging
             ? 'bg-white border-wine-400 shadow-xl opacity-80 z-10'
             : hasDuplicateCerimoniario
@@ -223,78 +225,80 @@ function SortableRow({
             : 'bg-white border-gray-200 hover:border-gray-300'
         }`}
       >
-        {/* Drag Handle */}
-        <button
-          {...attributes}
-          {...listeners}
-          className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing flex-shrink-0 touch-none p-0.5"
-          aria-label="Arrastar"
-        >
-          <GripVertical size={18} />
-        </button>
-
-        {/* Order badge */}
-        <div className="w-6 h-6 rounded-full bg-wine-100 text-wine-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
-          {index + 1}
-        </div>
-
-        {/* Function Label — styled select */}
-        <div className="flex-shrink-0 w-44 sm:w-52 min-w-0">
-          <SelectField
-            value={item.funcao_label || ''}
-            onChange={(e) => onChange(item.id, 'funcao_label', e.target.value)}
+        {/* Top row: drag handle + badge + selects + remove */}
+        <div className="flex items-center gap-2">
+          {/* Drag Handle */}
+          <button
+            {...attributes}
+            {...listeners}
+            className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing flex-shrink-0 touch-none p-0.5"
+            aria-label="Arrastar"
           >
-            <option value="">— Função —</option>
-            <optgroup label="Funções padrão">
-              {FUNCOES_LABELS.map((f) => (
-                <option key={f} value={f}>{f}</option>
-              ))}
-            </optgroup>
-          </SelectField>
-        </div>
+            <GripVertical size={18} />
+          </button>
 
-        {/* Cerimoniário SearchableSelect */}
-        <div className="flex-1 min-w-0">
-          <SearchableSelect
-            options={cerOptions}
-            value={item.cerimoniario_id ?? null}
-            onChange={(val) => onChange(item.id, 'cerimoniario_id', val)}
-            placeholder="— Selecionar Cerimoniário —"
-          />
-        </div>
-
-        {/* Availability indicator */}
-        {selectedCerimoniario && (
-          <div className="flex-shrink-0">
-            {(() => {
-              const avail = getAvailabilityInfo(selectedCerimoniario, celebracao)
-              const hasConflict = conflicts.length > 0
-              return (
-                <span
-                  className={`w-3 h-3 rounded-full block flex-shrink-0 ${
-                    hasConflict
-                      ? 'bg-orange-500'
-                      : avail.status === 'available'
-                      ? 'bg-green-500'
-                      : avail.status === 'busy'
-                      ? 'bg-amber-400'
-                      : 'bg-red-500'
-                  }`}
-                  title={hasConflict ? 'Já escalado neste dia' : avail.label}
-                />
-              )
-            })()}
+          {/* Order badge */}
+          <div className="w-6 h-6 rounded-full bg-wine-100 text-wine-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
+            {index + 1}
           </div>
-        )}
 
-        {/* Remove */}
-        <button
-          onClick={() => onRemove(item.id)}
-          className="flex-shrink-0 p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200"
-          title="Remover"
-        >
-          <Trash2 size={15} />
-        </button>
+          {/* Selects: stacked on mobile, side-by-side on sm+ */}
+          <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center gap-2">
+            {/* Function Label */}
+            <div className="sm:w-44 sm:flex-shrink-0">
+              <SelectField
+                value={item.funcao_label || ''}
+                onChange={(e) => onChange(item.id, 'funcao_label', e.target.value)}
+              >
+                <option value="">— Função —</option>
+                <optgroup label="Funções padrão">
+                  {FUNCOES_LABELS.map((f) => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </optgroup>
+              </SelectField>
+            </div>
+
+            {/* Cerimoniário + availability */}
+            <div className="flex-1 min-w-0 flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <SearchableSelect
+                  options={cerOptions}
+                  value={item.cerimoniario_id ?? null}
+                  onChange={(val) => onChange(item.id, 'cerimoniario_id', val)}
+                  placeholder="— Cerimoniário —"
+                />
+              </div>
+              {selectedCerimoniario && (() => {
+                const avail = getAvailabilityInfo(selectedCerimoniario, celebracao)
+                const hasConflict = conflicts.length > 0
+                return (
+                  <span
+                    className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                      hasConflict
+                        ? 'bg-orange-500'
+                        : avail.status === 'available'
+                        ? 'bg-green-500'
+                        : avail.status === 'busy'
+                        ? 'bg-amber-400'
+                        : 'bg-red-500'
+                    }`}
+                    title={hasConflict ? 'Já escalado neste dia' : avail.label}
+                  />
+                )
+              })()}
+            </div>
+          </div>
+
+          {/* Remove */}
+          <button
+            onClick={() => onRemove(item.id)}
+            className="flex-shrink-0 p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200"
+            title="Remover"
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
       </div>
 
       {/* Conflict warning row */}
@@ -397,15 +401,15 @@ function GridView({
   conflictMap: Record<number, Array<{ horario: string; periodo_liturgico: string }>>
 }) {
   return (
-    <div className="overflow-x-auto -mx-1">
+    <div className="overflow-x-auto overflow-y-auto -mx-1 max-h-[420px]">
       <table className="w-full text-sm border-collapse">
-        <thead>
+        <thead className="sticky top-0 z-20">
           <tr className="bg-gray-50 border-b border-gray-200">
-            <th className="text-left px-3 py-2.5 font-semibold text-gray-600 sticky left-0 bg-gray-50 min-w-36 z-10">
+            <th className="text-left px-3 py-1.5 font-semibold text-gray-600 sticky left-0 top-0 bg-gray-50 min-w-36 z-30">
               Cerimoniário
             </th>
             {items.map((item, idx) => (
-              <th key={item.id} className="px-2 py-2.5 text-center min-w-14">
+              <th key={item.id} className="px-1 py-0.1 text-center min-w-14 bg-gray-50">
                 <div className="flex flex-col items-center gap-0.5">
                   <span className="text-[10px] font-bold text-wine-400">{idx + 1}</span>
                   <span className="text-xs font-semibold text-gray-700 leading-tight">{abbreviateFuncao(item.funcao_label)}</span>
@@ -509,7 +513,8 @@ export default function EscalaForm() {
   const [observacao, setObservacao] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving]         = useState(false)
-  const [sugerindo, setSugerindo]   = useState(false)
+  const [sugerindo, setSugerindo]       = useState(false)
+  const [infoSugestaoOpen, setInfoSugestaoOpen] = useState(false)
   const [saveAttempted, setSaveAttempted] = useState(false)
   const [conflictMap, setConflictMap] = useState<Record<number, Array<{ horario: string; periodo_liturgico: string }>>>({})
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
@@ -849,6 +854,7 @@ export default function EscalaForm() {
   const currentStep: 1 | 2 | 3 = selectedCelebracao ? (items.length > 0 ? 3 : 2) : 1
 
   return (
+    <>
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-start gap-4">
@@ -941,9 +947,10 @@ export default function EscalaForm() {
       {/* Step 3: Scale Items */}
       {selectedCelebracao && (
         <div className="card p-5">
-          <div className="flex items-center justify-between mb-4">
+          {/* Título + botões: empilhados no mobile, lado a lado no sm+ */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
             <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-              <span className="w-5 h-5 bg-wine-900 text-white rounded-full text-xs flex items-center justify-center font-bold">3</span>
+              <span className="w-5 h-5 bg-wine-900 text-white rounded-full text-xs flex items-center justify-center font-bold flex-shrink-0">3</span>
               Funções da Escala
               <span className="normal-case text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
                 {items.length} {items.length === 1 ? 'função' : 'funções'}
@@ -969,19 +976,29 @@ export default function EscalaForm() {
                   <LayoutGrid size={15} />
                 </button>
               </div>
-              <button
-                onClick={handleSugerir}
-                disabled={sugerindo}
-                className="flex items-center gap-1.5 text-amber-700 hover:text-amber-900 font-semibold text-sm py-1.5 px-3 rounded-lg hover:bg-amber-50 border border-amber-200 transition-all duration-200 disabled:opacity-60"
-                title="Sugerir acólitos automaticamente por disponibilidade e rotatividade"
-              >
-                {sugerindo ? <span className="animate-spin text-xs">↻</span> : <Sparkles size={14} />}
-                {sugerindo ? 'Sugerindo...' : 'Sugerir'}
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handleSugerir}
+                  disabled={sugerindo}
+                  className="flex items-center gap-1.5 text-amber-700 hover:text-amber-900 font-semibold text-sm py-1.5 px-3 rounded-lg hover:bg-amber-50 border border-amber-200 transition-all duration-200 disabled:opacity-60"
+                  title="Sugerir acólitos automaticamente por disponibilidade e rotatividade"
+                >
+                  {sugerindo ? <span className="animate-spin text-xs">↻</span> : <Sparkles size={14} />}
+                  {sugerindo ? 'Sugerindo...' : 'Sugerir'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInfoSugestaoOpen(true)}
+                  className="p-1.5 text-gray-400 hover:text-amber-700 transition-colors rounded-lg hover:bg-amber-50"
+                  title="Como funciona a sugestão automática"
+                >
+                  <Info size={14} />
+                </button>
+              </div>
               {viewMode === 'list' && (
                 <button
                   onClick={handleAddRow}
-                  className="flex items-center gap-1.5 text-wine-700 hover:text-wine-900 font-semibold text-sm py-1.5 px-3 rounded-lg hover:bg-wine-50 transition-all duration-200"
+                  className="flex items-center gap-1.5 text-wine-700 hover:text-wine-900 font-semibold text-sm py-1.5 px-3 rounded-lg hover:bg-wine-50 border border-wine-200 transition-all duration-200"
                 >
                   <Plus size={16} />
                   Adicionar
@@ -990,23 +1007,23 @@ export default function EscalaForm() {
             </div>
           </div>
 
-          {/* Legend */}
-          <div className="flex flex-wrap items-center gap-4 mb-4 text-xs text-gray-400">
+          {/* Legenda: 2 colunas no mobile, linha no sm+ */}
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-x-4 gap-y-1.5 sm:gap-4 mb-4 text-xs text-gray-400">
             <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-green-500 block" />
-              Disponível neste horário
+              <span className="w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0" />
+              Disponível
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 block" />
-              Fora do horário habitual
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 flex-shrink-0" />
+              Fora do horário
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 block" />
-              Indisponível temporário
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0" />
+              Indisponível
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-orange-500 block" />
-              Já escalado neste dia
+              <span className="w-2.5 h-2.5 rounded-full bg-orange-500 flex-shrink-0" />
+              Já escalado
             </div>
           </div>
 
@@ -1090,11 +1107,11 @@ export default function EscalaForm() {
       {/* Action Buttons */}
       {selectedCelebracao && (
         <div className="card p-5">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3">
             <button
               onClick={handleSave}
               disabled={saving}
-              className="btn-primary"
+              className="btn-primary w-full sm:w-auto justify-center"
             >
               {saving ? (
                 <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
@@ -1106,7 +1123,7 @@ export default function EscalaForm() {
 
             <button
               onClick={handleCopyWhatsApp}
-              className="btn-gold"
+              className="btn-gold w-full sm:w-auto justify-center"
             >
               <MessageCircle size={18} />
               Copiar para WhatsApp
@@ -1114,7 +1131,7 @@ export default function EscalaForm() {
 
             <button
               onClick={handleSendWhatsApp}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 active:scale-95 transition-all duration-200 text-base"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 active:scale-95 transition-all duration-200 text-base w-full sm:w-auto"
             >
               <Send size={18} />
               Enviar no WhatsApp
@@ -1122,7 +1139,7 @@ export default function EscalaForm() {
 
             <button
               onClick={handlePdf}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-700 text-white font-semibold rounded-xl hover:bg-gray-800 active:scale-95 transition-all duration-200 text-base"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gray-700 text-white font-semibold rounded-xl hover:bg-gray-800 active:scale-95 transition-all duration-200 text-base w-full sm:w-auto"
             >
               <FileDown size={18} />
               Baixar PDF
@@ -1131,5 +1148,65 @@ export default function EscalaForm() {
         </div>
       )}
     </div>
+
+    {/* Modal: como funciona a sugestão */}
+
+    {infoSugestaoOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <Sparkles size={16} className="text-amber-700" />
+              </div>
+              <h2 className="font-bold text-gray-900">Como funciona a sugestão</h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setInfoSugestaoOpen(false)}
+              className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="space-y-3 text-sm text-gray-600">
+            <p>
+              A sugestão é baseada em <strong>rotatividade</strong> — acólitos que serviram há mais tempo recebem prioridade — e em <strong>disponibilidade</strong> declarada no horário da celebração.
+            </p>
+
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 space-y-2">
+              <p className="font-semibold text-amber-900 flex items-center gap-1.5">
+                <span className="w-4 h-4 rounded-full bg-amber-700 text-white text-[10px] flex items-center justify-center font-bold">!</span>
+                Funções prioritárias
+              </p>
+              <p className="text-amber-800 text-xs">
+                <strong>Mestre, 2º Auxiliar e Turiferário</strong> são reservados exclusivamente para cerimoniários marcados como <strong>Experiente</strong> ou <strong>Mestre</strong>. Para a função Mestre, acólitos com a flag <em>Mestre</em> têm preferência dentro desse grupo.
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 space-y-2">
+              <p className="font-semibold text-gray-800">Demais funções</p>
+              <p className="text-gray-600 text-xs">
+                São preenchidas priorizando cerimoniários <strong>sem</strong> a flag experiente ou mestre, reservando os mais experientes para as funções acima. Se não houver disponíveis nesse perfil, a sugestão considera qualquer cerimoniário disponível.
+              </p>
+            </div>
+
+            <p className="text-xs text-gray-400">
+              Nenhum cerimoniário é sugerido duas vezes na mesma escala.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setInfoSugestaoOpen(false)}
+            className="w-full py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm transition-colors"
+          >
+            Entendi
+          </button>
+        </div>
+      </div>
+    )}
+    </>
   )
 }

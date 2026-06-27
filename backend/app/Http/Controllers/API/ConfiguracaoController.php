@@ -66,4 +66,39 @@ class ConfiguracaoController extends Controller
             'message' => $msg,
         ]);
     }
+
+    public function showAniversarioTemplate(): JsonResponse
+    {
+        $cfg = $this->getOrCreate();
+
+        return response()->json([
+            'data' => [
+                'texto'   => $cfg->aniversario_mensagem_texto,
+                'imagem'  => $cfg->aniversario_mensagem_imagem,
+            ],
+            'message' => 'Template carregado com sucesso.',
+        ]);
+    }
+
+    public function updateAniversarioTemplate(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'texto'  => 'nullable|string',
+            'imagem' => 'nullable|string',
+        ]);
+
+        $configuracao = $this->getOrCreate();
+        $configuracao->update([
+            'aniversario_mensagem_texto'  => $validated['texto']  ?? null,
+            'aniversario_mensagem_imagem' => $validated['imagem'] ?? null,
+        ]);
+
+        return response()->json([
+            'data' => [
+                'texto'  => $configuracao->aniversario_mensagem_texto,
+                'imagem' => $configuracao->aniversario_mensagem_imagem,
+            ],
+            'message' => 'Template de aniversário salvo com sucesso.',
+        ]);
+    }
 }

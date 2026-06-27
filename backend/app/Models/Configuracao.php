@@ -15,6 +15,8 @@ class Configuracao extends Model
         'telefone',
         'nome_coordenador',
         'portal_config',
+        'aniversario_mensagem_texto',
+        'aniversario_mensagem_imagem',
     ];
 
     protected $casts = [

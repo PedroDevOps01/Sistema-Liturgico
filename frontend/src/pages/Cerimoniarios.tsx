@@ -85,6 +85,8 @@ interface CsvRow {
   numero?: string;
   data_nascimento?: string;
   observacao?: string;
+  experiente?: boolean;
+  mestre?: boolean;
   erro?: string;
 }
 
@@ -110,6 +112,14 @@ function isBirthdayToday(dataNascimento?: string): boolean {
   const today = new Date();
   const [, m, d] = dataNascimento.split("-").map(Number);
   return today.getMonth() + 1 === m && today.getDate() === d;
+}
+
+function parseBool(raw: string | undefined): boolean | undefined {
+  if (!raw?.trim()) return undefined;
+  const v = raw.trim().toLowerCase();
+  if (["1", "true", "sim", "s", "yes", "y"].includes(v)) return true;
+  if (["0", "false", "não", "nao", "n", "no"].includes(v)) return false;
+  return undefined;
 }
 
 function parseBirthDate(raw: string): string | undefined {
@@ -161,6 +171,8 @@ function parseCSV(text: string): CsvRow[] {
         numero: get("numero") ?? get("telefone") ?? get("contato"),
         data_nascimento: parsedDate,
         observacao: get("observacao") ?? get("obs"),
+        experiente: parseBool(get("experiente")),
+        mestre: parseBool(get("mestre")),
         erro:
           rawDate && !parsedDate ? `Data inválida: "${rawDate}"` : undefined,
       } as CsvRow;
@@ -170,9 +182,9 @@ function parseCSV(text: string): CsvRow[] {
 
 function downloadTemplate() {
   const rows = [
-    "nome,numero,data_nascimento,observacao",
-    "João da Silva,(11) 99999-9999,15/01/1990,Opcional",
-    "Maria Santos,(21) 88888-8888,22/03/1995,",
+    "nome,numero,data_nascimento,observacao,experiente,mestre",
+    "João da Silva,(11) 99999-9999,15/01/1990,Opcional,sim,não",
+    "Maria Santos,(21) 88888-8888,22/03/1995,,não,não",
   ];
   const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
@@ -445,6 +457,8 @@ export default function Cerimoniarios() {
           numero: row.numero ?? null,
           data_nascimento: row.data_nascimento ?? null,
           observacao: row.observacao ?? null,
+          experiente: row.experiente ?? false,
+          mestre: row.mestre ?? false,
         }),
       ),
     ).then((results) => {
@@ -536,7 +550,8 @@ export default function Cerimoniarios() {
 
       {/* Desktop Table */}
       <div className="card overflow-hidden hidden md:block">
-        <table className="w-full">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[700px]">
           <thead>
             <tr className="bg-wine-900 text-white">
               <th className="text-left px-5 py-3.5 font-semibold text-sm">
@@ -682,6 +697,7 @@ export default function Cerimoniarios() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Mobile: Card list */}
@@ -1047,12 +1063,13 @@ export default function Cerimoniarios() {
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
             <p className="font-semibold mb-1">Formato esperado do CSV:</p>
             <code className="text-xs bg-blue-100 px-2 py-0.5 rounded">
-              nome, numero, data_nascimento, observacao
+              nome, numero, data_nascimento, observacao, experiente, mestre
             </code>
             <p className="mt-1.5 text-xs text-blue-600">
               A data de nascimento deve estar no formato{" "}
               <strong>DD/MM/AAAA</strong>. Vírgula ou ponto e vírgula como
-              separador são aceitos.
+              separador são aceitos. Para <strong>experiente</strong> e{" "}
+              <strong>mestre</strong> use: sim/não, true/false ou 1/0.
             </p>
           </div>
 
@@ -1128,8 +1145,8 @@ export default function Cerimoniarios() {
                   )}
                 </div>
               </div>
-              <div className="border border-gray-200 rounded-xl overflow-hidden max-h-64 overflow-y-auto">
-                <table className="w-full text-sm">
+              <div className="border border-gray-200 rounded-xl overflow-hidden max-h-64 overflow-y-auto overflow-x-auto">
+                <table className="w-full min-w-[500px] text-sm">
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
                       <th className="text-left px-3 py-2 font-medium text-gray-600">
@@ -1143,6 +1160,12 @@ export default function Cerimoniarios() {
                       </th>
                       <th className="text-left px-3 py-2 font-medium text-gray-600">
                         Nascimento
+                      </th>
+                      <th className="text-left px-3 py-2 font-medium text-gray-600">
+                        Exp.
+                      </th>
+                      <th className="text-left px-3 py-2 font-medium text-gray-600">
+                        Mestre
                       </th>
                     </tr>
                   </thead>
@@ -1169,6 +1192,12 @@ export default function Cerimoniarios() {
                           ) : (
                             "—"
                           )}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {row.experiente === true ? "✓" : row.experiente === false ? "—" : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {row.mestre === true ? "✓" : row.mestre === false ? "—" : "—"}
                         </td>
                       </tr>
                     ))}
