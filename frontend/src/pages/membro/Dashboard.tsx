@@ -16,21 +16,21 @@ import logoGrupo from '../../assets/logogrupo.png'
 import { parseDate, formatHorario, parseDateParts } from '../../lib/dateUtils'
 import { getPeriodoLiturgico } from '../../lib/liturgico'
 
-const GOLD   = '#fbbf24'
+const GOLD = '#fbbf24'
 const INDIGO = '#431407'
 
 const PERIODO_INFO: Record<string, { quote: string; ref: string }> = {
-  'Tempo Comum':    { quote: 'Ide e fazei discípulos de todos os povos.',                   ref: 'Mt 28,19' },
-  'Advento':        { quote: 'Preparai o caminho do Senhor, endireitai as suas veredas.',   ref: 'Is 40,3'  },
-  'Quaresma':       { quote: 'Convertei-vos e crede no Evangelho.',                         ref: 'Mc 1,15'  },
-  'Tempo Pascal':   { quote: 'Eu sou a ressurreição e a vida.',                             ref: 'Jo 11,25' },
-  'Tempo do Natal': { quote: 'O Verbo se fez carne e habitou entre nós.',                   ref: 'Jo 1,14'  },
-  'Pentecostes':    { quote: 'Vinde, Espírito Santo, enchei os corações dos vossos fiéis.', ref: ''         },
-  'Tríduo Pascal':  { quote: 'Por suas chagas fomos curados.',                              ref: 'Is 53,5'  },
+  'Tempo Comum': { quote: 'Ide e fazei discípulos de todos os povos.', ref: 'Mt 28,19' },
+  'Advento': { quote: 'Preparai o caminho do Senhor, endireitai as suas veredas.', ref: 'Is 40,3' },
+  'Quaresma': { quote: 'Convertei-vos e crede no Evangelho.', ref: 'Mc 1,15' },
+  'Tempo Pascal': { quote: 'Eu sou a ressurreição e a vida.', ref: 'Jo 11,25' },
+  'Tempo do Natal': { quote: 'O Verbo se fez carne e habitou entre nós.', ref: 'Jo 1,14' },
+  'Pentecostes': { quote: 'Vinde, Espírito Santo, enchei os corações dos vossos fiéis.', ref: '' },
+  'Tríduo Pascal': { quote: 'Por suas chagas fomos curados.', ref: 'Is 53,5' },
 }
 const FALLBACK = { quote: 'O Senhor é meu pastor e nada me faltará.', ref: 'Sl 23,1' }
 
-const MESES_ABR = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+const MESES_ABR = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
 function LiveClock() {
   const [now, setNow] = useState(new Date())
@@ -53,17 +53,17 @@ function LiveClock() {
   )
 }
 
-interface Presenca  { status: string }
-interface Funcao    { titulo: string }
+interface Presenca { status: string }
+interface Funcao { titulo: string }
 interface Celebracao { data: string; horario: string; periodo_liturgico?: string }
 interface EscalaNested { id: number; celebracao: Celebracao; presenca_aberta: boolean }
-interface EscalaItem   { id: number; escala: EscalaNested; funcao: Funcao | null; funcao_label?: string; presenca: Presenca | null }
+interface EscalaItem { id: number; escala: EscalaNested; funcao: Funcao | null; funcao_label?: string; presenca: Presenca | null }
 interface Aniversariante { id: number; nome: string; foto_base64?: string | null; data_nascimento: string }
 interface DashData { proximas_escalas: EscalaItem[]; aniversariantes: Aniversariante[]; ultima_escala: EscalaItem | null }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  serviu:      { label: 'Serviu',      color: '#10B981', bg: '#10B98115' },
-  faltou:      { label: 'Faltou',      color: '#EF4444', bg: '#EF444415' },
+  serviu: { label: 'Serviu', color: '#10B981', bg: '#10B98115' },
+  faltou: { label: 'Faltou', color: '#EF4444', bg: '#EF444415' },
   justificado: { label: 'Justificado', color: '#F59E0B', bg: '#F59E0B15' },
   substituido: { label: 'Substituído', color: '#8B5CF6', bg: '#8B5CF615' },
 }
@@ -84,12 +84,12 @@ function saudacao() {
 
 export default function MembroDashboard() {
   const user = getMembroUser()
-  const [dash, setDash]             = useState<DashData | null>(null)
+  const [dash, setDash] = useState<DashData | null>(null)
   const [allEscalas, setAllEscalas] = useState<EscalaItem[]>([])
-  const [loading, setLoading]       = useState(true)
+  const [loading, setLoading] = useState(true)
 
-  const hoje        = new Date()
-  const periodo     = getPeriodoLiturgico()
+  const hoje = new Date()
+  const periodo = getPeriodoLiturgico()
   const periodoInfo = PERIODO_INFO[periodo.periodo] ?? FALLBACK
 
   useEffect(() => {
@@ -100,13 +100,13 @@ export default function MembroDashboard() {
       setDash(d.data)
       setAllEscalas(Array.isArray(e.data) ? e.data : [])
     }).catch(() => toast.error('Erro ao carregar dashboard'))
-    .finally(() => setLoading(false))
+      .finally(() => setLoading(false))
   }, [])
 
-  const serviu      = allEscalas.filter(i => i.presenca?.status === 'serviu').length
-  const faltou      = allEscalas.filter(i => i.presenca?.status === 'faltou').length
+  const serviu = allEscalas.filter(i => i.presenca?.status === 'serviu').length
+  const faltou = allEscalas.filter(i => i.presenca?.status === 'faltou').length
   const justificado = allEscalas.filter(i => i.presenca?.status === 'justificado').length
-  const comStatus   = serviu + faltou + justificado
+  const comStatus = serviu + faltou + justificado
   const pctPresenca = comStatus > 0 ? Math.round((serviu / comStatus) * 100) : null
 
   const estesMes = allEscalas.filter(i => {
@@ -116,7 +116,7 @@ export default function MembroDashboard() {
     } catch { return false }
   }).length
 
-  const proxima     = dash?.proximas_escalas?.[0]
+  const proxima = dash?.proximas_escalas?.[0]
   const diasProxima = proxima ? daysUntil(proxima.escala.celebracao.data) : null
 
   // Monthly sparkline data (last 6 months)
@@ -132,13 +132,13 @@ export default function MembroDashboard() {
       .sort(([a], [b]) => a.localeCompare(b))
       .slice(-6)
       .map(([key, v]) => ({
-        mes:    MESES_ABR[parseInt(key.split('-')[1])],
-        total:  v.total,
+        mes: MESES_ABR[parseInt(key.split('-')[1])],
+        total: v.total,
         serviu: v.serviu,
       }))
   }, [allEscalas])
 
-  const todayStr   = format(hoje, 'yyyy-MM-dd')
+  const todayStr = format(hoje, 'yyyy-MM-dd')
   const escalaHoje = dash?.proximas_escalas?.filter(i =>
     i.escala.celebracao.data.substring(0, 10) === todayStr) ?? []
 
@@ -206,9 +206,9 @@ export default function MembroDashboard() {
         <div className="grid grid-cols-2 sm:grid-cols-4 border-t"
           style={{ borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.15)' }}>
           {([
-            { label: 'Total de escalas', value: allEscalas.length,                                    to: '/membro/escalas'    },
-            { label: 'Presença',          value: pctPresenca !== null ? `${pctPresenca}%` : '—',       to: '/membro/escalas'    },
-            { label: 'Este mês',          value: estesMes,                                             to: '/membro/calendario' },
+            { label: 'Total de escalas', value: allEscalas.length, to: '/membro/escalas' },
+            { label: 'Presença', value: pctPresenca !== null ? `${pctPresenca}%` : '—', to: '/membro/escalas' },
+            { label: 'Este mês', value: estesMes, to: '/membro/calendario' },
             {
               label: 'Próxima escala',
               value: diasProxima !== null
@@ -242,8 +242,8 @@ export default function MembroDashboard() {
               {loading
                 ? <div className="skeleton h-8 w-12 rounded" />
                 : <div className="text-3xl font-extrabold tracking-tight text-gray-900">
-                    {pctPresenca !== null ? `${pctPresenca}%` : '—'}
-                  </div>
+                  {pctPresenca !== null ? `${pctPresenca}%` : '—'}
+                </div>
               }
               <p className="text-xs text-gray-400 mt-0.5">Índice de presença</p>
             </div>
@@ -264,7 +264,7 @@ export default function MembroDashboard() {
                     background: pctPresenca >= 80
                       ? 'linear-gradient(90deg,#16a34a,#22c55e)'
                       : pctPresenca >= 50 ? 'linear-gradient(90deg,#f59e0b,#fbbf24)'
-                      : 'linear-gradient(90deg,#c2410c,#ef4444)',
+                        : 'linear-gradient(90deg,#c2410c,#ef4444)',
                   }} />
               </div>
             </div>
@@ -294,7 +294,7 @@ export default function MembroDashboard() {
                 <span className="inline-block mt-2 text-xs font-bold px-2.5 py-1 rounded-full"
                   style={{
                     background: STATUS_CONFIG[dash.ultima_escala.presenca.status].bg,
-                    color:      STATUS_CONFIG[dash.ultima_escala.presenca.status].color,
+                    color: STATUS_CONFIG[dash.ultima_escala.presenca.status].color,
                   }}>
                   {STATUS_CONFIG[dash.ultima_escala.presenca.status].label}
                 </span>
@@ -324,7 +324,7 @@ export default function MembroDashboard() {
               </p>
               {(proxima.funcao?.titulo ?? proxima.funcao_label) && (
                 <span className="inline-block text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"
-                  style={{ background: GOLD + '25', color: '#92400e' }}>
+                  style={{ background: GOLD + '25', color: '#f59e0b' }}>
                   {proxima.funcao?.titulo ?? proxima.funcao_label}
                 </span>
               )}
@@ -387,7 +387,7 @@ export default function MembroDashboard() {
           </div>
           <div className="flex flex-wrap gap-3 px-5 py-4">
             {dash.aniversariantes.map(a => {
-              const ini   = a.nome.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
+              const ini = a.nome.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
               const idade = a.data_nascimento
                 ? hoje.getFullYear() - safeDate(a.data_nascimento).getFullYear()
                 : null
@@ -447,13 +447,13 @@ export default function MembroDashboard() {
                 <div className="absolute left-[21px] top-6 bottom-6 w-px bg-gradient-to-b from-gray-200 via-gray-100 to-transparent pointer-events-none" />
                 <div className="space-y-1 max-h-[280px] overflow-y-auto pr-1 -mr-1">
                   {dash.proximas_escalas.map((item, i) => {
-                    const d           = item.escala.celebracao.data
+                    const d = item.escala.celebracao.data
                     const { day, month, weekday } = parseDateParts(d)
-                    const isFirst     = i === 0
-                    const days        = daysUntil(d)
+                    const isFirst = i === 0
+                    const days = daysUntil(d)
                     const janelaAberta = item.escala.presenca_aberta && !item.presenca
-                    const nodeColor   = days === 0 ? GOLD : INDIGO
-                    const nodeText    = days === 0 ? '#0D0B1E' : 'white'
+                    const nodeColor = days === 0 ? GOLD : INDIGO
+                    const nodeText = days === 0 ? '#0D0B1E' : 'white'
 
                     return (
                       <Link key={item.id} to="/membro/escalas"
@@ -525,20 +525,20 @@ export default function MembroDashboard() {
                   <AreaChart data={monthlyData} margin={{ top: 4, right: 2, bottom: 0, left: -24 }}>
                     <defs>
                       <linearGradient id="gradTotal" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%"  stopColor={INDIGO} stopOpacity={0.15} />
-                        <stop offset="95%" stopColor={INDIGO} stopOpacity={0}    />
+                        <stop offset="5%" stopColor={INDIGO} stopOpacity={0.15} />
+                        <stop offset="95%" stopColor={INDIGO} stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="gradServiu" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%"  stopColor="#10B981" stopOpacity={0.25} />
-                        <stop offset="95%" stopColor="#10B981" stopOpacity={0}    />
+                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.25} />
+                        <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <XAxis dataKey="mes" tick={{ fontSize: 9, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
                     <Tooltip
                       contentStyle={{ background: 'white', borderRadius: 8, fontSize: 10, border: '1px solid #F3F4F6', padding: '4px 8px' }}
                     />
-                    <Area type="monotone" dataKey="total"  stroke={`${INDIGO}50`} strokeWidth={1.5} fill="url(#gradTotal)"  dot={false} />
-                    <Area type="monotone" dataKey="serviu" stroke="#10B981"        strokeWidth={2}   fill="url(#gradServiu)" dot={{ r: 2, fill: '#10B981' }} activeDot={{ r: 4 }} />
+                    <Area type="monotone" dataKey="total" stroke={`${INDIGO}50`} strokeWidth={1.5} fill="url(#gradTotal)" dot={false} />
+                    <Area type="monotone" dataKey="serviu" stroke="#10B981" strokeWidth={2} fill="url(#gradServiu)" dot={{ r: 2, fill: '#10B981' }} activeDot={{ r: 4 }} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -569,15 +569,15 @@ export default function MembroDashboard() {
               </div>
               {/* Stacked bar */}
               <div className="h-2.5 rounded-full overflow-hidden flex gap-px mb-3" style={{ background: '#F3F4F6' }}>
-                {serviu      > 0 && <div style={{ flex: serviu,      background: '#10B981' }} className="h-full first:rounded-l-full" />}
+                {serviu > 0 && <div style={{ flex: serviu, background: '#10B981' }} className="h-full first:rounded-l-full" />}
                 {justificado > 0 && <div style={{ flex: justificado, background: '#F59E0B' }} className="h-full" />}
-                {faltou      > 0 && <div style={{ flex: faltou,      background: '#EF4444' }} className="h-full last:rounded-r-full" />}
+                {faltou > 0 && <div style={{ flex: faltou, background: '#EF4444' }} className="h-full last:rounded-r-full" />}
               </div>
               <div className="space-y-1.5">
                 {[
-                  { label: 'Serviu',      n: serviu,      color: '#10B981' },
+                  { label: 'Serviu', n: serviu, color: '#10B981' },
                   { label: 'Justificado', n: justificado, color: '#F59E0B' },
-                  { label: 'Faltou',      n: faltou,      color: '#EF4444' },
+                  { label: 'Faltou', n: faltou, color: '#EF4444' },
                 ].map(r => (
                   <div key={r.label} className="flex items-center gap-1.5">
                     <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: r.color }} />
@@ -596,10 +596,10 @@ export default function MembroDashboard() {
             </div>
             <div className="divide-y divide-gray-50">
               {([
-                { label: 'Minhas Escalas',  desc: 'Ver histórico e próximas',    icon: CalendarDays, to: '/membro/escalas',        accent: GOLD      },
-                { label: 'Calendário',      desc: 'Visualizar no calendário',     icon: Calendar,     to: '/membro/calendario',      accent: '#6366F1' },
-                { label: 'Aniversariantes', desc: 'Aniversários do ministério',   icon: Gift,         to: '/membro/aniversariantes', accent: '#fbbf24' },
-                { label: 'Meu Perfil',      desc: 'Editar dados e senha',         icon: User,         to: '/membro/perfil',          accent: '#10B981' },
+                { label: 'Minhas Escalas', desc: 'Ver histórico e próximas', icon: CalendarDays, to: '/membro/escalas', accent: GOLD },
+                { label: 'Calendário', desc: 'Visualizar no calendário', icon: Calendar, to: '/membro/calendario', accent: '#6366F1' },
+                { label: 'Aniversariantes', desc: 'Aniversários do ministério', icon: Gift, to: '/membro/aniversariantes', accent: '#fbbf24' },
+                { label: 'Meu Perfil', desc: 'Editar dados e senha', icon: User, to: '/membro/perfil', accent: '#10B981' },
               ]).map(({ label, desc, icon: Icon, to, accent }) => (
                 <Link key={label} to={to}
                   className="flex items-center gap-3.5 px-4 py-4 hover:bg-gray-50 transition-colors group">

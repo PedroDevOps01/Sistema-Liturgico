@@ -3,7 +3,6 @@ import { Phone, Search, Star } from 'lucide-react'
 import membroApi from '../../lib/membroApi'
 
 const GOLD = '#fbbf24'
-const DARK = '#431407'
 
 interface Contato {
   id: number
@@ -20,8 +19,8 @@ function maskPhone(raw: string): string {
 }
 
 export default function MembroContatos() {
-  const [lista, setLista]     = useState<Contato[]>([])
-  const [busca, setBusca]     = useState('')
+  const [lista, setLista] = useState<Contato[]>([])
+  const [busca, setBusca] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -34,8 +33,8 @@ export default function MembroContatos() {
     c.nome.toLowerCase().includes(busca.toLowerCase())
   )
 
-  const mestres   = filtrado.filter(c => c.mestre)
-  const membros   = filtrado.filter(c => !c.mestre)
+  const mestres = filtrado.filter(c => c.mestre)
+  const membros = filtrado.filter(c => !c.mestre)
 
   function ContactCard({ c }: { c: Contato }) {
     const ini = c.nome.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
@@ -59,7 +58,7 @@ export default function MembroContatos() {
         {c.numero ? (
           <a href={`tel:${c.numero.replace(/\D/g, '')}`}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 flex-shrink-0"
-            style={{ background: `${GOLD}20`, color: '#92400e' }}>
+            style={{ background: `${GOLD}20`, color: '#f59e0b' }}>
             <Phone size={12} />
             {maskPhone(c.numero)}
           </a>

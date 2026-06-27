@@ -13,6 +13,7 @@ import {
   History,
   GraduationCap,
   ClipboardList,
+  FileText,
   Globe,
   Heart,
   Search,
@@ -93,6 +94,7 @@ const modules: Module[] = [
     icon: BookOpen,
     items: [
       { label: 'Formação',          icon: BookOpen, to: '/formacao' },
+      { label: 'Documentos',        icon: FileText, to: '/documentos' },
       { label: 'Controle de Túnicas', icon: Shirt,  to: '/tunicas'  },
     ],
   },

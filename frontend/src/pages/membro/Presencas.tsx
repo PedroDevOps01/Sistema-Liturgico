@@ -14,7 +14,7 @@ const GOLD = '#fbbf24'
 const DARK = '#431407'
 
 interface PresencaStatus { status: string | null }
-interface MembroCel      { id: number; nome: string; foto_base64?: string | null }
+interface MembroCel { id: number; nome: string; foto_base64?: string | null }
 
 interface ItemCel {
   id: number
@@ -46,10 +46,10 @@ interface PresencaDia {
 }
 
 const STATUS_CFG = {
-  serviu:      { label: 'Confirmei presença', color: '#10B981', bg: '#10B98115' },
-  faltou:      { label: 'Faltou',             color: '#EF4444', bg: '#EF444415' },
-  justificado: { label: 'Justificado',        color: '#F59E0B', bg: '#F59E0B15' },
-  substituido: { label: 'Substituído',        color: '#8B5CF6', bg: '#8B5CF615' },
+  serviu: { label: 'Confirmei presença', color: '#10B981', bg: '#10B98115' },
+  faltou: { label: 'Faltou', color: '#EF4444', bg: '#EF444415' },
+  justificado: { label: 'Justificado', color: '#F59E0B', bg: '#F59E0B15' },
+  substituido: { label: 'Substituído', color: '#8B5CF6', bg: '#8B5CF615' },
 }
 
 function Avatar({ nome, foto, size = 32 }: { nome: string; foto?: string | null; size?: number }) {
@@ -71,23 +71,23 @@ function tempoRestante(abertaEm: string | null): { mm: number; ss: number; pct: 
   if (!abertaEm) return null
   const totalSeg = JANELA_MINUTOS * 60
   const decorrido = differenceInSeconds(new Date(), new Date(abertaEm))
-  const restante  = Math.max(0, totalSeg - decorrido)
+  const restante = Math.max(0, totalSeg - decorrido)
   return {
-    mm:  Math.floor(restante / 60),
-    ss:  restante % 60,
+    mm: Math.floor(restante / 60),
+    ss: restante % 60,
     pct: Math.round((restante / totalSeg) * 100),
   }
 }
 
 export default function MembroPresencas() {
-  const [dados, setDados]       = useState<PresencaDia[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [acao, setAcao]         = useState<Record<number, boolean>>({})
-  const [now, setNow]           = useState(new Date())
+  const [dados, setDados] = useState<PresencaDia[]>([])
+  const [loading, setLoading] = useState(true)
+  const [acao, setAcao] = useState<Record<number, boolean>>({})
+  const [now, setNow] = useState(new Date())
   const [justItemId, setJustItemId] = useState<number | null>(null)
   const [salvandoJust, setSalvandoJust] = useState(false)
-  const pollRef                 = useRef<ReturnType<typeof setInterval> | null>(null)
-  const tickRef                 = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const carregar = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
@@ -210,16 +210,16 @@ export default function MembroPresencas() {
 
         ) : (
           dados.map((d, idx) => {
-            const cel    = d.escala.celebracao
+            const cel = d.escala.celebracao
             const aberta = d.escala.presenca_aberta
             const encerrada = !aberta && !!d.escala.presenca_fechada_em
             const isAcao = !!acao[d.escala.id]
-            const stCfg  = d.minha_presenca?.status
+            const stCfg = d.minha_presenca?.status
               ? STATUS_CFG[d.minha_presenca.status as keyof typeof STATUS_CFG]
               : null
 
             const respondidos = d.escala.todos_itens.filter(i => i.presenca?.status).length
-            const total       = d.escala.todos_itens.length
+            const total = d.escala.todos_itens.length
 
             return (
               <div key={d.escala.id} className="pr-card card overflow-hidden"
@@ -275,7 +275,7 @@ export default function MembroPresencas() {
                           }}>
                           {aberta
                             ? <Unlock size={16} style={{ color: '#10B981' }} />
-                            : <Lock   size={16} className="text-gray-400" />
+                            : <Lock size={16} className="text-gray-400" />
                           }
                         </div>
                         <div>
@@ -287,10 +287,10 @@ export default function MembroPresencas() {
                             {aberta && d.escala.presenca_aberta_em
                               ? `Aberta às ${format(new Date(d.escala.presenca_aberta_em), 'HH:mm')}`
                               : encerrada && d.escala.presenca_fechada_em
-                              ? `Encerrada às ${format(new Date(d.escala.presenca_fechada_em), 'HH:mm')}`
-                              : !d.pode_controlar
-                              ? 'Aguardando o mestre abrir'
-                              : 'Abre após o início da celebração'}
+                                ? `Encerrada às ${format(new Date(d.escala.presenca_fechada_em), 'HH:mm')}`
+                                : !d.pode_controlar
+                                  ? 'Aguardando o mestre abrir'
+                                  : 'Abre após o início da celebração'}
                           </p>
                         </div>
                       </div>
@@ -331,7 +331,7 @@ export default function MembroPresencas() {
                             <div className="flex items-center gap-1.5">
                               <Timer size={12} style={{ color: cor }} />
                               <span className="text-[11px] font-bold" style={{ color: cor }}>
-                                Encerra em {String(t.mm).padStart(2,'0')}:{String(t.ss).padStart(2,'0')}
+                                Encerra em {String(t.mm).padStart(2, '0')}:{String(t.ss).padStart(2, '0')}
                               </span>
                             </div>
                             <span className="text-[10px] text-gray-400">Fecha automaticamente em {JANELA_MINUTOS} min</span>
@@ -353,9 +353,9 @@ export default function MembroPresencas() {
                     {stCfg ? (
                       <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl w-fit"
                         style={{ background: stCfg.bg, border: `1px solid ${stCfg.color}30` }}>
-                        {d.minha_presenca?.status === 'serviu'      && <CheckCircle2 size={15} style={{ color: stCfg.color }} />}
-                        {d.minha_presenca?.status === 'faltou'      && <XCircle      size={15} style={{ color: stCfg.color }} />}
-                        {d.minha_presenca?.status === 'justificado' && <AlertCircle  size={15} style={{ color: stCfg.color }} />}
+                        {d.minha_presenca?.status === 'serviu' && <CheckCircle2 size={15} style={{ color: stCfg.color }} />}
+                        {d.minha_presenca?.status === 'faltou' && <XCircle size={15} style={{ color: stCfg.color }} />}
+                        {d.minha_presenca?.status === 'justificado' && <AlertCircle size={15} style={{ color: stCfg.color }} />}
                         <span className="text-sm font-bold" style={{ color: stCfg.color }}>
                           {stCfg.label}
                         </span>
@@ -393,7 +393,7 @@ export default function MembroPresencas() {
                         Equipe
                       </p>
                       <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                        style={{ background: `${GOLD}20`, color: '#92400e' }}>
+                        style={{ background: `${GOLD}20`, color: '#f59e0b' }}>
                         {respondidos}/{total} confirmados
                       </span>
                     </div>
@@ -418,10 +418,10 @@ export default function MembroPresencas() {
 
                     <div className="space-y-1.5">
                       {d.escala.todos_itens.map(item => {
-                        const isMe     = item.id === d.meu_item_id
+                        const isMe = item.id === d.meu_item_id
                         const funcLabel = item.funcao?.titulo ?? item.funcao_label ?? '—'
-                        const st       = item.presenca?.status
-                        const stc      = st ? STATUS_CFG[st as keyof typeof STATUS_CFG] : null
+                        const st = item.presenca?.status
+                        const stc = st ? STATUS_CFG[st as keyof typeof STATUS_CFG] : null
 
                         return (
                           <div key={item.id}
@@ -452,9 +452,9 @@ export default function MembroPresencas() {
                               {stc ? (
                                 <span className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full"
                                   style={{ background: stc.bg, color: stc.color }}>
-                                  {st === 'serviu'      && <CheckCircle2 size={11} />}
-                                  {st === 'faltou'      && <XCircle      size={11} />}
-                                  {st === 'justificado' && <AlertCircle  size={11} />}
+                                  {st === 'serviu' && <CheckCircle2 size={11} />}
+                                  {st === 'faltou' && <XCircle size={11} />}
+                                  {st === 'justificado' && <AlertCircle size={11} />}
                                   {stc.label}
                                 </span>
                               ) : aberta ? (

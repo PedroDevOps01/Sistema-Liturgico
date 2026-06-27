@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Bell, AlertTriangle, Info, Megaphone } from 'lucide-react'
+import { Bell, AlertTriangle, Info, Megaphone, X, Clock, MessageCircle, Calendar, GraduationCap, Users, Zap } from 'lucide-react'
 import membroApi from '../../lib/membroApi'
 
 const GOLD = '#fbbf24'
+const WINE = '#7c2d3e'
 
 interface Comunicado {
   id: number
@@ -20,9 +21,119 @@ const TIPO_CFG = {
   urgente: { label: 'Urgente',    color: '#EF4444', bg: '#EF444415', icon: Megaphone    },
 }
 
+const ROADMAP = [
+  {
+    icon: Bell,
+    titulo: 'Comunicados Gerais',
+    items: ['Envio em massa para todos os membros', 'Envio por grupos', 'Envio por função', 'Envio por equipes'],
+  },
+  {
+    icon: Calendar,
+    titulo: 'Celebrações',
+    items: ['Envio automático da escala', 'Lembrete 24h antes', 'Lembrete no dia'],
+  },
+  {
+    icon: Users,
+    titulo: 'Aniversários',
+    items: ['Mensagem automática de parabéns'],
+  },
+  {
+    icon: MessageCircle,
+    titulo: 'Reuniões',
+    items: ['Convite automático', 'Lembrete automático', 'Envio apenas aos convidados'],
+  },
+  {
+    icon: GraduationCap,
+    titulo: 'Treinamentos',
+    items: ['Convite automático', 'Lembretes', 'Apenas para os participantes'],
+  },
+]
+
+function ComingSoonModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}
+    >
+      <div
+        className="w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl"
+        style={{ background: '#fff', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
+      >
+        {/* Header */}
+        <div className="relative px-6 pt-6 pb-5 flex-shrink-0" style={{ background: `linear-gradient(135deg, ${WINE} 0%, #5a1a28 100%)` }}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${GOLD}25` }}>
+              <Clock size={20} style={{ color: GOLD }} />
+            </div>
+            <div>
+              <p className="font-bold text-white text-base leading-tight">Em Desenvolvimento</p>
+              <p className="text-xs" style={{ color: `${GOLD}cc` }}>Seção de Comunicados</p>
+            </div>
+          </div>
+          <p className="text-white/80 text-sm leading-relaxed">
+            Esta seção está sendo desenvolvida. Em breve você poderá receber lembretes automáticos pelo
+            <strong className="text-white"> WhatsApp</strong> e pelo portal, além de comunicados do admin.
+          </p>
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+            style={{ background: 'rgba(255,255,255,0.15)', color: 'white' }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Roadmap */}
+        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Zap size={14} style={{ color: GOLD }} />
+            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: WINE }}>
+              Comunicação Automática — O que vem por aí
+            </p>
+          </div>
+          <p className="text-xs text-gray-500 leading-relaxed -mt-2">
+            O objetivo é centralizar toda a comunicação para reduzir a dependência do WhatsApp.
+          </p>
+
+          {ROADMAP.map(({ icon: Icon, titulo, items }) => (
+            <div key={titulo} className="rounded-xl overflow-hidden border border-gray-100">
+              <div className="flex items-center gap-2.5 px-4 py-3" style={{ background: `${WINE}08` }}>
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${WINE}18` }}>
+                  <Icon size={14} style={{ color: WINE }} />
+                </div>
+                <p className="font-semibold text-gray-900 text-sm">{titulo}</p>
+              </div>
+              <ul className="px-4 py-3 space-y-1.5">
+                {items.map(item => (
+                  <li key={item} className="flex items-start gap-2 text-xs text-gray-600">
+                    <span className="mt-0.5 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: GOLD }} />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-100 flex-shrink-0">
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 rounded-xl text-sm font-bold text-white transition-opacity hover:opacity-90"
+            style={{ background: `linear-gradient(135deg, ${WINE} 0%, #5a1a28 100%)` }}
+          >
+            Entendido, vamos lá!
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function MembroComunicados() {
-  const [lista, setLista]     = useState<Comunicado[]>([])
-  const [loading, setLoading] = useState(true)
+  const [lista, setLista]         = useState<Comunicado[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [showModal, setShowModal] = useState(true)
 
   useEffect(() => {
     membroApi.get<Comunicado[]>('/comunicados')
@@ -36,6 +147,8 @@ export default function MembroComunicados() {
         @keyframes comFadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
         .com-card { animation: comFadeUp 0.35s cubic-bezier(0.22,1,0.36,1) both; }
       `}</style>
+
+      {showModal && <ComingSoonModal onClose={() => setShowModal(false)} />}
 
       <div className="space-y-5">
         <div className="com-card">

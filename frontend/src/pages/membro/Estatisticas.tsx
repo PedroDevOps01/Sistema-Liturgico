@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { TrendingUp, Award, CalendarDays, Target } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { TrendingUp, Target } from 'lucide-react'
 import membroApi from '../../lib/membroApi'
 
 const GOLD = '#fbbf24'
 const DARK = '#431407'
-const MESES = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+const MESES = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
-interface PorAno  { total: number; serviu: number; faltou: number; justificado: number }
-interface PorMes  { total: number; serviu: number }
+interface PorAno { total: number; serviu: number; faltou: number; justificado: number }
+interface PorMes { total: number; serviu: number }
 interface Stats {
   por_ano: Record<string, PorAno>
   por_mes: Record<string, PorMes>
@@ -19,15 +19,15 @@ interface Stats {
 function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color?: string }) {
   return (
     <div className="card p-5">
-      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.14em] mb-1">{label}</p>
+      <p className="text-[10px] font-bold text-gray-600 uppercase tracking-[0.14em] mb-1">{label}</p>
       <p className="text-3xl font-extrabold tracking-tight" style={{ color: color ?? '#111827' }}>{value}</p>
-      {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
+      {sub && <p className="text-xs text-gray-600 mt-1">{sub}</p>}
     </div>
   )
 }
 
 export default function MembroEstatisticas() {
-  const [stats, setStats]     = useState<Stats | null>(null)
+  const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
   const anoAtual = new Date().getFullYear()
 
@@ -53,14 +53,6 @@ export default function MembroEstatisticas() {
     })
   }, [stats])
 
-  const anoChart = useMemo(() => {
-    if (!stats) return []
-    return Object.entries(stats.por_ano).map(([ano, d]) => {
-      const pct = d.total > 0 ? Math.round((d.serviu / d.total) * 100) : 0
-      return { ano, total: d.total, pct }
-    })
-  }, [stats])
-
   if (loading) return (
     <div className="flex items-center justify-center" style={{ height: 300 }}>
       <div className="w-9 h-9 rounded-full border-4 border-t-transparent animate-spin"
@@ -78,7 +70,7 @@ export default function MembroEstatisticas() {
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
           <TrendingUp size={22} style={{ color: GOLD }} /> Estatísticas
         </h1>
-        <p className="text-gray-400 text-sm mt-0.5">Seu histórico no ministério</p>
+        <p className="text-gray-600 text-sm mt-0.5">Seu histórico no ministério</p>
       </div>
 
       {/* KPIs */}
@@ -101,7 +93,7 @@ export default function MembroEstatisticas() {
         <>
           {/* Monthly chart */}
           <div className="card p-5">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.14em] mb-4">
+            <p className="text-[10px] font-bold text-gray-600 uppercase tracking-[0.14em] mb-4">
               Participação Mensal — {anoAtual}
             </p>
             <div style={{ height: 180 }}>
@@ -110,22 +102,22 @@ export default function MembroEstatisticas() {
                   <XAxis dataKey="mes" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 9, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
                   <Tooltip
-                    contentStyle={{ background: 'white', borderRadius: 8, fontSize: 11, border: '1px solid #F3F4F6' }}
+                    contentStyle={{ background: 'white', borderRadius: 8, fontSize: 11, border: '1px solid #f7f7f7f' }}
                     formatter={(v, n) => [v, n === 'serviu' ? 'Serviu' : 'Total']}
                   />
-                  <Bar dataKey="total" fill={`${DARK}18`} radius={[4,4,0,0]} />
-                  <Bar dataKey="serviu" fill={GOLD} radius={[4,4,0,0]} />
+                  <Bar dataKey="total" fill={`${DARK}55`} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="serviu" fill={GOLD} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
             <div className="flex gap-4 mt-2">
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-3 rounded" style={{ background: GOLD }} />
-                <span className="text-[10px] text-gray-400">Serviu</span>
+                <span className="text-[10px] text-gray-600">Serviu</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded" style={{ background: `${DARK}18` }} />
-                <span className="text-[10px] text-gray-400">Total</span>
+                <div className="w-3 h-3 rounded" style={{ background: `${DARK}55` }} />
+                <span className="text-[10px] text-gray-600">Total</span>
               </div>
             </div>
           </div>
@@ -133,7 +125,7 @@ export default function MembroEstatisticas() {
           {/* Annual breakdown */}
           {Object.keys(stats.por_ano).length > 1 && (
             <div className="card p-5">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.14em] mb-4">Histórico por Ano</p>
+              <p className="text-[10px] font-bold text-gray-600 uppercase tracking-[0.14em] mb-4">Histórico por Ano</p>
               <div className="space-y-3">
                 {Object.entries(stats.por_ano).sort(([a], [b]) => Number(b) - Number(a)).map(([ano, d]) => {
                   const pct = d.total > 0 ? Math.round((d.serviu / d.total) * 100) : 0
@@ -161,7 +153,7 @@ export default function MembroEstatisticas() {
         <div className="card p-14 text-center">
           <Target size={40} className="mx-auto mb-3 text-gray-200" />
           <p className="font-semibold text-gray-500">Sem dados ainda</p>
-          <p className="text-sm text-gray-400 mt-1">Suas estatísticas aparecerão após suas primeiras escalas.</p>
+          <p className="text-sm text-gray-600 mt-1">Suas estatísticas aparecerão após suas primeiras escalas.</p>
         </div>
       )}
     </div>

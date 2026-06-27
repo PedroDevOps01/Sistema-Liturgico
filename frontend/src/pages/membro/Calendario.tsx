@@ -12,7 +12,6 @@ import toast from 'react-hot-toast'
 import membroApi from '../../lib/membroApi'
 import { parseDate, formatHorario } from '../../lib/dateUtils'
 
-const GOLD   = '#fbbf24'
 const INDIGO = '#431407'
 
 interface MembroCelebracao {
@@ -54,49 +53,49 @@ interface EscalaItem {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  serviu:      '#10B981',
-  faltou:      '#EF4444',
+  serviu: '#10B981',
+  faltou: '#EF4444',
   justificado: '#F59E0B',
   substituido: '#8B5CF6',
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  serviu:      'Serviu',
-  faltou:      'Faltou',
+  serviu: 'Serviu',
+  faltou: 'Faltou',
   justificado: 'Justificado',
   substituido: 'Substituído',
 }
 
 function getCelebInfo(cel: MembroCelebracao): { color: string; label: string } {
-  if (cel.casamento)           return { color: '#EC4899', label: 'Casamento'    }
-  if (cel.batismo)             return { color: '#06B6D4', label: 'Batismo'      }
-  if (cel.crisma)              return { color: '#8B5CF6', label: 'Crisma'       }
-  if (cel.primeira_eucaristia) return { color: '#F59E0B', label: '1ª Eucaristia'}
-  if (cel.exequias)            return { color: '#6B7280', label: 'Exéquias'     }
-  if (cel.ordenacao)           return { color: '#A855F7', label: 'Ordenação'    }
-  if (cel.corpus_christi)      return { color: '#D97706', label: 'Corpus Christi'}
-  if (cel.missa_crismal)       return { color: '#EF4444', label: 'Missa Crismal' }
-  if (cel.vigilia_pascal)      return { color: '#FBBF24', label: 'Vigília Pascal' }
-  if (cel.paixao_senhor)       return { color: '#DC2626', label: 'Paixão do Senhor' }
-  if (cel.via_sacra)           return { color: '#92400E', label: 'Via Sacra'    }
-  if (cel.adoracao_santissimo) return { color: '#F59E0B', label: 'Adoração'     }
-  if (cel.celebracao_solene)   return { color: '#F59E0B', label: 'Solene'       }
-  if (cel.celebracao_palavra)  return { color: '#22C55E', label: 'Palavra'      }
-  if (cel.celebracao_6h)       return { color: '#78716C', label: 'Missa 6h'     }
-  if (cel.celebracao_noite)    return { color: '#3B82F6', label: 'Noturna'      }
+  if (cel.casamento) return { color: '#EC4899', label: 'Casamento' }
+  if (cel.batismo) return { color: '#06B6D4', label: 'Batismo' }
+  if (cel.crisma) return { color: '#8B5CF6', label: 'Crisma' }
+  if (cel.primeira_eucaristia) return { color: '#F59E0B', label: '1ª Eucaristia' }
+  if (cel.exequias) return { color: '#6B7280', label: 'Exéquias' }
+  if (cel.ordenacao) return { color: '#A855F7', label: 'Ordenação' }
+  if (cel.corpus_christi) return { color: '#f59e0b', label: 'Corpus Christi' }
+  if (cel.missa_crismal) return { color: '#EF4444', label: 'Missa Crismal' }
+  if (cel.vigilia_pascal) return { color: '#FBBF24', label: 'Vigília Pascal' }
+  if (cel.paixao_senhor) return { color: '#DC2626', label: 'Paixão do Senhor' }
+  if (cel.via_sacra) return { color: '#92400E', label: 'Via Sacra' }
+  if (cel.adoracao_santissimo) return { color: '#F59E0B', label: 'Adoração' }
+  if (cel.celebracao_solene) return { color: '#F59E0B', label: 'Solene' }
+  if (cel.celebracao_palavra) return { color: '#22C55E', label: 'Palavra' }
+  if (cel.celebracao_6h) return { color: '#78716C', label: 'Missa 6h' }
+  if (cel.celebracao_noite) return { color: '#3B82F6', label: 'Noturna' }
   return { color: INDIGO, label: 'Missa' }
 }
 
 const WEEK_DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
-const MESES_PT  = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
-                   'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+const MESES_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
 export default function MembroCalendario() {
   const [currentMonth, setCurrentMonth] = useState(new Date())
-  const [escalas, setEscalas]           = useState<EscalaItem[]>([])
-  const [loading, setLoading]           = useState(true)
-  const [drawer, setDrawer]             = useState<EscalaItem[] | null>(null)
-  const [drawerDate, setDrawerDate]     = useState<string | null>(null)
+  const [escalas, setEscalas] = useState<EscalaItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [drawer, setDrawer] = useState<EscalaItem[] | null>(null)
+  const [drawerDate, setDrawerDate] = useState<string | null>(null)
   const [confirmandoId, setConfirmandoId] = useState<number | null>(null)
 
   async function loadCalendario(month: Date): Promise<EscalaItem[]> {
@@ -131,10 +130,10 @@ export default function MembroCalendario() {
   }
 
   const monthStart = startOfMonth(currentMonth)
-  const monthEnd   = endOfMonth(currentMonth)
-  const calStart   = startOfWeek(monthStart, { weekStartsOn: 0 })
-  const calEnd     = endOfWeek(monthEnd,     { weekStartsOn: 0 })
-  const calDays    = eachDayOfInterval({ start: calStart, end: calEnd })
+  const monthEnd = endOfMonth(currentMonth)
+  const calStart = startOfWeek(monthStart, { weekStartsOn: 0 })
+  const calEnd = endOfWeek(monthEnd, { weekStartsOn: 0 })
+  const calDays = eachDayOfInterval({ start: calStart, end: calEnd })
 
   function openDrawer(key: string) {
     const items = escalaMap[key]
@@ -167,9 +166,9 @@ export default function MembroCalendario() {
   }
 
   // Monthly summary
-  const pfx     = format(currentMonth, 'yyyy-MM')
+  const pfx = format(currentMonth, 'yyyy-MM')
   const mesItens = escalas.filter(i => i.escala.celebracao.data.startsWith(pfx))
-  const serv     = mesItens.filter(i => i.presenca?.status === 'serviu').length
+  const serv = mesItens.filter(i => i.presenca?.status === 'serviu').length
 
   return (
     <div className="flex flex-col space-y-4">
@@ -212,13 +211,13 @@ export default function MembroCalendario() {
       {/* ── Legend ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap gap-3">
         {[
-          { label: 'Missa',       color: INDIGO    },
-          { label: 'Noturna',     color: '#3B82F6' },
-          { label: 'Casamento',   color: '#EC4899' },
-          { label: 'Batismo',     color: '#06B6D4' },
-          { label: 'Crisma',      color: '#8B5CF6' },
-          { label: 'Solene',      color: '#F59E0B' },
-          { label: 'Palavra',     color: '#22C55E' },
+          { label: 'Missa', color: INDIGO },
+          { label: 'Noturna', color: '#3B82F6' },
+          { label: 'Casamento', color: '#EC4899' },
+          { label: 'Batismo', color: '#06B6D4' },
+          { label: 'Crisma', color: '#8B5CF6' },
+          { label: 'Solene', color: '#F59E0B' },
+          { label: 'Palavra', color: '#22C55E' },
         ].map(({ label, color }) => (
           <div key={label} className="flex items-center gap-1.5 text-xs text-gray-600">
             <div className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
@@ -253,13 +252,13 @@ export default function MembroCalendario() {
           ) : (
             <div className="grid grid-cols-7">
               {calDays.map((day, idx) => {
-                const key     = format(day, 'yyyy-MM-dd')
-                const items   = (escalaMap[key] ?? []).sort((a, b) =>
+                const key = format(day, 'yyyy-MM-dd')
+                const items = (escalaMap[key] ?? []).sort((a, b) =>
                   a.escala.celebracao.horario.localeCompare(b.escala.celebracao.horario))
                 const inMonth = isSameMonth(day, currentMonth)
-                const isT     = isToday(day)
-                const isSun   = idx % 7 === 0
-                const isSat   = idx % 7 === 6
+                const isT = isToday(day)
+                const isSun = idx % 7 === 0
+                const isSat = idx % 7 === 6
 
                 return (
                   <div key={key}
@@ -268,8 +267,8 @@ export default function MembroCalendario() {
                       background: !inMonth
                         ? 'rgba(249,250,251,0.8)'
                         : isSun || isSat
-                        ? 'rgba(13,11,30,0.015)'
-                        : 'white',
+                          ? 'rgba(13,11,30,0.015)'
+                          : 'white',
                     }}>
 
                     {/* Day number */}
@@ -280,9 +279,9 @@ export default function MembroCalendario() {
                           background: isT ? 'linear-gradient(135deg, var(--theme-btn-from), var(--theme-btn-to))' : 'transparent',
                           color: isT ? 'white'
                             : !inMonth ? '#D1D5DB'
-                            : isSun ? '#EF4444'
-                            : isSat ? '#3B82F6'
-                            : '#374151',
+                              : isSun ? '#EF4444'
+                                : isSat ? '#3B82F6'
+                                  : '#374151',
                           fontWeight: isT ? 800 : 600,
                           boxShadow: isT ? '0 2px 8px rgba(194,65,12,0.4)' : 'none',
                         }}>
@@ -297,9 +296,9 @@ export default function MembroCalendario() {
                     {inMonth && (
                       <div className="space-y-0.5 flex-1">
                         {items.slice(0, 3).map(item => {
-                          const cel  = item.escala.celebracao
+                          const cel = item.escala.celebracao
                           const { color, label } = getCelebInfo(cel)
-                          const st   = item.presenca?.status
+                          const st = item.presenca?.status
                           const pillColor = st && STATUS_COLOR[st] ? STATUS_COLOR[st] : color
                           return (
                             <button
@@ -389,9 +388,9 @@ export default function MembroCalendario() {
             {/* Drawer content */}
             <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
               {drawer.map(item => {
-                const cel    = item.escala.celebracao
+                const cel = item.escala.celebracao
                 const { color, label } = getCelebInfo(cel)
-                const st     = item.presenca?.status
+                const st = item.presenca?.status
                 const jaAnela = item.escala.presenca_aberta && !item.presenca
                 const isConf = confirmandoId === item.id
 
@@ -463,9 +462,9 @@ export default function MembroCalendario() {
                         }}>
                         {st === 'serviu'
                           ? <CheckCircle2 size={16} style={{ color: STATUS_COLOR[st] }} />
-                          : <AlertCircle  size={16} style={{ color: STATUS_COLOR[st] ?? '#fbbf24' }} />
+                          : <AlertCircle size={16} style={{ color: STATUS_COLOR[st] ?? '#fbbf24' }} />
                         }
-                        <span className="text-sm font-bold" style={{ color: STATUS_COLOR[st] ?? '#d97706' }}>
+                        <span className="text-sm font-bold" style={{ color: STATUS_COLOR[st] ?? '#f59e0b' }}>
                           {STATUS_LABEL[st] ?? st}
                         </span>
                       </div>

@@ -1,15 +1,17 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import {
-  Plus, Pencil, Trash2, ChevronDown, ChevronRight, Search, BookOpen, Users, ArrowLeft, Award,
+  Plus, Pencil, Trash2, ChevronDown, ChevronRight, ChevronUp, Search, BookOpen, Users,
+  ArrowLeft, Award, FileText, Upload, Eye, X, EyeOff, GraduationCap,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
 import { getToken } from '../lib/auth'
+import { parsePdf, type ConteudoEstruturado, type Topico } from '../lib/pdfParser'
 import type {
   FormacaoNivel, FormacaoCompetencia, FormacaoProgresso,
   FormacaoOverviewItem, Cerimoniario,
@@ -70,8 +72,140 @@ interface HistoricoItem {
   observacao?: string | null
 }
 
+// ─── Documento de Formação types ────────────────────────────────────────────
+
+interface DocFormacao {
+  id: number
+  titulo: string
+  descricao: string | null
+  tipo: string
+  arquivo_nome: string
+  mime_type: string
+  ativo: boolean
+  created_at: string
+  conteudo_estruturado: ConteudoEstruturado | null
+}
+
+// ─── Leitor de Documento ─────────────────────────────────────────────────────
+
+function TopicoItem({ topico, defaultOpen = false }: { topico: Topico; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className="border border-gray-100 rounded-xl overflow-hidden mb-2">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-gray-50 transition-colors"
+      >
+        <span className="font-semibold text-gray-900 text-sm pr-4">{topico.titulo}</span>
+        {open ? <ChevronUp size={16} className="text-gray-400 flex-shrink-0" /> : <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />}
+      </button>
+      {open && topico.conteudo && (
+        <div className="px-5 pb-4 pt-1 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap border-t border-gray-50">
+          {topico.conteudo}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function LivroViewer({
+  doc, onClose,
+}: {
+  doc: DocFormacao
+  onClose: () => void
+}) {
+  const topicos = doc.conteudo_estruturado?.topicos ?? []
+  const [topicoAtivo, setTopicoAtivo] = useState(0)
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#0f0f0f' }}>
+      {/* Header */}
+      <div className="flex items-center gap-4 px-6 py-4 border-b border-white/10" style={{ background: '#1a1a1a' }}>
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#7c2d3e20' }}>
+          <BookOpen size={17} style={{ color: '#c4a24a' }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-white text-sm truncate">{doc.titulo}</p>
+          {doc.descricao && <p className="text-xs text-white/40 truncate">{doc.descricao}</p>}
+        </div>
+        <button
+          onClick={onClose}
+          className="w-9 h-9 rounded-full flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
+        >
+          <X size={18} />
+        </button>
+      </div>
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar — Índice */}
+        <div className="w-72 flex-shrink-0 overflow-y-auto border-r border-white/10 py-4 hidden md:block" style={{ background: '#141414' }}>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-white/30 px-5 mb-3">Índice</p>
+          {topicos.map((t, i) => (
+            <button
+              key={i}
+              onClick={() => setTopicoAtivo(i)}
+              className={`w-full text-left px-5 py-2.5 text-xs transition-colors ${
+                topicoAtivo === i
+                  ? 'text-amber-400 bg-white/5 font-semibold border-r-2 border-amber-400'
+                  : 'text-white/50 hover:text-white/80 hover:bg-white/5'
+              }`}
+            >
+              <span className="text-white/30 mr-2">{String(i + 1).padStart(2, '0')}</span>
+              {t.titulo}
+            </button>
+          ))}
+        </div>
+
+        {/* Conteúdo */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-3xl mx-auto px-8 py-10">
+            {topicos.length === 0 ? (
+              <div className="text-center text-white/30 mt-20">
+                <BookOpen size={40} className="mx-auto mb-3" />
+                <p>Nenhum conteúdo estruturado encontrado</p>
+              </div>
+            ) : (
+              topicos.map((t, i) => (
+                <div key={i} className="mb-12">
+                  <div className="flex items-baseline gap-3 mb-4">
+                    <span className="text-xs font-mono text-amber-500/60">{String(i + 1).padStart(2, '0')}</span>
+                    <h2 className="text-xl font-bold text-white">{t.titulo}</h2>
+                  </div>
+                  {t.conteudo ? (
+                    <p className="text-white/70 text-sm leading-[1.85] whitespace-pre-wrap">{t.conteudo}</p>
+                  ) : (
+                    <p className="text-white/30 text-sm italic">Sem conteúdo</p>
+                  )}
+                  {i < topicos.length - 1 && (
+                    <div className="mt-10 border-t border-white/5" />
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile nav */}
+      <div className="md:hidden flex gap-2 px-4 py-3 border-t border-white/10 overflow-x-auto" style={{ background: '#1a1a1a' }}>
+        {topicos.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setTopicoAtivo(i)}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs transition-colors ${
+              topicoAtivo === i ? 'bg-amber-500 text-gray-900 font-bold' : 'bg-white/10 text-white/60'
+            }`}
+          >
+            {String(i + 1).padStart(2, '0')}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function Formacao() {
-  const [activeTab, setActiveTab] = useState<'estrutura' | 'progresso' | 'historico'>('estrutura')
+  const [activeTab, setActiveTab] = useState<'estrutura' | 'progresso' | 'historico' | 'documentos'>('estrutura')
   const [niveis, setNiveis] = useState<FormacaoNivel[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -99,6 +233,24 @@ export default function Formacao() {
   const [historicoLoading, setHistoricoLoading] = useState(false)
   const [historicoCer, setHistoricoCer] = useState<Cerimoniario | null>(null)
   const [searchHistorico, setSearchHistorico] = useState('')
+
+  // Documentos
+  const [docs, setDocs] = useState<DocFormacao[]>([])
+  const [docsLoading, setDocsLoading] = useState(false)
+  const [docViewer, setDocViewer] = useState<DocFormacao | null>(null)
+  const [docUpload, setDocUpload] = useState<{
+    titulo: string
+    descricao: string
+    arquivo_nome: string
+    arquivo_base64: string
+    mime_type: string
+    conteudo: ConteudoEstruturado | null
+  } | null>(null)
+  const [docParsing, setDocParsing] = useState(false)
+  const [docSalvando, setDocSalvando] = useState(false)
+  const [docPreview, setDocPreview] = useState(false)
+  const [docDragging, setDocDragging] = useState(false)
+  const docFileRef = useRef<HTMLInputElement>(null)
 
   // Forms
   const nivelForm = useForm<NivelForm>({
@@ -175,6 +327,85 @@ export default function Formacao() {
     } finally {
       setHistoricoLoading(false)
     }
+  }
+
+  const loadDocs = useCallback(async () => {
+    setDocsLoading(true)
+    try {
+      const r = await api.get<DocFormacao[]>('/documentos')
+      setDocs((Array.isArray(r.data) ? r.data : []).filter(d => d.tipo === 'formacao'))
+    } catch {
+      toast.error('Erro ao carregar documentos')
+    } finally {
+      setDocsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'documentos' && docs.length === 0) loadDocs()
+  }, [activeTab, docs.length, loadDocs])
+
+  async function handleDocFile(file: File) {
+    setDocParsing(true)
+    try {
+      const base64: string = await new Promise((res, rej) => {
+        const reader = new FileReader()
+        reader.onload = e => res(e.target?.result as string)
+        reader.onerror = rej
+        reader.readAsDataURL(file)
+      })
+      toast.loading('Lendo e estruturando o PDF...', { id: 'pdf-parse' })
+      const conteudo = await parsePdf(base64)
+      toast.success(`${conteudo.topicos.length} tópicos detectados!`, { id: 'pdf-parse' })
+      setDocUpload(prev => ({
+        titulo: prev?.titulo ?? file.name.replace(/\.pdf$/i, ''),
+        descricao: prev?.descricao ?? '',
+        arquivo_nome: file.name,
+        arquivo_base64: base64,
+        mime_type: file.type || 'application/pdf',
+        conteudo,
+      }))
+      setDocPreview(false)
+    } catch (err) {
+      console.error(err)
+      toast.error('Erro ao processar PDF', { id: 'pdf-parse' })
+    } finally {
+      setDocParsing(false)
+    }
+  }
+
+  async function handleDocSalvar() {
+    if (!docUpload?.arquivo_base64) return toast.error('Selecione um arquivo PDF')
+    if (!docUpload.titulo.trim()) return toast.error('Informe o título')
+    setDocSalvando(true)
+    try {
+      await api.post('/documentos', {
+        titulo: docUpload.titulo,
+        descricao: docUpload.descricao || null,
+        tipo: 'formacao',
+        arquivo_nome: docUpload.arquivo_nome,
+        arquivo_base64: docUpload.arquivo_base64,
+        mime_type: docUpload.mime_type,
+        conteudo_estruturado: docUpload.conteudo,
+      })
+      toast.success('Documento salvo!')
+      setDocUpload(null)
+      setDocPreview(false)
+      loadDocs()
+    } catch {
+      toast.error('Erro ao salvar documento')
+    } finally {
+      setDocSalvando(false)
+    }
+  }
+
+  async function handleDocDeletar(id: number) {
+    if (!confirm('Remover este documento?')) return
+    try {
+      await api.delete(`/documentos/${id}`)
+      toast.success('Removido!')
+      setDocs(d => d.filter(x => x.id !== id))
+    } catch { toast.error('Erro ao remover') }
   }
 
   // ─── Estrutura handlers ────────────────────────────────────────────────────
@@ -813,7 +1044,213 @@ export default function Formacao() {
         </div>
       )}
 
+      {/* ══════════════════════════════════════════════════════════════════════
+          DOCUMENTOS TAB
+      ══════════════════════════════════════════════════════════════════════ */}
+      {activeTab === 'documentos' && (
+        <div className="space-y-5">
+
+          {/* ── Upload area ── */}
+          <div className="card p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                  <GraduationCap size={17} className="text-wine-900" />
+                  Documentos de Formação
+                </h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Faça upload de um PDF — ele será lido e exibido como livro de estudos para os membros
+                </p>
+              </div>
+            </div>
+
+            {/* Drop zone */}
+            <div
+              onDragOver={e => { e.preventDefault(); setDocDragging(true) }}
+              onDragLeave={() => setDocDragging(false)}
+              onDrop={e => {
+                e.preventDefault()
+                setDocDragging(false)
+                const file = e.dataTransfer.files[0]
+                if (file) handleDocFile(file)
+              }}
+              onClick={() => docFileRef.current?.click()}
+              className={`relative border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all ${
+                docDragging
+                  ? 'border-wine-500 bg-wine-50'
+                  : 'border-gray-200 hover:border-wine-300 hover:bg-gray-50'
+              }`}
+            >
+              <input
+                ref={docFileRef}
+                type="file"
+                accept=".pdf"
+                className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleDocFile(f) }}
+              />
+              {docParsing ? (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-10 h-10 rounded-full border-4 border-wine-200 border-t-wine-700 animate-spin" />
+                  <p className="text-sm font-medium text-gray-600">Lendo e estruturando o PDF...</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-1" style={{ background: '#7c2d3e15' }}>
+                    <Upload size={22} className="text-wine-700" />
+                  </div>
+                  <p className="font-semibold text-gray-700">Arraste um PDF aqui ou clique para selecionar</p>
+                  <p className="text-xs text-gray-400">Somente arquivos .pdf · O conteúdo será extraído automaticamente</p>
+                </div>
+              )}
+            </div>
+
+            {/* Form após upload */}
+            {docUpload && !docParsing && (
+              <div className="space-y-4 pt-2 border-t border-gray-100">
+                <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: '#f0fdf4' }}>
+                  <FileText size={16} className="text-green-600 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-green-800 truncate">{docUpload.arquivo_nome}</p>
+                    <p className="text-xs text-green-600">
+                      {docUpload.conteudo?.topicos.length ?? 0} tópicos detectados · {docUpload.conteudo?.total_paginas ?? '?'} páginas
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => { setDocUpload(null); setDocPreview(false) }}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="label">Título do Documento *</label>
+                    <input
+                      className="input-field"
+                      value={docUpload.titulo}
+                      onChange={e => setDocUpload(d => d ? { ...d, titulo: e.target.value } : d)}
+                      placeholder="Ex: Diretório Litúrgico 2025"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="label">Descrição (opcional)</label>
+                    <textarea
+                      className="input-field resize-none"
+                      rows={2}
+                      value={docUpload.descricao}
+                      onChange={e => setDocUpload(d => d ? { ...d, descricao: e.target.value } : d)}
+                      placeholder="Breve descrição do documento..."
+                    />
+                  </div>
+                </div>
+
+                {/* Preview dos tópicos */}
+                <div>
+                  <button
+                    onClick={() => setDocPreview(v => !v)}
+                    className="flex items-center gap-2 text-sm font-medium text-wine-700 hover:text-wine-900 transition-colors"
+                  >
+                    {docPreview ? <EyeOff size={15} /> : <Eye size={15} />}
+                    {docPreview ? 'Ocultar preview' : `Visualizar ${docUpload.conteudo?.topicos.length ?? 0} tópicos detectados`}
+                  </button>
+                  {docPreview && docUpload.conteudo && (
+                    <div className="mt-3 space-y-0.5 max-h-72 overflow-y-auto pr-1">
+                      {docUpload.conteudo.topicos.map((t, i) => (
+                        <TopicoItem key={i} topico={t} defaultOpen={i === 0} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleDocSalvar}
+                    disabled={docSalvando}
+                    className="btn-primary disabled:opacity-60 flex items-center gap-2"
+                  >
+                    {docSalvando ? (
+                      <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Salvando...</>
+                    ) : (
+                      <><FileText size={15} /> Salvar Documento</>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => { setDocUpload(null); setDocPreview(false) }}
+                    className="px-4 py-2 rounded-xl text-sm text-gray-500 hover:bg-gray-100 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Lista de documentos ── */}
+          <div className="card overflow-hidden">
+            <div className="px-5 py-3.5 bg-wine-900 flex items-center gap-2">
+              <BookOpen size={16} className="text-gold-400" />
+              <h3 className="font-semibold text-white text-sm">Documentos Publicados</h3>
+            </div>
+
+            {docsLoading ? (
+              <div className="p-5 space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="skeleton h-16 rounded-xl" />
+                ))}
+              </div>
+            ) : docs.length === 0 ? (
+              <div className="p-14 text-center">
+                <FileText size={36} className="mx-auto mb-3 text-gray-200" />
+                <p className="text-gray-500 font-medium text-sm">Nenhum documento publicado</p>
+                <p className="text-xs text-gray-400 mt-1">Faça upload de um PDF acima para começar.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-50">
+                {docs.map(doc => (
+                  <div key={doc.id} className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#7c2d3e12' }}>
+                      <BookOpen size={18} className="text-wine-800" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900 text-sm truncate">{doc.titulo}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {doc.conteudo_estruturado
+                          ? `${doc.conteudo_estruturado.topicos.length} tópicos · ${doc.conteudo_estruturado.total_paginas} pág.`
+                          : doc.arquivo_nome}
+                        {' · '}{format(parseISO(doc.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {doc.conteudo_estruturado && (
+                        <button
+                          onClick={() => setDocViewer(doc)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors"
+                          style={{ background: '#7c2d3e15', color: '#7c2d3e' }}
+                        >
+                          <Eye size={13} /> Ler
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDocDeletar(doc.id)}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── LivroViewer fullscreen ──────────────────────────────────────────── */}
+      {docViewer && <LivroViewer doc={docViewer} onClose={() => setDocViewer(null)} />}
+
       {/* ── Modal Nível ────────────────────────────────────────────────────── */}
+
       <Modal
         isOpen={modalNivel}
         onClose={() => setModalNivel(false)}

@@ -170,7 +170,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('formacao/cerimoniario/{cerimoniario}/competencia/{competencia}', [FormacaoController::class, 'updateProgresso']);
 
     // Documentos (admin)
-    Route::apiResource('documentos', \App\Http\Controllers\API\DocumentoController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::apiResource('documentos', \App\Http\Controllers\API\DocumentoController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
 
     // Auditoria
     Route::get('auditorias/tabelas', [\App\Http\Controllers\API\AuditoriaController::class, 'tabelas']);

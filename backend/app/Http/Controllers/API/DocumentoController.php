@@ -11,19 +11,35 @@ class DocumentoController extends Controller
     public function index(): JsonResponse
     {
         $lista = Documento::orderBy('tipo')->orderBy('titulo')
-            ->get(['id', 'titulo', 'descricao', 'tipo', 'arquivo_nome', 'mime_type', 'ativo', 'created_at']);
+            ->get(['id', 'titulo', 'descricao', 'tipo', 'arquivo_nome', 'mime_type', 'ativo', 'created_at', 'conteudo_estruturado']);
         return response()->json($lista);
+    }
+
+    public function show(Documento $documento): JsonResponse
+    {
+        return response()->json([
+            'id'                   => $documento->id,
+            'titulo'               => $documento->titulo,
+            'descricao'            => $documento->descricao,
+            'tipo'                 => $documento->tipo,
+            'arquivo_nome'         => $documento->arquivo_nome,
+            'mime_type'            => $documento->mime_type,
+            'ativo'                => $documento->ativo,
+            'created_at'           => $documento->created_at,
+            'conteudo_estruturado' => $documento->conteudo_estruturado,
+        ]);
     }
 
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'titulo'         => 'required|string|max:255',
-            'descricao'      => 'nullable|string',
-            'tipo'           => 'required|in:ordo,roteiro,norma,formacao,outro',
-            'arquivo_nome'   => 'required|string|max:255',
-            'arquivo_base64' => 'required|string',
-            'mime_type'      => 'nullable|string|max:100',
+            'titulo'               => 'required|string|max:255',
+            'descricao'            => 'nullable|string',
+            'tipo'                 => 'required|in:ordo,roteiro,norma,formacao,outro',
+            'arquivo_nome'         => 'required|string|max:255',
+            'arquivo_base64'       => 'required|string',
+            'mime_type'            => 'nullable|string|max:100',
+            'conteudo_estruturado' => 'nullable|array',
         ]);
 
         $doc = Documento::create([
@@ -37,10 +53,11 @@ class DocumentoController extends Controller
     public function update(Request $request, Documento $documento): JsonResponse
     {
         $validated = $request->validate([
-            'titulo'    => 'sometimes|string|max:255',
-            'descricao' => 'nullable|string',
-            'tipo'      => 'sometimes|in:ordo,roteiro,norma,formacao,outro',
-            'ativo'     => 'sometimes|boolean',
+            'titulo'               => 'sometimes|string|max:255',
+            'descricao'            => 'nullable|string',
+            'tipo'                 => 'sometimes|in:ordo,roteiro,norma,formacao,outro',
+            'ativo'                => 'sometimes|boolean',
+            'conteudo_estruturado' => 'nullable|array',
         ]);
         $documento->update($validated);
         return response()->json($documento);

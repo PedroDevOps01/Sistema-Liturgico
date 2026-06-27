@@ -21,11 +21,11 @@ interface EscalaItem {
 }
 
 export default function MembroSubstituicoes() {
-  const [itens, setItens]       = useState<EscalaItem[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [pedindo, setPedindo]   = useState<number | null>(null)
+  const [itens, setItens] = useState<EscalaItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [pedindo, setPedindo] = useState<number | null>(null)
   const [motivoMap, setMotivoMap] = useState<Record<number, string>>({})
-  const [openMap, setOpenMap]   = useState<Record<number, boolean>>({})
+  const [openMap, setOpenMap] = useState<Record<number, boolean>>({})
 
   const carregar = () => {
     setLoading(true)
@@ -83,10 +83,10 @@ export default function MembroSubstituicoes() {
       ) : (
         <div className="space-y-3">
           {itens.map((item, idx) => {
-            const cel       = item.escala.celebracao
+            const cel = item.escala.celebracao
             const funcLabel = item.funcao?.titulo ?? item.funcao_label ?? '—'
             const temPedido = !!item.pedido_substituto && !item.pedido_substituto.resolvido
-            const isOpen    = !!openMap[item.id]
+            const isOpen = !!openMap[item.id]
             const isLoading = pedindo === item.id
 
             return (
@@ -119,7 +119,7 @@ export default function MembroSubstituicoes() {
                         {cel.local && <><MapPin size={10} className="ml-1" />{cel.local}</>}
                       </p>
                       <span className="inline-block mt-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full"
-                        style={{ background: `${GOLD}20`, color: '#92400e' }}>
+                        style={{ background: `${GOLD}20`, color: '#f59e0b' }}>
                         {funcLabel}
                       </span>
 
@@ -143,7 +143,7 @@ export default function MembroSubstituicoes() {
                     ) : (
                       <button onClick={() => setOpenMap(m => ({ ...m, [item.id]: !isOpen }))}
                         className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-                        style={{ background: isOpen ? '#F3F4F6' : `${GOLD}20`, color: isOpen ? '#6B7280' : '#92400e' }}>
+                        style={{ background: isOpen ? '#F3F4F6' : `${GOLD}20`, color: isOpen ? '#6B7280' : '#f59e0b' }}>
                         <ArrowLeftRight size={12} /> Precisar
                       </button>
                     )}

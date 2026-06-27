@@ -26,7 +26,8 @@ class ConfiguracaoController extends Controller
     {
         $cfg = $this->getOrCreate();
         return response()->json([
-            'data' => $cfg->portal_config,
+            'data'                   => $cfg->portal_config,
+            'logo_ministerio_base64' => $cfg->logo_ministerio_base64,
         ]);
     }
 

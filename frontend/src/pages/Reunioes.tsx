@@ -4,7 +4,7 @@ import { ptBR } from 'date-fns/locale'
 import {
   Plus, ChevronDown, ChevronUp, Pencil, Trash2,
   MessageCircle, Send, CheckCircle2, XCircle, AlertCircle,
-  MinusCircle, Users, TrendingUp, Search, X, ClipboardList,
+  MinusCircle, TrendingUp, Search, X, ClipboardList,
   BookOpen,
 } from 'lucide-react'
 import toast from 'react-hot-toast'

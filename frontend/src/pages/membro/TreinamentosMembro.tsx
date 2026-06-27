@@ -26,16 +26,16 @@ interface TreinamentoMembro {
 }
 
 const STATUS_CFG = {
-  presente:    { label: 'Presente',     color: '#10B981', bg: '#10B98115' },
-  ausente:     { label: 'Ausente',      color: '#EF4444', bg: '#EF444415' },
-  justificado: { label: 'Justificado',  color: '#F59E0B', bg: '#F59E0B15' },
+  presente: { label: 'Presente', color: '#10B981', bg: '#10B98115' },
+  ausente: { label: 'Ausente', color: '#EF4444', bg: '#EF444415' },
+  justificado: { label: 'Justificado', color: '#F59E0B', bg: '#F59E0B15' },
 }
 
 export default function MembroTreinamentos() {
-  const [lista, setLista]       = useState<TreinamentoMembro[]>([])
-  const [loading, setLoading]   = useState(true)
+  const [lista, setLista] = useState<TreinamentoMembro[]>([])
+  const [loading, setLoading] = useState(true)
   const [marcando, setMarcando] = useState<number | null>(null)
-  const [justId, setJustId]     = useState<number | null>(null)
+  const [justId, setJustId] = useState<number | null>(null)
 
   const carregar = () => {
     setLoading(true)
@@ -54,9 +54,9 @@ export default function MembroTreinamentos() {
     try {
       await membroApi.put(`/treinamentos/${treinamentoId}/presenca`, { status, observacao: observacao ?? null })
       toast.success(
-        status === 'presente'    ? '✅ Presença confirmada!'    :
-        status === 'justificado' ? '⚠️ Justificativa registrada.' :
-                                   'Ausência registrada.'
+        status === 'presente' ? '✅ Presença confirmada!' :
+          status === 'justificado' ? '⚠️ Justificativa registrada.' :
+            'Ausência registrada.'
       )
       setJustId(null)
       carregar()
@@ -66,13 +66,13 @@ export default function MembroTreinamentos() {
     } finally { setMarcando(null) }
   }
 
-  const proximos   = lista.filter(t => t.data.substring(0, 10) >= hoje).reverse()
+  const proximos = lista.filter(t => t.data.substring(0, 10) >= hoje).reverse()
   const anteriores = lista.filter(t => t.data.substring(0, 10) < hoje)
 
   function TreinamentoCard({ t }: { t: TreinamentoMembro }) {
     const passado = t.data.substring(0, 10) < hoje
-    const stCfg   = t.minha_presenca?.status ? STATUS_CFG[t.minha_presenca.status as keyof typeof STATUS_CFG] : null
-    const isM     = marcando === t.id
+    const stCfg = t.minha_presenca?.status ? STATUS_CFG[t.minha_presenca.status as keyof typeof STATUS_CFG] : null
+    const isM = marcando === t.id
 
     return (
       <div className="card overflow-hidden">
@@ -112,7 +112,7 @@ export default function MembroTreinamentos() {
               <Tag size={11} className="text-gray-400 flex-shrink-0" />
               {t.funcoes.map(f => (
                 <span key={f} className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                  style={{ background: `${GOLD}18`, color: '#92400e' }}>
+                  style={{ background: `${GOLD}18`, color: '#f59e0b' }}>
                   {f}
                 </span>
               ))}
@@ -126,9 +126,9 @@ export default function MembroTreinamentos() {
             <div>
               <div className="flex items-center gap-2 px-3 py-2 rounded-xl w-fit"
                 style={{ background: stCfg.bg, border: `1px solid ${stCfg.color}30` }}>
-                {t.minha_presenca?.status === 'presente'    && <CheckCircle2 size={13} style={{ color: stCfg.color }} />}
-                {t.minha_presenca?.status === 'ausente'     && <XCircle      size={13} style={{ color: stCfg.color }} />}
-                {t.minha_presenca?.status === 'justificado' && <AlertCircle  size={13} style={{ color: stCfg.color }} />}
+                {t.minha_presenca?.status === 'presente' && <CheckCircle2 size={13} style={{ color: stCfg.color }} />}
+                {t.minha_presenca?.status === 'ausente' && <XCircle size={13} style={{ color: stCfg.color }} />}
+                {t.minha_presenca?.status === 'justificado' && <AlertCircle size={13} style={{ color: stCfg.color }} />}
                 <span className="text-xs font-bold" style={{ color: stCfg.color }}>{stCfg.label}</span>
               </div>
               {t.minha_presenca?.observacao && (
