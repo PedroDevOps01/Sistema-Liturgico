@@ -34,7 +34,7 @@ class MembroController extends Controller
         $proximasEscalas = EscalaItem::with([
             'escala.celebracao',
             'funcao',
-            'presenca',
+            'presenca.substituto:id,nome,foto_base64',
         ])
         ->where('cerimoniario_id', $cer->id)
         ->whereHas('escala', fn($q) => $q->where('ativo', true))
@@ -56,7 +56,7 @@ class MembroController extends Controller
             ->get(['id', 'nome', 'foto_base64', 'data_nascimento']);
 
         // Última celebração do membro com status de presença
-        $ultimaEscala = EscalaItem::with(['escala.celebracao', 'funcao', 'presenca'])
+        $ultimaEscala = EscalaItem::with(['escala.celebracao', 'funcao', 'presenca.substituto:id,nome,foto_base64'])
             ->where('cerimoniario_id', $cer->id)
             ->whereHas('escala.celebracao', fn($q) => $q
                 ->where('ativo', true)
@@ -82,7 +82,7 @@ class MembroController extends Controller
         $cer    = $this->cerimoniario($request);
         $apenas = $request->query('periodo', 'futuras'); // futuras | passadas | todas
 
-        $query = EscalaItem::with(['escala.celebracao', 'funcao', 'presenca'])
+        $query = EscalaItem::with(['escala.celebracao', 'funcao', 'presenca.substituto:id,nome,foto_base64'])
             ->where('cerimoniario_id', $cer->id)
             ->whereHas('escala', fn($q) => $q->where('ativo', true))
             ->whereHas('escala.celebracao', fn($q) => $q->where('ativo', true));
@@ -112,7 +112,7 @@ class MembroController extends Controller
         $inicio = Carbon::createFromDate($ano, $mes, 1)->startOfMonth()->toDateString();
         $fim    = Carbon::createFromDate($ano, $mes, 1)->endOfMonth()->toDateString();
 
-        $itens = EscalaItem::with(['escala.celebracao', 'funcao', 'presenca'])
+        $itens = EscalaItem::with(['escala.celebracao', 'funcao', 'presenca.substituto:id,nome,foto_base64'])
             ->where('cerimoniario_id', $cer->id)
             ->whereHas('escala', fn($q) => $q->where('ativo', true))
             ->whereHas('escala.celebracao', fn($q) => $q
@@ -214,22 +214,98 @@ class MembroController extends Controller
             return response()->json(['message' => 'Sem permissão para registrar esta presença.'], 403);
         }
 
+        // Não permite sobrescrever substituição
+        $existente = Presenca::where('escala_item_id', $item->id)->first();
+        if ($existente && $existente->status === 'substituido') {
+            return response()->json(['message' => 'Você foi substituído nesta escala.'], 422);
+        }
+
         $escala = $item->escala;
-        if (! $escala?->presenca_aberta) {
-            return response()->json(['message' => 'A janela de presença não está aberta.'], 422);
+
+        if ($validated['status'] === 'serviu') {
+            if (! $escala?->presenca_aberta) {
+                return response()->json(['message' => 'A janela de presença não está aberta.'], 422);
+            }
+            $confirmado = ($existente?->status_confirmacao === 'confirmado')
+                       || ($item->status_confirmacao === 'confirmado');
+            if (! $confirmado) {
+                return response()->json(['message' => 'Confirme sua presença antes de marcar que serviu.'], 422);
+            }
+        }
+
+        if ($validated['status'] === 'justificado') {
+            $escala->load('celebracao');
+            if ($escala->celebracao) {
+                $inicio = Carbon::createFromFormat(
+                    'Y-m-d H:i:s',
+                    substr($escala->celebracao->data, 0, 10) . ' ' . $escala->celebracao->horario,
+                    'America/Sao_Paulo'
+                );
+                // Justificar só faz sentido após a celebração ter ocorrido
+                if (now()->lt($inicio)) {
+                    return response()->json(['message' => 'A justificativa só pode ser enviada após o início da celebração.'], 422);
+                }
+            }
+        }
+
+        $updates = [
+            'status'     => $validated['status'],
+            'observacao' => $validated['observacao'] ?? null,
+        ];
+        // serviu implica confirmação; justificado preserva status_confirmacao existente
+        if ($validated['status'] === 'serviu') {
+            $updates['status_confirmacao'] = 'confirmado';
         }
 
         $presenca = Presenca::updateOrCreate(
             ['escala_item_id' => $item->id],
-            [
-                'status'     => $validated['status'],
-                'observacao' => $validated['observacao'] ?? null,
-            ]
+            $updates
         );
 
         return response()->json([
             'data'    => $presenca,
             'message' => 'Presença registrada com sucesso.',
+        ]);
+    }
+
+    public function confirmarPresenca(Request $request, EscalaItem $item): JsonResponse
+    {
+        $cer = $this->cerimoniario($request);
+
+        if ((int) $item->cerimoniario_id !== $cer->id) {
+            return response()->json(['message' => 'Sem permissão.'], 403);
+        }
+
+        $existente = Presenca::where('escala_item_id', $item->id)->first();
+        if ($existente && $existente->status === 'substituido') {
+            return response()->json(['message' => 'Você foi substituído nesta escala.'], 422);
+        }
+
+        $escala = $item->escala;
+
+        // Janela aberta = membro está presente na celebração; permite confirmar mesmo após o horário de início
+        if (! $escala->presenca_aberta) {
+            $escala->load('celebracao');
+            if ($escala->celebracao) {
+                $inicio = Carbon::createFromFormat(
+                    'Y-m-d H:i:s',
+                    substr($escala->celebracao->data, 0, 10) . ' ' . $escala->celebracao->horario,
+                    'America/Sao_Paulo'
+                );
+                if (now()->gte($inicio)) {
+                    return response()->json(['message' => 'Não é possível confirmar a escala após o início da celebração.'], 422);
+                }
+            }
+        }
+
+        $presenca = Presenca::updateOrCreate(
+            ['escala_item_id' => $item->id],
+            ['status_confirmacao' => 'confirmado']
+        );
+
+        return response()->json([
+            'data'    => $presenca,
+            'message' => 'Presença confirmada!',
         ]);
     }
 
@@ -295,11 +371,15 @@ class MembroController extends Controller
                 'presenca' => $i->presenca ? ['status' => $i->presenca->status] : null,
             ]);
 
+            $confirmado = ($item->presenca?->status_confirmacao === 'confirmado')
+                       || ($item->status_confirmacao === 'confirmado');
+
             return [
-                'meu_item_id'    => $item->id,
-                'pode_controlar' => $podeControlar,
-                'minha_presenca' => $item->presenca ? ['status' => $item->presenca->status] : null,
-                'minha_funcao'   => $item->funcao_label ?? $item->funcao?->titulo ?? '—',
+                'meu_item_id'       => $item->id,
+                'pode_controlar'    => $podeControlar,
+                'minha_presenca'    => $item->presenca ? ['status' => $item->presenca->status] : null,
+                'minha_confirmacao' => $confirmado ? 'confirmado' : null,
+                'minha_funcao'      => $item->funcao_label ?? $item->funcao?->titulo ?? '—',
                 'escala' => [
                     'id'                  => $item->escala->id,
                     'presenca_aberta'     => (bool) $item->escala->presenca_aberta,
@@ -336,9 +416,9 @@ class MembroController extends Controller
 
         $escala->load('celebracao');
         if ($escala->celebracao) {
-            $inicio = Carbon::parse(substr($escala->celebracao->data, 0, 10) . ' ' . $escala->celebracao->horario);
-            if ($inicio->isFuture()) {
-                return response()->json(['message' => 'A janela só pode ser aberta após o início da celebração.'], 422);
+            $inicio = Carbon::createFromFormat('Y-m-d H:i:s', substr($escala->celebracao->data, 0, 10) . ' ' . $escala->celebracao->horario, 'America/Sao_Paulo');
+            if (now()->lt($inicio->copy()->subHour())) {
+                return response()->json(['message' => 'A janela pode ser aberta a partir de 1 hora antes da celebração.'], 422);
             }
         }
 
@@ -560,18 +640,21 @@ class MembroController extends Controller
     public function bloquearData(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'data'   => 'required|date|after_or_equal:today',
-            'motivo' => 'nullable|string|max:200',
+            'data'     => 'required|date|after_or_equal:today',
+            'data_fim' => 'required|date|after_or_equal:data',
+            'motivo'   => 'nullable|string|max:200',
         ]);
 
         $cer = $this->cerimoniario($request);
 
-        $registro = DataBloqueada::updateOrCreate(
-            ['cerimoniario_id' => $cer->id, 'data' => $validated['data']],
-            ['motivo' => $validated['motivo'] ?? null]
-        );
+        $registro = DataBloqueada::create([
+            'cerimoniario_id' => $cer->id,
+            'data'            => $validated['data'],
+            'data_fim'        => $validated['data_fim'],
+            'motivo'          => $validated['motivo'] ?? null,
+        ]);
 
-        return response()->json(['data' => $registro, 'message' => 'Data bloqueada.'], 201);
+        return response()->json(['data' => $registro, 'message' => 'Período bloqueado.'], 201);
     }
 
     public function desbloquearData(Request $request, DataBloqueada $data): JsonResponse
@@ -594,7 +677,12 @@ class MembroController extends Controller
         $cer  = $this->cerimoniario($request);
         $hoje = now()->toDateString();
 
-        $itens = EscalaItem::with(['escala.celebracao', 'funcao', 'pedidoSubstituto'])
+        $itens = EscalaItem::with([
+                'escala.celebracao',
+                'funcao',
+                'pedidoSubstituto.voluntario:id,nome',
+                'presenca.substituto:id,nome',
+            ])
             ->where('cerimoniario_id', $cer->id)
             ->whereHas('escala.celebracao', fn($q) => $q
                 ->where('ativo', true)
@@ -635,6 +723,111 @@ class MembroController extends Controller
         PedidoSubstituto::where('escala_item_id', $item->id)->delete();
 
         return response()->json(['message' => 'Pedido cancelado.']);
+    }
+
+    public function pedidosAbertos(Request $request): JsonResponse
+    {
+        $cer  = $this->cerimoniario($request);
+        $hoje = now()->toDateString();
+
+        $eagerLoad = [
+            'escalaItem.escala.celebracao',
+            'escalaItem.funcao',
+            'escalaItem.cerimoniario',
+            'voluntario',
+        ];
+
+        $futuros = fn($q) => $q
+            ->where('ativo', true)
+            ->where('data', '>=', $hoje);
+
+        // Pedidos abertos de outros membros
+        $abertos = PedidoSubstituto::with($eagerLoad)
+            ->where('resolvido', false)
+            ->whereHas('escalaItem', fn($q) => $q->where('cerimoniario_id', '!=', $cer->id))
+            ->whereHas('escalaItem.escala.celebracao', $futuros)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // Pedidos resolvidos onde eu sou o voluntário (minhas substituições confirmadas)
+        $minhasConfirmadas = PedidoSubstituto::with($eagerLoad)
+            ->where('resolvido', true)
+            ->where('voluntario_cerimoniario_id', $cer->id)
+            ->whereHas('escalaItem.escala.celebracao', $futuros)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'data' => [
+                'abertos'           => $abertos,
+                'minhas_confirmadas'=> $minhasConfirmadas,
+            ],
+            'message' => 'Pedidos carregados.',
+        ]);
+    }
+
+    public function voluntariar(Request $request, EscalaItem $item): JsonResponse
+    {
+        $cer    = $this->cerimoniario($request);
+        $pedido = PedidoSubstituto::where('escala_item_id', $item->id)
+                    ->where('resolvido', false)
+                    ->first();
+
+        if (! $pedido) {
+            return response()->json(['message' => 'Pedido não encontrado.'], 404);
+        }
+
+        if ((int) $item->cerimoniario_id === $cer->id) {
+            return response()->json(['message' => 'Você não pode se voluntariar para a própria escala.'], 422);
+        }
+
+        // Preserva status_confirmacao original (link ou manual) para o relatório saber se confirmou antes de pedir sub
+        $presencaOriginal = Presenca::where('escala_item_id', $item->id)->first();
+        $confirmacaoOriginal = $presencaOriginal?->status_confirmacao ?? $item->status_confirmacao;
+
+        Presenca::updateOrCreate(
+            ['escala_item_id' => $item->id],
+            [
+                'status'             => 'substituido',
+                'substituto_id'      => $cer->id,
+                'status_confirmacao' => $confirmacaoOriginal,
+            ]
+        );
+
+        // Marca o pedido como resolvido
+        $pedido->update([
+            'resolvido'                  => true,
+            'voluntario_cerimoniario_id' => $cer->id,
+        ]);
+
+        return response()->json(['data' => $pedido, 'message' => 'Substituição confirmada! Você está na escala.']);
+    }
+
+    public function cancelarVoluntario(Request $request, EscalaItem $item): JsonResponse
+    {
+        $cer    = $this->cerimoniario($request);
+        $pedido = PedidoSubstituto::where('escala_item_id', $item->id)
+                    ->where('voluntario_cerimoniario_id', $cer->id)
+                    ->where('resolvido', true)
+                    ->first();
+
+        if (! $pedido) {
+            return response()->json(['message' => 'Substituição não encontrada.'], 404);
+        }
+
+        // Remove a presença registrada para este voluntário
+        Presenca::where('escala_item_id', $item->id)
+            ->where('status', 'substituido')
+            ->where('substituto_id', $cer->id)
+            ->delete();
+
+        // Reabre o pedido (cerimoniario_id do item nunca foi alterado, não há nada a reverter)
+        $pedido->update([
+            'resolvido'                  => false,
+            'voluntario_cerimoniario_id' => null,
+        ]);
+
+        return response()->json(['message' => 'Substituição desfeita.']);
     }
 
     // ── Documentos ─────────────────────────────────────────────────────────

@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { AlertTriangle } from 'lucide-react'
 
 interface ConfirmDialogProps {
@@ -31,7 +32,7 @@ export default function ConfirmDialog({
   const iconBg = variant === 'danger' ? 'bg-red-100' : 'bg-amber-100'
   const iconColor = variant === 'danger' ? 'text-red-600' : 'text-amber-600'
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-slide-up">
@@ -63,6 +64,7 @@ export default function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

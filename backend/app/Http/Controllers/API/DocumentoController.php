@@ -63,6 +63,18 @@ class DocumentoController extends Controller
         return response()->json($documento);
     }
 
+    public function download(Documento $documento): JsonResponse
+    {
+        return response()->json([
+            'data' => [
+                'arquivo_base64' => $documento->arquivo_base64,
+                'mime_type'      => $documento->mime_type,
+                'arquivo_nome'   => $documento->arquivo_nome,
+            ],
+            'message' => 'Download.',
+        ]);
+    }
+
     public function destroy(Documento $documento): JsonResponse
     {
         $documento->delete();

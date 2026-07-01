@@ -379,11 +379,41 @@ class CerimoniarioController extends Controller
         $request->validate(['data' => 'required|date']);
         $data = substr($request->data, 0, 10);
 
-        $ids = \App\Models\DataBloqueada::whereDate('data', $data)
+        $ids = \App\Models\DataBloqueada::whereDate('data', '<=', $data)
+            ->where(function ($q) use ($data) {
+                $q->whereNull('data_fim')->whereDate('data', $data)
+                  ->orWhereDate('data_fim', '>=', $data);
+            })
             ->pluck('cerimoniario_id')
             ->unique()
             ->values();
 
         return response()->json(['data' => $ids, 'message' => 'Cerimoniários bloqueados.']);
+    }
+
+    public function periodosBloqueados(Cerimoniario $cerimoniario): JsonResponse
+    {
+        $periodos = \App\Models\DataBloqueada::where('cerimoniario_id', $cerimoniario->id)
+            ->where(function ($q) {
+                $q->whereNull('data_fim')->whereDate('data', '>=', now()->toDateString())
+                  ->orWhereDate('data_fim', '>=', now()->toDateString());
+            })
+            ->orderBy('data')
+            ->get(['id', 'data', 'data_fim', 'motivo']);
+
+        return response()->json(['data' => $periodos, 'message' => 'Períodos bloqueados.']);
+    }
+
+    public function todosPeriodosBloqueados(): JsonResponse
+    {
+        $periodos = \App\Models\DataBloqueada::with('cerimoniario:id,nome')
+            ->where(function ($q) {
+                $q->whereNull('data_fim')->whereDate('data', '>=', now()->toDateString())
+                  ->orWhereDate('data_fim', '>=', now()->toDateString());
+            })
+            ->orderBy('data')
+            ->get(['id', 'cerimoniario_id', 'data', 'data_fim', 'motivo']);
+
+        return response()->json(['data' => $periodos, 'message' => 'Períodos bloqueados.']);
     }
 }

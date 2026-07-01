@@ -59,6 +59,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Cerimoniários
     Route::get('cerimoniarios/aniversarios', [CerimoniarioController::class, 'aniversarios']);
+    Route::get('cerimoniarios/todos-periodos-bloqueados', [CerimoniarioController::class, 'todosPeriodosBloqueados']);
+    Route::get('cerimoniarios/{cerimoniario}/periodos-bloqueados', [CerimoniarioController::class, 'periodosBloqueados']);
     Route::get('cerimoniarios/bloqueados-em', [CerimoniarioController::class, 'bloqueadosEm']);
     Route::apiResource('cerimoniarios', CerimoniarioController::class);
     Route::get('cerimoniarios/{id}/disponibilidade', [CerimoniarioController::class, 'disponibilidade']);
@@ -170,6 +172,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('formacao/cerimoniario/{cerimoniario}/competencia/{competencia}', [FormacaoController::class, 'updateProgresso']);
 
     // Documentos (admin)
+    Route::get('documentos/{documento}/download', [\App\Http\Controllers\API\DocumentoController::class, 'download']);
     Route::apiResource('documentos', \App\Http\Controllers\API\DocumentoController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
 
     // Auditoria
@@ -193,6 +196,7 @@ Route::prefix('membro')->group(function () {
         Route::put('perfil',             [MembroController::class, 'updatePerfil']);
         Route::post('foto',              [MembroController::class, 'uploadFoto']);
         Route::put('escala-itens/{item}/presenca',               [MembroController::class, 'marcarPresenca']);
+        Route::post('escala-itens/{item}/confirmar',             [MembroController::class, 'confirmarPresenca']);
         Route::get('presencas-dia',                               [MembroController::class, 'presencasDia']);
         Route::post('escalas/{escala}/presenca/abrir',            [MembroController::class, 'abrirPresenca']);
         Route::post('escalas/{escala}/presenca/fechar',           [MembroController::class, 'fecharPresenca']);
@@ -209,6 +213,9 @@ Route::prefix('membro')->group(function () {
         Route::get('substituicoes',                               [MembroController::class, 'escalasSubstituicao']);
         Route::post('escala-itens/{item}/pedir-substituto',       [MembroController::class, 'pedirSubstituto']);
         Route::delete('escala-itens/{item}/pedir-substituto',     [MembroController::class, 'cancelarSubstituto']);
+        Route::get('pedidos-abertos',                             [MembroController::class, 'pedidosAbertos']);
+        Route::post('escala-itens/{item}/voluntariar',            [MembroController::class, 'voluntariar']);
+        Route::delete('escala-itens/{item}/voluntariar',          [MembroController::class, 'cancelarVoluntario']);
         Route::get('documentos',                                  [MembroController::class, 'documentos']);
         Route::get('documentos/{documento}/download',             [MembroController::class, 'downloadDocumento']);
     });

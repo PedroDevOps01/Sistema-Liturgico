@@ -192,8 +192,15 @@ function SortableRow({
 
   const selectedCerimoniario = cerimoniarios.find((c) => c.id === item.cerimoniario_id)
 
+  // Funções que exigem cerimoniário experiente ou mestre
+  const fl = (item.funcao_label ?? '').toLowerCase()
+  const isExperiencedRole = fl.includes('mestre') || fl === '2º auxiliar' || fl.includes('turif')
+  const cersForRole = isExperiencedRole
+    ? cerimoniarios.filter((c) => c.experiente || c.mestre)
+    : cerimoniarios
+
   // Build options for SearchableSelect
-  const cerOptions: SelectOption[] = cerimoniarios.map((c) => {
+  const cerOptions: SelectOption[] = cersForRole.map((c) => {
     const avail = getAvailabilityInfo(c, celebracao)
     let status: SelectOption['status'] = avail.status
     // If there are conflicts for this cerimoniario, show conflict status
@@ -770,7 +777,13 @@ export default function EscalaForm() {
     setItems((prev) => {
       const oldIndex = prev.findIndex((i) => i.id === active.id)
       const newIndex = prev.findIndex((i) => i.id === over.id)
-      return arrayMove(prev, oldIndex, newIndex).map((item, idx) => ({ ...item, ordem: idx }))
+      if (oldIndex === -1 || newIndex === -1) return prev
+      // Swap only the assigned member; functions stay in their original slots
+      return prev.map((item, idx) => {
+        if (idx === oldIndex) return { ...item, cerimoniario_id: prev[newIndex].cerimoniario_id, cerimoniario: prev[newIndex].cerimoniario }
+        if (idx === newIndex) return { ...item, cerimoniario_id: prev[oldIndex].cerimoniario_id, cerimoniario: prev[oldIndex].cerimoniario }
+        return item
+      })
     })
   }
 

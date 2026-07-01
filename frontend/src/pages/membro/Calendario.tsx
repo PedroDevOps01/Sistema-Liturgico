@@ -11,6 +11,7 @@ import { ptBR } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import membroApi from '../../lib/membroApi'
 import { parseDate, formatHorario } from '../../lib/dateUtils'
+import JustificativaModal from '../../components/common/JustificativaModal'
 
 const INDIGO = '#431407'
 
@@ -41,6 +42,7 @@ interface MembroCelebracao {
 
 interface EscalaItem {
   id: number
+  status_confirmacao?: string | null
   escala: {
     id: number
     celebracao: MembroCelebracao
@@ -49,7 +51,7 @@ interface EscalaItem {
   }
   funcao: { titulo: string } | null
   funcao_label?: string
-  presenca: { id: number; status: string } | null
+  presenca: { id: number; status: string; status_confirmacao?: string | null } | null
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -97,6 +99,8 @@ export default function MembroCalendario() {
   const [drawer, setDrawer] = useState<EscalaItem[] | null>(null)
   const [drawerDate, setDrawerDate] = useState<string | null>(null)
   const [confirmandoId, setConfirmandoId] = useState<number | null>(null)
+  const [justItem, setJustItem] = useState<EscalaItem | null>(null)
+  const [salvandoJust, setSalvandoJust] = useState(false)
 
   async function loadCalendario(month: Date): Promise<EscalaItem[]> {
     setLoading(true)
@@ -144,24 +148,56 @@ export default function MembroCalendario() {
     }
   }
 
-  async function handleConfirmar(item: EscalaItem, status: 'serviu' | 'justificado') {
+  async function refreshDrawer(fresh: EscalaItem[]) {
+    if (drawerDate) {
+      const updated = fresh.filter(i => i.escala.celebracao.data.substring(0, 10) === drawerDate)
+      setDrawer(updated.length
+        ? [...updated].sort((a, b) => a.escala.celebracao.horario.localeCompare(b.escala.celebracao.horario))
+        : null)
+    }
+  }
+
+  async function handleConfirmarEscala(item: EscalaItem) {
     setConfirmandoId(item.id)
     try {
-      await membroApi.put(`/escala-itens/${item.id}/presenca`, { status })
-      toast.success(status === 'serviu' ? '✅ Presença confirmada!' : '⚠️ Justificativa registrada.')
-      const fresh = await loadCalendario(currentMonth)
-      // Refresh drawer with up-to-date data (avoid stale escalaMap closure)
-      if (drawerDate) {
-        const updated = fresh.filter(i => i.escala.celebracao.data.substring(0, 10) === drawerDate)
-        setDrawer(updated.length
-          ? [...updated].sort((a, b) => a.escala.celebracao.horario.localeCompare(b.escala.celebracao.horario))
-          : null)
-      }
+      await membroApi.post(`/escala-itens/${item.id}/confirmar`)
+      toast.success('✅ Escala confirmada!')
+      refreshDrawer(await loadCalendario(currentMonth))
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg ?? 'Erro ao confirmar escala')
+    } finally {
+      setConfirmandoId(null)
+    }
+  }
+
+  async function handleServiu(item: EscalaItem) {
+    setConfirmandoId(item.id)
+    try {
+      await membroApi.put(`/escala-itens/${item.id}/presenca`, { status: 'serviu' })
+      toast.success('✅ Presença confirmada!')
+      refreshDrawer(await loadCalendario(currentMonth))
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
       toast.error(msg ?? 'Erro ao registrar presença')
     } finally {
       setConfirmandoId(null)
+    }
+  }
+
+  async function handleJustificar(item: EscalaItem, observacao?: string) {
+    if (observacao === undefined) { setJustItem(item); return }
+    setSalvandoJust(true)
+    try {
+      await membroApi.put(`/escala-itens/${item.id}/presenca`, { status: 'justificado', observacao })
+      toast.success('⚠️ Justificativa registrada.')
+      setJustItem(null)
+      refreshDrawer(await loadCalendario(currentMonth))
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg ?? 'Erro ao registrar justificativa')
+    } finally {
+      setSalvandoJust(false)
     }
   }
 
@@ -391,8 +427,19 @@ export default function MembroCalendario() {
                 const cel = item.escala.celebracao
                 const { color, label } = getCelebInfo(cel)
                 const st = item.presenca?.status
-                const jaAnela = item.escala.presenca_aberta && !item.presenca
                 const isConf = confirmandoId === item.id
+
+                const isConfirmed = item.status_confirmacao === 'confirmado'
+                  || item.presenca?.status_confirmacao === 'confirmado'
+                const isSubstituido = st === 'substituido'
+                const [horH = 0, horM = 0] = cel.horario.split(':').map(Number)
+                const celebStart = parseDate(cel.data)
+                celebStart.setHours(horH, horM, 0, 0)
+                const beforeStart = new Date() < celebStart
+
+                const podeConfirmarEscala = !isConfirmed && (beforeStart || item.escala.presenca_aberta) && !isSubstituido
+                const podeServir = item.escala.presenca_aberta && isConfirmed && st !== 'serviu' && !isSubstituido
+                const podeJustificar = st === 'faltou'
 
                 return (
                   <div key={item.id} className="px-5 py-5 space-y-3">
@@ -415,7 +462,7 @@ export default function MembroCalendario() {
                           Bispo
                         </span>
                       )}
-                      {jaAnela && (
+                      {podeServir && (
                         <span className="text-xs font-bold px-2.5 py-1 rounded-full text-emerald-700 bg-emerald-50 animate-pulse">
                           ● Janela aberta
                         </span>
@@ -475,25 +522,39 @@ export default function MembroCalendario() {
                       </div>
                     )}
 
-                    {/* Confirm buttons */}
-                    {jaAnela && (
-                      <div className="flex gap-2 pt-1">
-                        <button
-                          onClick={() => handleConfirmar(item, 'serviu')}
-                          disabled={isConf}
-                          className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
-                          style={{ background: '#10B981', color: 'white', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
-                          <CheckCircle2 size={13} />
-                          {isConf ? 'Salvando...' : 'Vou servir'}
-                        </button>
-                        <button
-                          onClick={() => handleConfirmar(item, 'justificado')}
-                          disabled={isConf}
-                          className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
-                          style={{ background: '#F59E0B', color: 'white', boxShadow: '0 4px 12px rgba(245,158,11,0.3)' }}>
-                          <AlertCircle size={13} />
-                          {isConf ? 'Salvando...' : 'Justificar'}
-                        </button>
+                    {/* Ações */}
+                    {(podeConfirmarEscala || podeServir || podeJustificar) && (
+                      <div className="flex gap-2 pt-1 flex-wrap">
+                        {podeConfirmarEscala && (
+                          <button
+                            onClick={() => handleConfirmarEscala(item)}
+                            disabled={isConf}
+                            className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                            style={{ background: INDIGO, color: 'white', boxShadow: '0 4px 12px rgba(67,20,7,0.25)' }}>
+                            <CheckCircle2 size={13} />
+                            {isConf ? 'Salvando...' : 'Confirmar escala'}
+                          </button>
+                        )}
+                        {podeServir && (
+                          <button
+                            onClick={() => handleServiu(item)}
+                            disabled={isConf}
+                            className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                            style={{ background: '#10B981', color: 'white', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
+                            <CheckCircle2 size={13} />
+                            {isConf ? 'Salvando...' : 'Marcar que servi'}
+                          </button>
+                        )}
+                        {podeJustificar && (
+                          <button
+                            onClick={() => handleJustificar(item)}
+                            disabled={isConf}
+                            className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                            style={{ background: '#F59E0B', color: 'white', boxShadow: '0 4px 12px rgba(245,158,11,0.3)' }}>
+                            <AlertCircle size={13} />
+                            {isConf ? 'Salvando...' : 'Justificar falta'}
+                          </button>
+                        )}
                       </div>
                     )}
 
@@ -523,6 +584,13 @@ export default function MembroCalendario() {
         </>,
         document.body
       )}
+
+      <JustificativaModal
+        isOpen={!!justItem}
+        loading={salvandoJust}
+        onConfirm={(obs) => justItem && handleJustificar(justItem, obs)}
+        onCancel={() => setJustItem(null)}
+      />
     </div>
   )
 }

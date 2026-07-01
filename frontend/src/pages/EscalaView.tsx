@@ -147,8 +147,13 @@ export default function EscalaView() {
   // Alterna o resultado (toggle: clicar no mesmo limpa; só disponível se confirmado)
   async function handlePresenca(item: EscalaItem, value: 'serviu' | 'faltou' | 'substituido' | 'justificado') {
     const novo = item.presenca?.status === value ? null : value
+    const payload: Record<string, string | null> = { status: novo }
+    // Marcar como serviu implica confirmação — seta automaticamente para não ficar com "Não confirmou" ativo
+    if (novo === 'serviu' && item.presenca?.status_confirmacao !== 'confirmado') {
+      payload.status_confirmacao = 'confirmado'
+    }
     try {
-      await api.put(`/escala-itens/${item.id}/presenca`, { status: novo })
+      await api.put(`/escala-itens/${item.id}/presenca`, payload)
       toast.success(novo ? 'Resultado registrado!' : 'Resultado removido')
       loadEscala()
     } catch {
@@ -382,8 +387,8 @@ export default function EscalaView() {
               const statusPresenca = item.presenca?.status
               // link confirmado OU toggle manual confirmado
               const isConfirmed = confirmacao === 'confirmado' || linkStatus === 'confirmado'
-              // link recusado OU presença existente sem confirmação manual
-              const isNotConfirmedActive = linkStatus === 'recusado' || (item.presenca != null && confirmacao !== 'confirmado')
+              // padrão é "não confirmou" — ativo sempre que não confirmado (inclusive itens novos sem presença)
+              const isNotConfirmedActive = linkStatus === 'recusado' || (!isConfirmed && linkStatus !== 'confirmado')
               return (
                 <div
                   key={item.id}
@@ -400,11 +405,17 @@ export default function EscalaView() {
                       {item.funcao_label || item.funcao?.titulo}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-gray-900">
+                      <span className={`font-bold ${statusPresenca === 'substituido' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
                         {item.cerimoniario?.nome || (
                           <span className="text-gray-400 italic font-normal text-sm">Não atribuído</span>
                         )}
                       </span>
+                      {statusPresenca === 'substituido' && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                          <RotateCcw size={9} />
+                          Substituído
+                        </span>
+                      )}
                       {item.cerimoniario && item.token_confirmacao && (
                         <>
                           {item.status_confirmacao === 'confirmado' && (
@@ -511,11 +522,11 @@ export default function EscalaView() {
                         </button>
                       </div>
 
-                      {/* Passo 2a — confirmou (link ou manual): resultado completo */}
+                      {/* Passo 2a — confirmou: resultado (serviu / faltou / substituído) */}
                       {isConfirmed && (
                         <div className="flex items-center gap-1">
                           <span className="text-[10px] text-gray-400 mr-1 hidden sm:block">Resultado:</span>
-                          {PRESENCA_OPTIONS.map((opt) => (
+                          {PRESENCA_OPTIONS.filter(o => o.value !== 'justificado').map((opt) => (
                             <button
                               key={opt.value}
                               onClick={() => handlePresenca(item, opt.value)}
@@ -532,6 +543,27 @@ export default function EscalaView() {
                           ))}
                         </div>
                       )}
+
+                      {/* Passo 2a-bis — confirmou e faltou: permite justificar (ou já justificou) */}
+                      {isConfirmed && (statusPresenca === 'faltou' || statusPresenca === 'justificado') && (() => {
+                        const opt = PRESENCA_OPTIONS.find(o => o.value === 'justificado')!
+                        const ativo = statusPresenca === 'justificado'
+                        return (
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-gray-400 mr-1 hidden sm:block">Motivo:</span>
+                            <button
+                              onClick={() => handlePresenca(item, 'justificado')}
+                              title={opt.label}
+                              className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold border transition-all duration-200 active:scale-95 ${
+                                ativo ? opt.activeClass : `border-gray-200 text-gray-400 ${opt.hoverClass}`
+                              }`}
+                            >
+                              {opt.icon}
+                              <span className="hidden sm:inline">{opt.label}</span>
+                            </button>
+                          </div>
+                        )
+                      })()}
 
                       {/* Passo 2b — não confirmou (link ou manual): justificou ou foi substituído? */}
                       {isNotConfirmedActive && (
@@ -607,7 +639,7 @@ export default function EscalaView() {
           if (s === 'faltou')     return { label: 'Faltou',      cls: 'bg-red-100 text-red-700' }
           return escala.presenca_aberta
             ? { label: 'Aguardando', cls: 'bg-yellow-100 text-yellow-700' }
-            : { label: 'Sem registro', cls: 'bg-gray-100 text-gray-400' }
+            : { label: 'Não confirmou', cls: 'bg-red-50 text-red-500' }
         }
 
         return (
@@ -691,9 +723,11 @@ export default function EscalaView() {
                           ? <UserCheck size={14} className="text-blue-600" />
                           : item.presenca?.status === 'faltou'
                             ? <UserX size={14} className="text-red-500" />
-                            : item.presenca?.status
-                              ? <RotateCcw size={14} className="text-amber-500" />
-                              : <Clock size={14} className="text-gray-400" />
+                            : item.presenca?.status === 'justificado'
+                              ? <MinusCircle size={14} className="text-gray-500" />
+                              : item.presenca?.status === 'substituido'
+                                ? <RotateCcw size={14} className="text-amber-500" />
+                                : <Clock size={14} className="text-gray-400" />
                         }
                       </div>
 
@@ -706,9 +740,22 @@ export default function EscalaView() {
                       </div>
 
                       {/* Badge */}
-                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${badge.cls}`}>
-                        {badge.label}
-                      </span>
+                      <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${badge.cls}`}>
+                          {badge.label}
+                        </span>
+                        {item.presenca?.status === 'justificado' &&
+                          (item.presenca.status_confirmacao === 'confirmado' || item.status_confirmacao === 'confirmado') && (
+                          <span className="text-[10px] text-green-600 font-medium">
+                            ✓ Havia confirmado
+                          </span>
+                        )}
+                        {item.presenca?.status === 'substituido' && item.presenca.substituto && (
+                          <span className="text-[10px] text-amber-600 font-medium">
+                            ↳ {item.presenca.substituto.nome}
+                          </span>
+                        )}
+                      </div>
 
                       {/* Substituição */}
                       {(escala.presenca_aberta || !escala.presenca_fechada_em) && (

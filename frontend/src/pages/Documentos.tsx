@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Plus, Trash2, FileText, Upload, BookOpen, ScrollText, ClipboardList, GraduationCap, File, X } from 'lucide-react'
+import { Plus, Trash2, FileText, Upload, BookOpen, ScrollText, ClipboardList, GraduationCap, File, X, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
 import { parsePdf } from '../lib/pdfParser'
@@ -26,6 +26,30 @@ const TIPOS = [
   { value: 'formacao', label: 'Formação', icon: GraduationCap },
   { value: 'outro',    label: 'Outro',    icon: File          },
 ]
+
+async function handleDownload(doc: Documento) {
+  try {
+    toast.loading('Preparando download...', { id: 'dl' })
+    const r = await api.get(`/documentos/${doc.id}/download`)
+    const payload = (r.data as Record<string, string>)
+    const base64 = payload.arquivo_base64 ?? ''
+    const mime   = payload.mime_type    ?? doc.mime_type
+    const nome   = payload.arquivo_nome ?? doc.arquivo_nome
+    const raw    = base64.replace(/^data:[^;]+;base64,/, '')
+    const byteStr = atob(raw)
+    const ab = new ArrayBuffer(byteStr.length)
+    const ia = new Uint8Array(ab)
+    for (let i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i)
+    const blob = new Blob([ab], { type: mime })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = nome; a.click()
+    URL.revokeObjectURL(url)
+    toast.success('Download iniciado!', { id: 'dl' })
+  } catch {
+    toast.error('Erro ao baixar documento', { id: 'dl' })
+  }
+}
 
 export default function AdminDocumentos() {
   const [lista, setLista]       = useState<Documento[]>([])
@@ -196,14 +220,20 @@ export default function AdminDocumentos() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {doc.conteudo_estruturado && (
+                    {(doc.conteudo_estruturado || doc.mime_type.includes('pdf') || doc.arquivo_nome.toLowerCase().endsWith('.pdf')) && (
                       <button
                         onClick={() => setLendo(doc)}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:bg-amber-50 text-amber-600 active:scale-95"
                       >
-                        <BookOpen size={13} /> Ler
+                        <BookOpen size={13} /> Ver
                       </button>
                     )}
+                    <button
+                      onClick={() => handleDownload(doc)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:bg-amber-50 text-amber-600 active:scale-95"
+                    >
+                      <Download size={13} /> Baixar
+                    </button>
                     <button onClick={() => handleDeletar(doc.id)}
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors">
                       <Trash2 size={14} />
@@ -219,8 +249,92 @@ export default function AdminDocumentos() {
   )
 }
 
+// Renderiza PDF página a página como imagens
+async function renderPdfToImagesAdmin(base64: string): Promise<string[]> {
+  const pdfjsLib = await import('pdfjs-dist')
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
+
+  const raw    = base64.replace(/^data:[^;]+;base64,/, '')
+  const binary = atob(raw)
+  const bytes  = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pdf = await (pdfjsLib as any).getDocument({ data: bytes }).promise
+  const pages: string[] = []
+
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page     = await pdf.getPage(p)
+    const viewport = page.getViewport({ scale: 1.5 })
+    const canvas   = document.createElement('canvas')
+    canvas.width   = viewport.width
+    canvas.height  = viewport.height
+    const ctx = canvas.getContext('2d')!
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await page.render({ canvasContext: ctx as any, viewport }).promise
+    pages.push(canvas.toDataURL('image/jpeg', 0.88))
+  }
+  return pages
+}
+
+function PdfViewerAdmin({ docId }: { docId: number }) {
+  const [pages,   setPages]   = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const r = await api.get<Record<string, string>>(`/documentos/${docId}/download`)
+        if (cancelled) return
+        const base64 = r.data.arquivo_base64 ?? ''
+        const imgs   = await renderPdfToImagesAdmin(base64)
+        if (!cancelled) { setPages(imgs); setLoading(false) }
+      } catch {
+        if (!cancelled) { setError(true); setLoading(false) }
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [docId])
+
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center h-64 gap-3">
+      <div className="w-8 h-8 rounded-full border-4 animate-spin"
+        style={{ borderColor: 'rgba(251,191,36,0.2)', borderTopColor: '#fbbf24' }} />
+      <p className="text-white/40 text-sm">Carregando páginas do PDF…</p>
+    </div>
+  )
+
+  if (error) return (
+    <div className="flex flex-col items-center justify-center h-48 gap-2" style={{ color: 'rgba(255,255,255,0.25)' }}>
+      <FileText size={36} />
+      <p className="text-sm">Não foi possível carregar o PDF</p>
+    </div>
+  )
+
+  return (
+    <div className="p-6 space-y-4 max-w-4xl mx-auto">
+      {pages.map((page, i) => (
+        <div key={i} className="rounded-xl overflow-hidden shadow-xl"
+          style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+          <img src={page} alt={`Página ${i + 1}`} className="w-full block" />
+          {pages.length > 1 && (
+            <div className="flex justify-center py-2" style={{ background: '#1a1a1a' }}>
+              <span className="text-[10px] text-white/20 font-mono tracking-widest">
+                {i + 1} / {pages.length}
+              </span>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function LivroReader({ doc, onClose }: { doc: Documento; onClose: () => void }) {
-  const topicos = doc.conteudo_estruturado?.topicos ?? []
   const GOLD = '#fbbf24'
   const WINE = '#7c2d3e'
 
@@ -235,6 +349,7 @@ function LivroReader({ doc, onClose }: { doc: Documento; onClose: () => void }) 
           <p className="font-bold text-white text-sm truncate">{doc.titulo}</p>
           {doc.descricao && <p className="text-xs text-white/40 truncate">{doc.descricao}</p>}
         </div>
+
         <button
           onClick={onClose}
           className="w-9 h-9 rounded-full flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
@@ -243,83 +358,8 @@ function LivroReader({ doc, onClose }: { doc: Documento; onClose: () => void }) 
         </button>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <div className="w-72 flex-shrink-0 overflow-y-auto border-r border-white/10 py-4 hidden md:block" style={{ background: '#141414' }}>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-white/30 px-5 mb-3">Índice</p>
-          {topicos.map((t, i) => (
-            <div key={i} className="mb-2">
-              <a
-                href={`#topico-${i}`}
-                className="block w-full text-left px-5 py-1.5 text-xs text-white/70 hover:text-white hover:bg-white/5 transition-colors font-bold"
-              >
-                <span className="text-amber-500/65 mr-2">{String(i + 1).padStart(2, '0')}</span>
-                {t.titulo}
-              </a>
-              {t.subtopicos && t.subtopicos.length > 0 && (
-                <div className="pl-4 mt-0.5 space-y-0.5 border-l border-white/5 ml-7">
-                  {t.subtopicos.map((st, j) => (
-                    <a
-                      key={j}
-                      href={`#topico-${i}-${j}`}
-                      className="block w-full text-left py-1 text-[11px] text-white/45 hover:text-white/80 transition-colors"
-                    >
-                      <span className="text-white/25 mr-1.5">{i + 1}.{j + 1}</span>
-                      {st.titulo.replace(/^\d+(\.\d+)*\s*[\.\-–—]?\s*/, '')}
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto scroll-smooth">
-          <div className="max-w-3xl mx-auto px-8 py-10">
-            {topicos.length === 0 ? (
-              <div className="text-center text-white/30 mt-20">
-                <BookOpen size={40} className="mx-auto mb-3" />
-                <p>Nenhum conteúdo disponível</p>
-              </div>
-            ) : (
-              topicos.map((t, i) => (
-                <div key={i} id={`topico-${i}`} className="mb-14 scroll-mt-20">
-                  {/* Tópico Principal */}
-                  <div className="flex items-baseline gap-3 mb-4 border-b border-white/5 pb-2">
-                    <span className="text-sm font-mono text-amber-500/80 font-bold">{String(i + 1).padStart(2, '0')}</span>
-                    <h2 className="text-2xl font-extrabold text-white tracking-tight">{t.titulo}</h2>
-                  </div>
-                  
-                  {t.conteudo && (
-                    <p className="text-white/80 text-sm leading-[1.85] whitespace-pre-wrap mb-8">{t.conteudo}</p>
-                  )}
-                  
-                  {/* Subtópicos */}
-                  {t.subtopicos && t.subtopicos.length > 0 && (
-                    <div className="mt-8 pl-4 border-l-2 border-amber-500/20 space-y-10">
-                      {t.subtopicos.map((st, j) => (
-                        <div key={j} id={`topico-${i}-${j}`} className="scroll-mt-20">
-                          <div className="flex items-baseline gap-2.5 mb-3">
-                            <span className="text-xs font-mono text-amber-500/50">{i + 1}.{j + 1}</span>
-                            <h3 className="text-lg font-bold text-white tracking-tight">{st.titulo}</h3>
-                          </div>
-                          {st.conteudo ? (
-                            <p className="text-white/70 text-sm leading-[1.8] whitespace-pre-wrap">{st.conteudo}</p>
-                          ) : (
-                            <p className="text-white/30 text-sm italic">Sem conteúdo</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {i < topicos.length - 1 && <div className="mt-14 border-t border-white/5" />}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+      <div className="flex-1 overflow-y-auto">
+        <PdfViewerAdmin docId={doc.id} />
       </div>
     </div>
   )

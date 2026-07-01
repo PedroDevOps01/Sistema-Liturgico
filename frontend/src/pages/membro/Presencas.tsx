@@ -41,6 +41,7 @@ interface PresencaDia {
   meu_item_id: number
   pode_controlar: boolean
   minha_presenca: { status: string } | null
+  minha_confirmacao: 'confirmado' | null
   minha_funcao: string
   escala: EscalaCel
 }
@@ -360,23 +361,18 @@ export default function MembroPresencas() {
                           {stCfg.label}
                         </span>
                       </div>
-                    ) : aberta ? (
-                      <div className="flex gap-2.5 flex-wrap">
-                        <button
-                          onClick={() => handleMarcar(d.meu_item_id, 'serviu')}
-                          className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95"
-                          style={{ background: '#10B981', color: 'white', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
-                          <CheckCircle2 size={14} />
-                          Confirmei presença
-                        </button>
-                        <button
-                          onClick={() => handleMarcar(d.meu_item_id, 'justificado')}
-                          className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95"
-                          style={{ background: GOLD, color: DARK, boxShadow: '0 4px 12px rgba(251,191,36,0.25)' }}>
-                          <AlertCircle size={14} />
-                          Justificar falta
-                        </button>
-                      </div>
+                    ) : aberta && d.minha_confirmacao === 'confirmado' ? (
+                      <button
+                        onClick={() => handleMarcar(d.meu_item_id, 'serviu')}
+                        className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95"
+                        style={{ background: '#10B981', color: 'white', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
+                        <CheckCircle2 size={14} />
+                        Confirmei presença
+                      </button>
+                    ) : aberta && !d.minha_confirmacao ? (
+                      <p className="text-sm text-gray-400 italic">
+                        Você não confirmou esta escala. Acesse <span className="font-semibold text-gray-500">Minhas Escalas</span> para confirmar antes do início da celebração.
+                      </p>
                     ) : (
                       <p className="text-sm text-gray-400 italic">
                         {encerrada

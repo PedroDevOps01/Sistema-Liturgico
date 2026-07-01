@@ -16,7 +16,11 @@ import {
   Upload,
   Download,
   KeyRound,
+  CalendarOff,
+  ChevronDown,
 } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { formatPhone } from "../lib/dateUtils";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
@@ -78,6 +82,17 @@ const defaultValues: FormData = {
   experiente: false,
   mestre: false,
 };
+
+// ─── Blocked periods ───────────────────────────────────────────────────────
+
+interface PeriodoBloqueado {
+  id: number;
+  cerimoniario_id: number;
+  data: string;
+  data_fim: string | null;
+  motivo: string | null;
+  cerimoniario: { id: number; nome: string };
+}
 
 // ─── CSV types ─────────────────────────────────────────────────────────────
 
@@ -261,6 +276,10 @@ export default function Cerimoniarios() {
   const [search, setSearch] = useState("");
   const [mostrarInativos, setMostrarInativos] = useState(false);
 
+  // --- blocked periods ---
+  const [periodosBloqueados, setPeriodosBloqueados] = useState<PeriodoBloqueado[]>([]);
+  const [bloqueiosOpen, setBloqueiosOpen] = useState(true);
+
   // --- modals ---
   const [modalOpen, setModalOpen] = useState(false);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
@@ -308,9 +327,17 @@ export default function Cerimoniarios() {
     }
   }, []);
 
+  const loadBloqueios = useCallback(async () => {
+    try {
+      const r = await api.get<PeriodoBloqueado[]>("/cerimoniarios/todos-periodos-bloqueados");
+      setPeriodosBloqueados(Array.isArray(r.data) ? r.data : []);
+    } catch { /* silently ignore */ }
+  }, []);
+
   useEffect(() => {
     loadList();
-  }, [loadList]);
+    loadBloqueios();
+  }, [loadList, loadBloqueios]);
 
   // ─── modal openers ────────────────────────────────────────────────────────
 
@@ -535,6 +562,70 @@ export default function Cerimoniarios() {
           </div>
         }
       />
+
+      {/* Períodos Indisponíveis */}
+      <div className="card overflow-hidden">
+        <button
+          onClick={() => setBloqueiosOpen((o) => !o)}
+          className="w-full flex items-center gap-3 px-5 py-4 hover:bg-gray-50 transition-colors"
+        >
+          <CalendarOff size={16} className="text-wine-900 flex-shrink-0" />
+          <span className="font-semibold text-gray-900 flex-1 text-left">
+            Períodos Indisponíveis
+          </span>
+          <span className="text-xs font-medium text-gray-400 mr-2">
+            {periodosBloqueados.length} período{periodosBloqueados.length !== 1 ? "s" : ""} ativos
+          </span>
+          <ChevronDown
+            size={16}
+            className={`text-gray-400 transition-transform duration-200 ${bloqueiosOpen ? "rotate-180" : ""}`}
+          />
+        </button>
+
+        {bloqueiosOpen && (
+          <div className="border-t border-gray-100">
+            {periodosBloqueados.length === 0 ? (
+              <p className="text-sm text-gray-400 px-5 py-5 text-center">
+                Nenhum período bloqueado no momento.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[520px] text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-gray-50">
+                      <th className="text-left px-5 py-2.5 font-medium text-gray-500 text-xs uppercase tracking-wide">Cerimoniário</th>
+                      <th className="text-left px-5 py-2.5 font-medium text-gray-500 text-xs uppercase tracking-wide">Período</th>
+                      <th className="text-left px-5 py-2.5 font-medium text-gray-500 text-xs uppercase tracking-wide">Motivo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {periodosBloqueados.map((p) => {
+                      const inicio = new Date(p.data.substring(0, 10) + "T00:00:00");
+                      const fim = p.data_fim ? new Date(p.data_fim.substring(0, 10) + "T00:00:00") : null;
+                      const isSame = !fim || p.data.substring(0, 10) === p.data_fim?.substring(0, 10);
+                      return (
+                        <tr key={p.id} className="border-t border-gray-50 hover:bg-gray-50 transition-colors">
+                          <td className="px-5 py-3 font-medium text-gray-900">
+                            {p.cerimoniario?.nome ?? "—"}
+                          </td>
+                          <td className="px-5 py-3 text-gray-700 tabular-nums">
+                            {isSame
+                              ? format(inicio, "dd 'de' MMM 'de' yyyy", { locale: ptBR })
+                              : `${format(inicio, "dd/MM/yyyy")} → ${format(fim!, "dd/MM/yyyy")}`}
+                          </td>
+                          <td className="px-5 py-3 text-gray-400">
+                            {p.motivo || <span className="italic">—</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Search + filtro inativos */}
       <div className="flex gap-3 flex-wrap items-center">

@@ -17,6 +17,7 @@ class Presenca extends Model
         'status_confirmacao',
         'observacao',
         'substituto_id',
+        'original_cerimoniario_id',
     ];
 
     protected function casts(): array

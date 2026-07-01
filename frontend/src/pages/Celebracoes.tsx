@@ -36,6 +36,7 @@ type FlagKey =
   | 'primeira_eucaristia' | 'adoracao_santissimo' | 'procissao' | 'via_sacra'
   | 'exequias' | 'vigilia_pascal' | 'paixao_senhor' | 'ordenacao'
   | 'santa_missa' | 'missa_crismal' | 'corpus_christi' | 'missa_pontifical'
+  | 'quinta_eucaristica'
 
 const FLAG_OPTIONS: { key: FlagKey; label: string; group?: string }[] = [
   // Tipo da celebração
@@ -49,6 +50,7 @@ const FLAG_OPTIONS: { key: FlagKey; label: string; group?: string }[] = [
   { key: 'batismo',             label: 'Batismo',                 group: 'rito' },
   { key: 'crisma',              label: 'Crisma',                  group: 'rito' },
   { key: 'primeira_eucaristia', label: 'Primeira Eucaristia',     group: 'rito' },
+  { key: 'quinta_eucaristica',  label: 'Quinta Eucarística',      group: 'rito' },
   { key: 'ordenacao',           label: 'Ordenação',               group: 'rito' },
   { key: 'exequias',            label: 'Exéquias',                group: 'rito' },
   // Devoções / Outros
@@ -123,6 +125,7 @@ const schema = z.object({
   missa_crismal: z.boolean(),
   corpus_christi: z.boolean(),
   missa_pontifical: z.boolean(),
+  quinta_eucaristica: z.boolean(),
   cor_liturgica: z.string().optional(),
   observacao: z.string().optional(),
 })
@@ -154,6 +157,7 @@ const defaultFormValues: FormData = {
   missa_crismal: false,
   corpus_christi: false,
   missa_pontifical: false,
+  quinta_eucaristica: false,
   cor_liturgica: '',
   observacao: '',
 }

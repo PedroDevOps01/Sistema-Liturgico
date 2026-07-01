@@ -12,6 +12,7 @@ import {
   BarChart2,
   Star,
   Phone,
+  CalendarOff,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
@@ -199,11 +200,17 @@ export default function CerimoniarioDashboard() {
   const navigate = useNavigate()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [periodosBloqueados, setPeriodosBloqueados] = useState<Array<{ id: number; data: string; data_fim: string | null; motivo: string | null }>>([])
+
 
   const load = useCallback(async () => {
     try {
-      const r = await api.get<{ data: DashboardData }>(`/cerimoniarios/${id}/dashboard`)
-      setData(r.data.data)
+      const [dashR, bloqR] = await Promise.all([
+        api.get<{ data: DashboardData }>(`/cerimoniarios/${id}/dashboard`),
+        api.get<Array<{ id: number; data: string; data_fim: string | null; motivo: string | null }>>(`/cerimoniarios/${id}/periodos-bloqueados`),
+      ])
+      setData(dashR.data.data)
+      setPeriodosBloqueados(Array.isArray(bloqR.data) ? bloqR.data : [])
     } catch {
       toast.error('Erro ao carregar dashboard')
       navigate('/cerimoniarios')
@@ -401,6 +408,37 @@ export default function CerimoniarioDashboard() {
           <MonthlyChart mensais={mensais} ano={ano} />
         )}
       </div>
+
+      {/* Períodos bloqueados */}
+      {periodosBloqueados.length > 0 && (
+        <div className="card overflow-hidden">
+          <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
+            <CalendarOff size={16} className="text-wine-900" />
+            <h2 className="font-semibold text-gray-900">Períodos Indisponíveis</h2>
+            <span className="ml-auto text-xs text-gray-400">{periodosBloqueados.length} período{periodosBloqueados.length !== 1 ? 's' : ''}</span>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {periodosBloqueados.map(p => {
+              const inicio = new Date(p.data.substring(0, 10) + 'T00:00:00')
+              const fim    = p.data_fim ? new Date(p.data_fim.substring(0, 10) + 'T00:00:00') : inicio
+              const sameDay = !p.data_fim || p.data.substring(0, 10) === p.data_fim.substring(0, 10)
+              return (
+                <div key={p.id} className="flex items-center gap-3 px-5 py-3">
+                  <CalendarOff size={14} className="text-amber-400 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800">
+                      {sameDay
+                        ? format(inicio, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+                        : `${format(inicio, 'dd/MM/yyyy')} → ${format(fim, 'dd/MM/yyyy')}`}
+                    </p>
+                    {p.motivo && <p className="text-xs text-gray-400 mt-0.5 truncate">{p.motivo}</p>}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Histórico recente */}
       <div className="card overflow-hidden">

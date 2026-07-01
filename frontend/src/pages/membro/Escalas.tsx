@@ -10,11 +10,11 @@ import JustificativaModal from '../../components/common/JustificativaModal'
 const THEME_DARK = '#431407'
 const THEME_MID  = '#fbbf24'
 
-interface Presenca  { id: number; status: string }
+interface Presenca  { id: number; status: string; status_confirmacao?: string | null }
 interface Funcao    { titulo: string }
 interface Celebracao { data: string; horario: string; periodo_liturgico?: string; local?: string; descricao?: string }
 interface EscalaNested { id: number; celebracao: Celebracao; presenca_aberta: boolean; observacao?: string }
-interface EscalaItem   { id: number; escala: EscalaNested; funcao: Funcao | null; funcao_label?: string; presenca: Presenca | null }
+interface EscalaItem   { id: number; status_confirmacao?: string | null; escala: EscalaNested; funcao: Funcao | null; funcao_label?: string; presenca: Presenca | null }
 
 type Periodo = 'futuras' | 'passadas' | 'todas'
 
@@ -48,16 +48,40 @@ export default function MembroEscalas() {
 
   useEffect(() => { carregar(periodo) }, [periodo])
 
-  async function handleConfirmar(item: EscalaItem, status: 'serviu' | 'justificado', observacao?: string) {
+  async function handleConfirmarPresenca(item: EscalaItem) {
     setConfirmandoId(item.id)
     try {
-      await membroApi.put(`/escala-itens/${item.id}/presenca`, { status, observacao: observacao ?? null })
-      toast.success(status === 'serviu' ? '✅ Presença confirmada!' : '⚠️ Justificativa registrada.')
-      setJustItem(null)
+      await membroApi.post(`/escala-itens/${item.id}/confirmar`, {})
+      toast.success('✅ Presença confirmada!')
+      carregar(periodo)
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg ?? 'Erro ao confirmar presença')
+    } finally { setConfirmandoId(null) }
+  }
+
+  async function handleServiu(item: EscalaItem) {
+    setConfirmandoId(item.id)
+    try {
+      await membroApi.put(`/escala-itens/${item.id}/presenca`, { status: 'serviu' })
+      toast.success('✅ Presença registrada!')
       carregar(periodo)
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
       toast.error(msg ?? 'Erro ao registrar presença')
+    } finally { setConfirmandoId(null) }
+  }
+
+  async function handleJustificar(item: EscalaItem, observacao?: string) {
+    setConfirmandoId(item.id)
+    try {
+      await membroApi.put(`/escala-itens/${item.id}/presenca`, { status: 'justificado', observacao: observacao ?? null })
+      toast.success('⚠️ Justificativa registrada.')
+      setJustItem(null)
+      carregar(periodo)
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg ?? 'Erro ao justificar')
     } finally { setConfirmandoId(null) }
   }
 
@@ -166,12 +190,27 @@ export default function MembroEscalas() {
               const dayStr       = d.substring(0, 10)
               const passada      = dayStr < hoje
               const janelaAberta = item.escala.presenca_aberta
-              const podeConfirmar = janelaAberta && !item.presenca
               const isConfirmando = confirmandoId === item.id
               const st           = item.presenca?.status
               const stCfg        = st ? STATUS[st] : null
               const isExpanded   = expandedId === item.id
               const parts        = parseDateParts(d)
+
+              // Confirmação: via link (item.status_confirmacao) ou manual (presenca.status_confirmacao)
+              const isConfirmed = item.status_confirmacao === 'confirmado' || item.presenca?.status_confirmacao === 'confirmado'
+              // "antes do início" = celebração ainda não começou (data+hora futura)
+              const [horH = 0, horM = 0] = item.escala.celebracao.horario.split(':').map(Number)
+              const celebStart = safeDate(d)
+              celebStart.setHours(horH, horM, 0, 0)
+              const beforeStart = new Date() < celebStart
+
+              const isSubstituido = st === 'substituido'
+              // Confirmar escala: antes da celebração OU durante a janela (membro presente mas não havia confirmado)
+              const podeConfirmarEscala = !isConfirmed && (beforeStart || janelaAberta) && !isSubstituido
+              // Justificar = explicar porque faltou → só após a falta ser registrada
+              const podeJustificar = st === 'faltou'
+              // Marcar que servi → janela aberta + confirmado
+              const podeServir = janelaAberta && isConfirmed && st !== 'serviu' && !isSubstituido
 
               return (
                 <div key={item.id} className="esc-card card overflow-hidden transition-all duration-200"
@@ -214,9 +253,18 @@ export default function MembroEscalas() {
                             <span className="text-xs text-gray-400 font-medium px-2 py-0.5 rounded-full bg-gray-100">
                               Sem registro
                             </span>
+                          ) : !isConfirmed ? (
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-50 text-red-500">
+                              Não confirmou
+                            </span>
                           ) : null}
 
-                          {janelaAberta && !item.presenca && (
+                          {isConfirmed && !stCfg && (
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full text-green-700 bg-green-50">
+                              ✓ Confirmado
+                            </span>
+                          )}
+                          {janelaAberta && isConfirmed && st !== 'serviu' && !isSubstituido && (
                             <span className="text-xs font-bold px-2 py-0.5 rounded-full animate-pulse text-emerald-700 bg-emerald-50">
                               ● Janela aberta
                             </span>
@@ -240,21 +288,36 @@ export default function MembroEscalas() {
                       )}
                     </div>
 
-                    {/* Confirm buttons */}
-                    {podeConfirmar && (
-                      <div className="mt-3 flex gap-2">
-                        <button onClick={() => handleConfirmar(item, 'serviu')} disabled={isConfirmando}
-                          className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
-                          style={{ background: '#10B981', color: 'white', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
-                          <CheckCircle2 size={13} />
-                          {isConfirmando ? 'Salvando...' : 'Vou servir'}
-                        </button>
-                        <button onClick={() => setJustItem(item)} disabled={isConfirmando}
-                          className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
-                          style={{ background: '#F59E0B', color: 'white', boxShadow: '0 4px 12px rgba(245,158,11,0.3)' }}>
-                          <AlertCircle size={13} />
-                          Justificar
-                        </button>
+                    {/* Ações do membro */}
+                    {(podeConfirmarEscala || podeJustificar || podeServir) && (
+                      <div className="mt-3 flex gap-2 flex-wrap">
+                        {/* Confirmar escala — "vou estar lá" — antes da celebração, ainda não confirmado */}
+                        {podeConfirmarEscala && (
+                          <button onClick={() => handleConfirmarPresenca(item)} disabled={isConfirmando}
+                            className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                            style={{ background: THEME_DARK, color: 'white', boxShadow: '0 4px 12px rgba(67,20,7,0.25)' }}>
+                            <CheckCircle2 size={13} />
+                            {isConfirmando ? 'Salvando...' : 'Confirmar escala'}
+                          </button>
+                        )}
+                        {/* Justificar — apenas quando já há registro de falta */}
+                        {podeJustificar && (
+                          <button onClick={() => setJustItem(item)} disabled={isConfirmando}
+                            className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                            style={{ background: '#F59E0B', color: 'white', boxShadow: '0 4px 12px rgba(245,158,11,0.3)' }}>
+                            <AlertCircle size={13} />
+                            Justificar falta
+                          </button>
+                        )}
+                        {/* Marcar que serviu — janela aberta, confirmado */}
+                        {podeServir && (
+                          <button onClick={() => handleServiu(item)} disabled={isConfirmando}
+                            className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                            style={{ background: '#10B981', color: 'white', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
+                            <CheckCircle2 size={13} />
+                            {isConfirmando ? 'Salvando...' : 'Marcar que servi'}
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -286,7 +349,7 @@ export default function MembroEscalas() {
       <JustificativaModal
         isOpen={!!justItem}
         loading={justItem !== null && confirmandoId === justItem.id}
-        onConfirm={(obs) => justItem && handleConfirmar(justItem, 'justificado', obs)}
+        onConfirm={(obs) => justItem && handleJustificar(justItem, obs)}
         onCancel={() => setJustItem(null)}
       />
     </>

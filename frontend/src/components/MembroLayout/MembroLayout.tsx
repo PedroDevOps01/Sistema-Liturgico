@@ -1,85 +1,62 @@
-import { Outlet, Navigate, NavLink } from 'react-router-dom'
-import { isMembroAuthenticated, getMembroUser } from '../../lib/membroAuth'
-import { LayoutDashboard, List, CalendarDays, Gift, User } from 'lucide-react'
+import { useState } from 'react'
+import { Outlet, Navigate } from 'react-router-dom'
+import { isMembroAuthenticated } from '../../lib/membroAuth'
+import { Menu, X } from 'lucide-react'
 import MembroSidebar from './MembroSidebar'
 import { NotificacoesProvider } from '../../contexts/NotificacoesContext'
 
-const NAV_ITEMS = [
-  { to: '/membro/dashboard',       icon: LayoutDashboard, label: 'Início'      },
-  { to: '/membro/escalas',         icon: List,            label: 'Escalas'     },
-  { to: '/membro/calendario',      icon: CalendarDays,    label: 'Calendário'  },
-  { to: '/membro/aniversariantes', icon: Gift,            label: 'Aniversários'},
-  { to: '/membro/perfil',          icon: User,            label: 'Perfil'      },
-]
-
 export default function MembroLayout() {
   if (!isMembroAuthenticated()) return <Navigate to="/membro/login" replace />
-  const user = getMembroUser()
-  const initials = user?.nome?.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase() ?? '?'
+
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
     <NotificacoesProvider>
-    <div style={{ display: 'flex', height: '100dvh', overflow: 'hidden', background: '#F5F2EA' }}>
+      <div className="flex h-screen overflow-hidden" style={{ background: '#F5F2EA' }}>
 
-      {/* ── Desktop sidebar ── */}
-      <div className="hidden md:block flex-shrink-0" style={{ width: 272 }}>
-        <MembroSidebar />
-      </div>
+        {/* Mobile overlay */}
+        {mobileOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+            onClick={() => setMobileOpen(false)}
+          />
+        )}
 
-      {/* ── Main area ── */}
-      <div className="flex flex-col flex-1 overflow-hidden">
+        {/* Sidebar — desktop */}
+        <div className="hidden lg:block flex-shrink-0" style={{ width: 272 }}>
+          <MembroSidebar />
+        </div>
 
-        {/* Mobile top bar */}
-        <header className="md:hidden sidebar-gradient flex items-center gap-3 px-5 flex-shrink-0"
-          style={{ height: 56, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          {user?.foto_base64 ? (
-            <img src={user.foto_base64} className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-              style={{ boxShadow: '0 0 0 2px #fbbf24' }} alt="" />
-          ) : (
-            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)', color: '#431407' }}>
-              {initials}
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <p className="text-white text-sm font-semibold leading-none truncate">{user?.nome?.split(' ')[0]}</p>
-            <p className="text-xs mt-0.5 leading-none text-white/45">Portal do Cerimoniário</p>
-          </div>
-          {user?.mestre && (
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0"
-              style={{ background: 'rgba(251,191,36,0.18)', color: '#fbbf24' }}>
-              ★ Mestre
-            </span>
-          )}
-        </header>
+        {/* Sidebar — mobile slide-in */}
+        <div className={`fixed inset-y-0 left-0 z-50 lg:hidden transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
+          style={{ width: 272 }}>
+          <MembroSidebar />
+        </div>
 
-        {/* Scrollable content */}
-        <main className="flex-1 overflow-y-auto" style={{ paddingBottom: 72 }}>
-          <div className="md:p-6 p-4">
-            <Outlet />
-          </div>
-        </main>
+        {/* Main area */}
+        <div className="flex flex-col flex-1 overflow-hidden min-w-0">
 
-        {/* Mobile bottom nav */}
-        <nav className="md:hidden sidebar-gradient fixed bottom-0 left-0 right-0 flex z-50"
-          style={{ height: 64, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-          {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className="flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-200"
-              style={({ isActive }) => ({
-                color: isActive ? '#fbbf24' : 'rgba(255,255,255,0.38)',
-                transform: isActive ? 'scale(1.1)' : 'scale(1)',
-              })}
+          {/* Mobile header */}
+          <header className="lg:hidden sidebar-gradient flex items-center gap-3 px-4 flex-shrink-0"
+            style={{ height: 56, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <button
+              onClick={() => setMobileOpen(o => !o)}
+              className="p-2 rounded-xl hover:bg-white/10 transition-colors text-white"
+              aria-label="Menu"
             >
-              <Icon size={20} strokeWidth={2} />
-              <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.03em' }}>{label}</span>
-            </NavLink>
-          ))}
-        </nav>
+              {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+            </button>
+            <span className="font-bold text-base text-white flex-1">Portal do Cerimoniário</span>
+          </header>
+
+          {/* Scrollable content */}
+          <main className="flex-1 overflow-y-auto overflow-x-hidden">
+            <div className="p-4 sm:p-6 max-w-5xl mx-auto w-full">
+              <Outlet />
+            </div>
+          </main>
+        </div>
       </div>
-    </div>
     </NotificacoesProvider>
   )
 }

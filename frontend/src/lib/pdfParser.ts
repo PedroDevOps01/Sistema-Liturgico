@@ -98,6 +98,7 @@ export async function parsePdf(base64: string): Promise<ConteudoEstruturado> {
 
     let ultimaY = -1
     let linhaAtual = ''
+    let ultimoGap = -1
 
     for (const item of content.items as TextItem[]) {
       const texto = item.str
@@ -110,7 +111,13 @@ export async function parsePdf(base64: string): Promise<ConteudoEstruturado> {
       } else if (Math.abs(y - ultimaY) < 3) {
         linhaAtual += ' ' + texto
       } else {
+        const gap = Math.abs(y - ultimaY)
         if (linhaAtual.trim()) linhas.push(linhaAtual.trim())
+        // Gap significativamente maior que o espaçamento normal → quebra de parágrafo
+        if (ultimoGap > 0 && gap > ultimoGap * 1.6 && linhaAtual.trim()) {
+          linhas.push('')
+        }
+        ultimoGap = ultimoGap < 0 ? gap : ultimoGap * 0.7 + gap * 0.3
         linhaAtual = texto
         ultimaY = y
       }

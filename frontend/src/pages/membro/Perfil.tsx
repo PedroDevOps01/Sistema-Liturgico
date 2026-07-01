@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Camera, Lock, Phone, User,
-  Eye, EyeOff, Calendar, Shield, Save,
+  Eye, EyeOff, Calendar, Save,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import membroApi from '../../lib/membroApi'
@@ -49,22 +49,6 @@ function maskPhone(raw: string): string {
     .replace(/(\d{5})(\d{1,4})$/, '$1-$2')
 }
 
-function DisponToggle({ label, value, onChange }: { label: string; value: boolean | undefined; onChange: (v: boolean) => void }) {
-  const active = value ?? false
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!active)}
-      className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0 w-full text-left group"
-    >
-      <span className="text-sm text-gray-700 group-hover:text-gray-900 transition-colors">{label}</span>
-      <div className="relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ml-3"
-        style={{ background: active ? '#fbbf24' : '#E5E7EB' }}>
-        <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-200 ${active ? 'translate-x-5' : 'translate-x-0.5'}`} />
-      </div>
-    </button>
-  )
-}
 
 function PasswordField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   const [show, setShow] = useState(false)
@@ -101,10 +85,6 @@ export default function MembroPerfil() {
   const [numero, setNumero]           = useState('')
   const [savingNum, setSavingNum]     = useState(false)
 
-  // Disponibilidade
-  const [dispon, setDispon]           = useState<Record<string, boolean>>({})
-  const [savingDispon, setSavingDispon] = useState(false)
-
   // Senha
   const [senhaAtual, setSenhaAtual]   = useState('')
   const [senhaNova, setSenhaNova]     = useState('')
@@ -128,15 +108,6 @@ export default function MembroPerfil() {
       setDataNasc(c.data_nascimento ? c.data_nascimento.substring(0, 10) : '')
       setObservacao(c.observacao ?? '')
       setNumero(c.numero ?? '')
-      setDispon({
-        disponivel_domingo_manha: c.disponivel_domingo_manha ?? false,
-        disponivel_domingo_tarde: c.disponivel_domingo_tarde ?? false,
-        disponivel_domingo_noite: c.disponivel_domingo_noite ?? false,
-        disponivel_semana_manha:  c.disponivel_semana_manha  ?? false,
-        disponivel_semana_tarde:  c.disponivel_semana_tarde  ?? false,
-        disponivel_semana_noite:  c.disponivel_semana_noite  ?? false,
-        disponivel_sabado:        c.disponivel_sabado        ?? false,
-      })
       const itens = Array.isArray(esc.data) ? esc.data : []
       const s = { total: itens.length, serviu: 0, faltou: 0, justificado: 0 }
       itens.forEach(i => {
@@ -201,16 +172,6 @@ export default function MembroPerfil() {
     finally { setSavingNum(false) }
   }
 
-  async function handleSalvarDispon() {
-    setSavingDispon(true)
-    try {
-      const r = await membroApi.put<Cerimoniario>('/perfil', dispon)
-      setCer(r.data as Cerimoniario)
-      toast.success('Disponibilidade atualizada!')
-    } catch { toast.error('Erro ao salvar disponibilidade') }
-    finally { setSavingDispon(false) }
-  }
-
   async function handleSalvarSenha() {
     if (!senhaAtual || !senhaNova || !senhaConf) { toast.error('Preencha todos os campos'); return }
     if (senhaNova !== senhaConf)  { toast.error('As senhas não coincidem'); return }
@@ -238,16 +199,6 @@ export default function MembroPerfil() {
   const { total, serviu, faltou, justificado } = stats
   const comStatus = serviu + faltou + justificado
   const pct       = comStatus > 0 ? Math.round((serviu / comStatus) * 100) : null
-
-  const DISPON_LABELS: { key: keyof typeof dispon; label: string }[] = [
-    { key: 'disponivel_domingo_manha',  label: 'Domingo manhã'  },
-    { key: 'disponivel_domingo_tarde',  label: 'Domingo tarde'  },
-    { key: 'disponivel_domingo_noite',  label: 'Domingo noite'  },
-    { key: 'disponivel_semana_manha',   label: 'Semana manhã'   },
-    { key: 'disponivel_semana_tarde',   label: 'Semana tarde'   },
-    { key: 'disponivel_semana_noite',   label: 'Semana noite'   },
-    { key: 'disponivel_sabado',         label: 'Sábado'         },
-  ]
 
   return (
     <>
@@ -351,35 +302,25 @@ export default function MembroPerfil() {
             </div>
           </div>
 
-          {/* Disponibilidade */}
-          <div className="perf-card card p-5 space-y-0">
-            <div className="flex items-center gap-2 mb-4">
-              <Shield size={15} style={{ color: '#fbbf24' }} />
-              <h2 className="text-sm font-bold text-gray-800 flex-1">Disponibilidade</h2>
+          {/* Alterar Senha */}
+          <div className="perf-card card p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <Lock size={15} style={{ color: '#fbbf24' }} />
+              <h2 className="text-sm font-bold text-gray-800">Alterar Senha</h2>
             </div>
-
-            {DISPON_LABELS.map(({ key, label }) => (
-              <DisponToggle
-                key={key}
-                label={label}
-                value={dispon[key]}
-                onChange={v => setDispon(prev => ({ ...prev, [key]: v }))}
-              />
-            ))}
-
-            {cer?.indisponivel_temporario && (
-              <div className="mt-3 px-4 py-3 rounded-xl bg-red-50 border border-red-100">
-                <p className="text-xs font-bold text-red-600 mb-0.5">Indisponível Temporariamente</p>
-                <p className="text-xs text-red-500">Fale com o coordenador para regularizar.</p>
-              </div>
-            )}
-
-            <button onClick={handleSalvarDispon} disabled={savingDispon}
-              className="btn-primary w-full justify-center mt-4 py-2.5 text-sm">
+            <PasswordField label="Senha Atual"           value={senhaAtual} onChange={setSenhaAtual} />
+            <PasswordField label="Nova Senha"            value={senhaNova}  onChange={setSenhaNova} />
+            <PasswordField label="Confirmar Nova Senha"  value={senhaConf}  onChange={setSenhaConf} />
+            <button onClick={handleSalvarSenha} disabled={savingSenha}
+              className="btn-primary w-full justify-center py-2.5 text-sm">
               <Save size={14} />
-              {savingDispon ? 'Salvando...' : 'Salvar Disponibilidade'}
+              {savingSenha ? 'Alterando...' : 'Alterar Senha'}
             </button>
+            <p className="text-xs text-gray-400 text-center">
+              Senha padrão: data de nascimento no formato <span className="font-mono">DDMMAAAA</span>
+            </p>
           </div>
+
         </div>
 
         {/* ── Right column ──────────────────────────────────────────────────── */}
@@ -391,60 +332,39 @@ export default function MembroPerfil() {
               <User size={15} style={{ color: '#fbbf24' }} />
               <h2 className="text-sm font-bold text-gray-800">Dados Pessoais</h2>
             </div>
-
-            <div className="grid sm:grid-cols-2 gap-4">
-              {/* Nome — read-only */}
-              <div>
-                <label className="label">Nome completo</label>
-                <input type="text" value={cer?.nome ?? ''} readOnly
-                  className="input-field bg-gray-50 text-gray-400 cursor-default" />
-              </div>
-              {/* Usuário — read-only */}
-              <div>
-                <label className="label">Usuário</label>
-                <input type="text" value={cer?.usuario ?? ''} readOnly
-                  className="input-field bg-gray-50 text-gray-400 cursor-default" />
-              </div>
+            <div>
+              <label className="label">Nome completo</label>
+              <input type="text" value={cer?.nome ?? ''} readOnly
+                className="input-field bg-gray-50 text-gray-400 cursor-default" />
             </div>
-
-            {/* Data de Nascimento */}
+            <div>
+              <label className="label">Usuário</label>
+              <input type="text" value={cer?.usuario ?? ''} readOnly
+                className="input-field bg-gray-50 text-gray-400 cursor-default" />
+            </div>
             <div>
               <label className="label">
                 <Calendar size={12} className="inline mr-1.5" />
                 Data de Nascimento
               </label>
-              <input
-                type="date"
-                value={dataNasc}
-                onChange={e => setDataNasc(e.target.value)}
-                className="input-field"
-              />
+              <input type="date" value={dataNasc}
+                onChange={e => setDataNasc(e.target.value)} className="input-field" />
               {dataNasc && (
                 <p className="text-xs text-gray-400 mt-1.5 capitalize">
                   {format(safeDate(dataNasc), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                 </p>
               )}
             </div>
-
-            {/* Observação */}
             <div>
               <label className="label">Observação</label>
-              <textarea
-                value={observacao}
-                onChange={e => setObservacao(e.target.value)}
-                rows={3}
-                placeholder="Informações adicionais..."
-                className="input-field resize-none"
-              />
+              <textarea value={observacao} onChange={e => setObservacao(e.target.value)}
+                rows={3} placeholder="Informações adicionais..." className="input-field resize-none" />
             </div>
-
-            <div className="flex gap-3 pt-1">
-              <button onClick={handleSalvarDados} disabled={savingDados}
-                className="btn-primary flex-1 justify-center py-2.5 text-sm">
-                <Save size={14} />
-                {savingDados ? 'Salvando...' : 'Salvar Dados'}
-              </button>
-            </div>
+            <button onClick={handleSalvarDados} disabled={savingDados}
+              className="btn-primary w-full justify-center py-2.5 text-sm">
+              <Save size={14} />
+              {savingDados ? 'Salvando...' : 'Salvar Dados'}
+            </button>
             <p className="text-xs text-gray-400">Nome e usuário só podem ser alterados pelo coordenador.</p>
           </div>
 
@@ -456,13 +376,9 @@ export default function MembroPerfil() {
             </div>
             <div>
               <label className="label">Número WhatsApp</label>
-              <input
-                type="tel"
-                value={numero}
+              <input type="tel" value={numero}
                 onChange={e => setNumero(maskPhone(e.target.value))}
-                placeholder="(85) 99999-9999"
-                className="input-field"
-              />
+                placeholder="(85) 99999-9999" className="input-field" />
             </div>
             <button onClick={handleSalvarNumero} disabled={savingNum}
               className="btn-primary w-full justify-center py-2.5 text-sm">
@@ -471,28 +387,6 @@ export default function MembroPerfil() {
             </button>
           </div>
 
-          {/* Presença summary */}
-         
-          {/* Alterar Senha */}
-          <div className="perf-card card p-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <Lock size={15} style={{ color: '#fbbf24' }} />
-              <h2 className="text-sm font-bold text-gray-800">Alterar Senha</h2>
-            </div>
-            <PasswordField label="Senha Atual"          value={senhaAtual} onChange={setSenhaAtual} />
-            <div className="grid sm:grid-cols-2 gap-4">
-              <PasswordField label="Nova Senha"          value={senhaNova}  onChange={setSenhaNova} />
-              <PasswordField label="Confirmar Nova Senha" value={senhaConf}  onChange={setSenhaConf} />
-            </div>
-            <button onClick={handleSalvarSenha} disabled={savingSenha}
-              className="btn-primary w-full justify-center py-2.5 text-sm">
-              <Save size={14} />
-              {savingSenha ? 'Alterando...' : 'Alterar Senha'}
-            </button>
-            <p className="text-xs text-gray-400 text-center">
-              Senha padrão: data de nascimento no formato <span className="font-mono">DDMMAAAA</span>
-            </p>
-          </div>
         </div>
       </div>
     </>

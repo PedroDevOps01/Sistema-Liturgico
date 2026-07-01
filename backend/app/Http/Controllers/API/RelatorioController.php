@@ -42,7 +42,7 @@ class RelatorioController extends Controller
                 COUNT(CASE WHEN p.status = 'faltou'      THEN 1 END) as faltou,
                 COUNT(CASE WHEN p.status = 'substituido' THEN 1 END) as substituido,
                 COUNT(CASE WHEN p.status = 'justificado' THEN 1 END) as justificado,
-                COUNT(CASE WHEN p.status = 'confirmado'  THEN 1 END) as confirmado,
+                COUNT(CASE WHEN COALESCE(p.status_confirmacao, ei.status_confirmacao) = 'confirmado' THEN 1 END) as confirmado,
                 COUNT(CASE WHEN p.id IS NULL AND c.data < CURRENT_DATE THEN 1 END) as sem_registro
             ")
             ->first();
@@ -66,7 +66,7 @@ class RelatorioController extends Controller
                 COUNT(CASE WHEN p.status = 'faltou'      THEN 1 END) as faltou,
                 COUNT(CASE WHEN p.status = 'substituido' THEN 1 END) as substituido,
                 COUNT(CASE WHEN p.status = 'justificado' THEN 1 END) as justificado,
-                COUNT(CASE WHEN p.status = 'confirmado'  THEN 1 END) as confirmado,
+                COUNT(CASE WHEN COALESCE(p.status_confirmacao, ei.status_confirmacao) = 'confirmado' THEN 1 END) as confirmado,
                 COUNT(CASE WHEN p.id IS NULL AND c.data < CURRENT_DATE THEN 1 END) as sem_registro
             ")
             ->orderByRaw('serviu DESC, total DESC')
@@ -93,7 +93,7 @@ class RelatorioController extends Controller
                 COUNT(CASE WHEN p.status = 'faltou'      THEN 1 END) as faltou,
                 COUNT(CASE WHEN p.status = 'substituido' THEN 1 END) as substituido,
                 COUNT(CASE WHEN p.status = 'justificado' THEN 1 END) as justificado,
-                COUNT(CASE WHEN p.status = 'confirmado'  THEN 1 END) as confirmado,
+                COUNT(CASE WHEN COALESCE(p.status_confirmacao, ei.status_confirmacao) = 'confirmado' THEN 1 END) as confirmado,
                 COUNT(CASE WHEN p.id IS NULL AND c.data < CURRENT_DATE THEN 1 END) as sem_registro
             ")
             ->orderBy('c.data')
@@ -115,11 +115,14 @@ class RelatorioController extends Controller
             ->values();
 
         // ── Substituições detalhadas ────────────────────────────────────
+        // c_orig usa original_cerimoniario_id quando disponível (substituição pelo portal do membro)
+        // ou ei.cerimoniario_id como fallback (substituição manual pelo admin)
         $substituicoes = DB::table('presencas as p')
             ->join('escala_itens as ei', 'ei.id', '=', 'p.escala_item_id')
             ->join('escalas as e',       'e.id',  '=', 'ei.escala_id')
             ->join('celebracoes as cel', 'cel.id', '=', 'e.celebracao_id')
-            ->join('cerimoniarios as c_orig', 'c_orig.id', '=', 'ei.cerimoniario_id')
+            ->join('cerimoniarios as c_orig', 'c_orig.id', '=',
+                DB::raw('COALESCE(p.original_cerimoniario_id, ei.cerimoniario_id)'))
             ->leftJoin('cerimoniarios as c_sub', 'c_sub.id', '=', 'p.substituto_id')
             ->where('p.status', 'substituido')
             ->whereBetween('cel.data', [$inicio, $fim])
