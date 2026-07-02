@@ -13,7 +13,7 @@ import toast from 'react-hot-toast'
 import api from '../lib/api'
 import type { Celebracao, Escala } from '../types'
 import { formatHorario } from '../lib/dateUtils'
-import { getTipoCelebracao, getQtdCerimoniariosDefault, mapTipoParaFlags } from '../lib/celebracaoUtils'
+import { getTipoCelebracao, getQtdCerimoniariosDefault, mapTipoParaFlags, pluralizar } from '../lib/celebracaoUtils'
 import { getPeriodoLiturgico } from '../lib/liturgico'
 import { compressToBlob, readFileAsBase64 } from '../lib/fileUtils'
 import Badge from '../components/common/Badge'
@@ -203,10 +203,18 @@ export default function Calendario() {
         return erro ? { ...r, erro: Object.values(erro.erros).flat().join(' ') } : { ...r, erro: undefined }
       }))
 
-      if (resultado.data.criadas.length) toast.success(`${resultado.data.criadas.length} celebração(ões) importada(s)!`)
-      if (resultado.data.puladas.length) toast(`${resultado.data.puladas.length} já existia(m) e foram puladas.`)
-      if (resultado.data.erros.length) toast.error(`${resultado.data.erros.length} linha(s) com erro — corrija e tente novamente.`)
-      else closeAgendaModal()
+      if (resultado.data.criadas.length) {
+        const n = resultado.data.criadas.length
+        toast.success(`${n} ${pluralizar(n, 'celebração importada', 'celebrações importadas')}!`)
+      }
+      if (resultado.data.puladas.length) {
+        const n = resultado.data.puladas.length
+        toast(`${n} ${pluralizar(n, 'já existia e foi pulada', 'já existiam e foram puladas')}.`)
+      }
+      if (resultado.data.erros.length) {
+        const n = resultado.data.erros.length
+        toast.error(`${n} ${pluralizar(n, 'linha com erro', 'linhas com erro')} — corrija e tente novamente.`)
+      } else closeAgendaModal()
 
       reloadCelebracoes()
     } catch {

@@ -1,5 +1,9 @@
 import type { Celebracao } from '../types'
 
+export function pluralizar(n: number, singular: string, plural: string): string {
+  return n === 1 ? singular : plural
+}
+
 export type FlagKey =
   | 'celebracao_noite' | 'celebracao_6h' | 'possui_bispo' | 'celebracao_palavra'
   | 'celebracao_solene' | 'casamento' | 'batismo' | 'crisma'

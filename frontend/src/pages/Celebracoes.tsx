@@ -11,7 +11,7 @@ import api from '../lib/api'
 import { getPeriodoLiturgico, getPeriodoBadgeVariant } from '../lib/liturgico'
 import type { Celebracao, Escala } from '../types'
 import type { FlagKey } from '../lib/celebracaoUtils'
-import { getQtdCerimoniariosDefault, mapTipoParaFlags, resolverTipoLabel, TIPO_CELEBRACAO_OPCOES, PERIODOS_LITURGICOS } from '../lib/celebracaoUtils'
+import { getQtdCerimoniariosDefault, mapTipoParaFlags, resolverTipoLabel, TIPO_CELEBRACAO_OPCOES, PERIODOS_LITURGICOS, pluralizar } from '../lib/celebracaoUtils'
 import Modal from '../components/common/Modal'
 import CelebracaoImportPreview from '../components/celebracoes/CelebracaoImportPreview'
 import type { CelebracaoPreviewRow, CelebracaoImportResultado } from '../components/celebracoes/CelebracaoImportPreview'
@@ -544,10 +544,18 @@ export default function Celebracoes() {
         return erro ? { ...r, erro: Object.values(erro.erros).flat().join(' ') } : { ...r, erro: undefined }
       }))
 
-      if (resultado.data.criadas.length) toast.success(`${resultado.data.criadas.length} celebração(ões) importada(s)!`)
-      if (resultado.data.puladas.length) toast(`${resultado.data.puladas.length} já existia(m) e foram puladas.`)
-      if (resultado.data.erros.length) toast.error(`${resultado.data.erros.length} linha(s) com erro — corrija e tente novamente.`)
-      else closeCsvModal()
+      if (resultado.data.criadas.length) {
+        const n = resultado.data.criadas.length
+        toast.success(`${n} ${pluralizar(n, 'celebração importada', 'celebrações importadas')}!`)
+      }
+      if (resultado.data.puladas.length) {
+        const n = resultado.data.puladas.length
+        toast(`${n} ${pluralizar(n, 'já existia e foi pulada', 'já existiam e foram puladas')}.`)
+      }
+      if (resultado.data.erros.length) {
+        const n = resultado.data.erros.length
+        toast.error(`${n} ${pluralizar(n, 'linha com erro', 'linhas com erro')} — corrija e tente novamente.`)
+      } else closeCsvModal()
 
       loadList()
     } catch {

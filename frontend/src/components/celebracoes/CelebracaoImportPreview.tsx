@@ -1,5 +1,5 @@
 import { Plus, Trash2 } from 'lucide-react'
-import { TIPO_CELEBRACAO_OPCOES, PERIODOS_LITURGICOS } from '../../lib/celebracaoUtils'
+import { TIPO_CELEBRACAO_OPCOES, PERIODOS_LITURGICOS, pluralizar } from '../../lib/celebracaoUtils'
 
 export interface CelebracaoPreviewRow {
   _key: string
@@ -191,7 +191,7 @@ export default function CelebracaoImportPreview({ rows, onChange, onConfirm, con
           disabled={confirming || validas.length === 0}
           className="btn-primary text-sm px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {confirming ? 'Importando...' : `Importar ${validas.length} celebração(ões)`}
+          {confirming ? 'Importando...' : `Importar ${validas.length} ${pluralizar(validas.length, 'celebração', 'celebrações')}`}
         </button>
       </div>
     </div>
