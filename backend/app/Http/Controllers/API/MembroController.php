@@ -12,12 +12,17 @@ use App\Models\PedidoSubstituto;
 use App\Models\Presenca;
 use App\Models\Reuniao;
 use App\Models\ReuniaoPresenca;
+use App\Services\NotificacaoService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class MembroController extends Controller
 {
+    public function __construct(private NotificacaoService $notificacao)
+    {
+    }
+
     private function cerimoniario(Request $request): Cerimoniario
     {
         return $request->user();
@@ -470,10 +475,13 @@ class MembroController extends Controller
 
     // ── Comunicados ────────────────────────────────────────────────────────
 
-    public function comunicados(): JsonResponse
+    public function comunicados(Request $request): JsonResponse
     {
+        $cer = $this->cerimoniario($request);
+
         $lista = Comunicado::where('ativo', true)
-            ->where(fn($q) => $q->whereNull('expira_em')->orWhere('expira_em', '>', now()))
+            ->where(fn ($q) => $q->whereNull('expira_em')->orWhere('expira_em', '>', now()))
+            ->where(fn ($q) => $q->whereNull('cerimoniario_id')->orWhere('cerimoniario_id', $cer->id))
             ->orderByDesc('created_at')
             ->get();
 
@@ -654,6 +662,15 @@ class MembroController extends Controller
             'motivo'          => $validated['motivo'] ?? null,
         ]);
 
+        $periodo = $validated['data'] === $validated['data_fim']
+            ? $validated['data']
+            : "{$validated['data']} a {$validated['data_fim']}";
+        $motivo = $validated['motivo'] ?? 'não informado';
+        $this->notificacao->alertarAdmin(
+            'Bloqueio de período solicitado',
+            "{$cer->nome} bloqueou o período {$periodo}.\nMotivo: {$motivo}"
+        );
+
         return response()->json(['data' => $registro, 'message' => 'Período bloqueado.'], 201);
     }
 
@@ -707,6 +724,15 @@ class MembroController extends Controller
         $pedido = PedidoSubstituto::updateOrCreate(
             ['escala_item_id' => $item->id],
             ['motivo' => $validated['motivo'] ?? null, 'resolvido' => false]
+        );
+
+        $item->loadMissing('escala.celebracao');
+        $celebracao = $item->escala?->celebracao;
+        $quando = $celebracao ? \Carbon\Carbon::parse($celebracao->data)->format('d/m/Y') . ' ' . substr($celebracao->horario, 0, 5) : 'data não identificada';
+        $motivo = $validated['motivo'] ?? 'não informado';
+        $this->notificacao->alertarAdmin(
+            'Pedido de substituto',
+            "{$cer->nome} pediu substituto na escala de {$quando}.\nMotivo: {$motivo}"
         );
 
         return response()->json(['data' => $pedido, 'message' => 'Pedido registrado.'], 201);

@@ -4,6 +4,8 @@ use App\Http\Controllers\API\AgendaImportController;
 use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\BuscaController;
 use App\Http\Controllers\API\ChatController;
+use App\Http\Controllers\API\ComunicadoController;
+use App\Http\Controllers\API\WhatsappController;
 use App\Http\Controllers\API\ConfirmacaoController;
 use App\Http\Controllers\API\ConsultaRapidaController;
 use App\Http\Controllers\API\CelebracaoController;
@@ -44,6 +46,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/chat', [ChatController::class, 'chat']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+
+    // WhatsApp (Evolution API)
+    Route::get('/whatsapp/status', [WhatsappController::class, 'status']);
+
+    // Comunicados (admin)
+    Route::apiResource('comunicados', ComunicadoController::class)->only(['index', 'store', 'update', 'destroy']);
 
     // Busca global
     Route::get('/busca', [BuscaController::class, 'index']);

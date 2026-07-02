@@ -190,7 +190,7 @@ EOF
 log "CORS configurado"
 
 # ── 8. Laravel: instalar e migrar ────────────────────────────────────────────
-warn "[8/10] Instalando dependências PHP e rodando migrations..."
+warn "[8/11] Instalando dependências PHP e rodando migrations..."
 cd ${APP_DIR}/backend
 sudo -u www-data composer install --no-dev --optimize-autoloader --quiet --ignore-platform-reqs
 sudo -u www-data php artisan migrate --force --seed
@@ -202,8 +202,14 @@ sudo -u www-data php artisan route:cache
 sudo -u www-data php artisan view:cache
 log "Laravel configurado"
 
-# ── 9. Build do frontend ──────────────────────────────────────────────────────
-warn "[9/10] Buildando React (pode demorar ~2 min)..."
+# ── 9. Cron do Laravel Scheduler ──────────────────────────────────────────────
+warn "[9/11] Configurando cron do scheduler (lembretes, aniversários, etc)..."
+CRON_LINE="* * * * * cd ${APP_DIR}/backend && php artisan schedule:run >> /dev/null 2>&1"
+(sudo -u www-data crontab -l 2>/dev/null | grep -vF "artisan schedule:run"; echo "$CRON_LINE") | sudo -u www-data crontab -
+log "Cron configurado (roda schedule:run a cada minuto como www-data)"
+
+# ── 10. Build do frontend ──────────────────────────────────────────────────────
+warn "[10/11] Buildando React (pode demorar ~2 min)..."
 cd ~/Escala/frontend
 npm install --quiet
 npm run build --quiet
@@ -212,8 +218,8 @@ sudo cp -r ~/Escala/frontend/dist/. ${APP_DIR}/frontend/dist/
 sudo chown -R www-data:www-data ${APP_DIR}/frontend/dist
 log "Frontend buildado em ${APP_DIR}/frontend/dist"
 
-# ── 10. Nginx ─────────────────────────────────────────────────────────────────
-warn "[10/10] Configurando Nginx..."
+# ── 11. Nginx ─────────────────────────────────────────────────────────────────
+warn "[11/11] Configurando Nginx..."
 NGINX_SERVER_NAME="_"
 [ -n "$DOMAIN" ] && NGINX_SERVER_NAME="${DOMAIN} www.${DOMAIN}"
 

@@ -10,6 +10,7 @@ use App\Models\EscalaItem;
 use App\Models\Funcao;
 use App\Models\Configuracao;
 use App\Models\HistoricoEscala;
+use App\Services\NotificacaoService;
 use Illuminate\Support\Str;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -19,6 +20,10 @@ use Illuminate\Support\Facades\DB;
 
 class EscalaController extends Controller
 {
+    public function __construct(private NotificacaoService $notificacao)
+    {
+    }
+
     public function index(Request $request): JsonResponse
     {
         $query = Escala::with(['celebracao', 'criador', 'escalaItens.cerimoniario', 'escalaItens.funcao']);
@@ -114,6 +119,8 @@ class EscalaController extends Controller
 
             $escala->load(['celebracao', 'criador', 'escalaItens.cerimoniario', 'escalaItens.funcao']);
 
+            $this->notificarEscalaPublicada($escala);
+
             return response()->json([
                 'data' => $escala,
                 'message' => 'Escala criada com sucesso.',
@@ -121,6 +128,27 @@ class EscalaController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
+        }
+    }
+
+    /** Notifica cada cerimoniário escalado assim que a escala é criada (não existe estado de rascunho hoje). */
+    private function notificarEscalaPublicada(Escala $escala): void
+    {
+        $celebracao = $escala->celebracao;
+        if (! $celebracao) {
+            return;
+        }
+
+        $data    = \Carbon\Carbon::parse($celebracao->data)->locale('pt_BR')->isoFormat('DD/MM/YYYY (dddd)');
+        $horario = substr($celebracao->horario, 0, 5);
+        $tipo    = $this->getTipoCelebracao($celebracao);
+
+        $texto = "*Escala publicada*\n\n{$tipo} — {$celebracao->periodo_liturgico}\n📅 {$data}\n⏰ {$horario}\n\nConfira sua função no Portal do Cerimoniário.";
+
+        foreach ($escala->escalaItens as $item) {
+            if ($item->cerimoniario) {
+                $this->notificacao->enviarParaCerimoniario($item->cerimoniario, $texto, 'escala', $escala);
+            }
         }
     }
 

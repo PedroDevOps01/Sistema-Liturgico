@@ -6,12 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Models\Cerimoniario;
 use App\Models\Reuniao;
 use App\Models\ReuniaoPresenca;
+use App\Services\NotificacaoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ReuniaoController extends Controller
 {
+    public function __construct(private NotificacaoService $notificacao)
+    {
+    }
+
     public function index(): JsonResponse
     {
         $reunioes = Reuniao::with([
@@ -58,6 +63,8 @@ class ReuniaoController extends Controller
             DB::commit();
             $reuniao->load(['presencas', 'presencas.cerimoniario']);
 
+            $this->enviarConvites($reuniao, $cerimoniarios);
+
             return response()->json([
                 'data'    => $reuniao,
                 'message' => 'Reunião criada com sucesso.',
@@ -66,6 +73,20 @@ class ReuniaoController extends Controller
             DB::rollBack();
             throw $e;
         }
+    }
+
+    /** Envia o convite automaticamente para os cerimoniários convidados. */
+    private function enviarConvites(Reuniao $reuniao, array $cerimoniarioIds): void
+    {
+        if (empty($cerimoniarioIds)) {
+            return;
+        }
+
+        $texto = $this->buildConviteTexto($reuniao);
+
+        Cerimoniario::whereIn('id', $cerimoniarioIds)->get()->each(
+            fn (Cerimoniario $c) => $this->notificacao->enviarParaCerimoniario($c, $texto, 'reuniao', $reuniao)
+        );
     }
 
     public function show(Reuniao $reuniao): JsonResponse
@@ -168,6 +189,14 @@ class ReuniaoController extends Controller
 
     public function convite(Reuniao $reuniao): JsonResponse
     {
+        return response()->json([
+            'data'    => ['texto' => $this->buildConviteTexto($reuniao)],
+            'message' => 'Convite gerado.',
+        ]);
+    }
+
+    private function buildConviteTexto(Reuniao $reuniao): string
+    {
         $data    = \Carbon\Carbon::parse($reuniao->data)->locale('pt_BR')->isoFormat('DD/MM/YYYY (dddd)');
         $horario = substr($reuniao->horario, 0, 5);
 
@@ -194,9 +223,6 @@ class ReuniaoController extends Controller
         $linhas[] = '';
         $linhas[] = 'Que Deus abençoe a todos!';
 
-        return response()->json([
-            'data'    => ['texto' => implode("\n", $linhas)],
-            'message' => 'Convite gerado.',
-        ]);
+        return implode("\n", $linhas);
     }
 }

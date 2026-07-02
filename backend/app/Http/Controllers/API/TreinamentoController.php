@@ -6,12 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Models\Cerimoniario;
 use App\Models\Treinamento;
 use App\Models\TreinamentoPresenca;
+use App\Services\NotificacaoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class TreinamentoController extends Controller
 {
+    public function __construct(private NotificacaoService $notificacao)
+    {
+    }
+
     public function index(): JsonResponse
     {
         $treinamentos = Treinamento::with([
@@ -67,6 +72,8 @@ class TreinamentoController extends Controller
 
             $treinamento->load(['presencas', 'presencas.cerimoniario', 'competencias']);
 
+            $this->enviarConvites($treinamento, $cerimoniarios);
+
             return response()->json([
                 'data'    => $treinamento,
                 'message' => 'Treinamento criado com sucesso.',
@@ -75,6 +82,20 @@ class TreinamentoController extends Controller
             DB::rollBack();
             throw $e;
         }
+    }
+
+    /** Envia o convite automaticamente para os cerimoniários convocados. */
+    private function enviarConvites(Treinamento $treinamento, array $cerimoniarioIds): void
+    {
+        if (empty($cerimoniarioIds)) {
+            return;
+        }
+
+        $texto = $this->buildConviteTexto($treinamento);
+
+        Cerimoniario::whereIn('id', $cerimoniarioIds)->get()->each(
+            fn (Cerimoniario $c) => $this->notificacao->enviarParaCerimoniario($c, $texto, 'treinamento', $treinamento)
+        );
     }
 
     public function show(Treinamento $treinamento): JsonResponse
@@ -198,6 +219,14 @@ class TreinamentoController extends Controller
 
     public function convite(Treinamento $treinamento): JsonResponse
     {
+        return response()->json([
+            'data'    => ['texto' => $this->buildConviteTexto($treinamento)],
+            'message' => 'Convite gerado.',
+        ]);
+    }
+
+    private function buildConviteTexto(Treinamento $treinamento): string
+    {
         $data    = \Carbon\Carbon::parse($treinamento->data)->locale('pt_BR')->isoFormat('DD/MM/YYYY (dddd)');
         $horario = substr($treinamento->horario, 0, 5);
         $funcoes = ! empty($treinamento->funcoes) ? implode(', ', $treinamento->funcoes) : null;
@@ -219,9 +248,6 @@ class TreinamentoController extends Controller
         $linhas[] = '';
         $linhas[] = 'Que Deus abençoe a todos! 🙏';
 
-        return response()->json([
-            'data'    => ['texto' => implode("\n", $linhas)],
-            'message' => 'Convite gerado.',
-        ]);
+        return implode("\n", $linhas);
     }
 }
