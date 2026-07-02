@@ -290,11 +290,7 @@ class EscalaController extends Controller
         $isDomingo = $data->dayOfWeek === 0;
         $isSabado  = $data->dayOfWeek === 6;
 
-        $todos = Cerimoniario::where('ativo', true)
-            ->where('indisponivel_temporario', false)
-            ->get();
-
-        $disponiveis = $todos->filter(function ($c) use ($isDomingo, $isSabado, $isManha, $isTarde, $isNoite) {
+        $disponivelNoPeriodo = function ($c) use ($isDomingo, $isSabado, $isManha, $isTarde) {
             if ($isDomingo) {
                 if ($isManha) return $c->disponivel_domingo_manha;
                 if ($isTarde) return $c->disponivel_domingo_tarde;
@@ -304,9 +300,15 @@ class EscalaController extends Controller
             if ($isManha)  return $c->disponivel_semana_manha;
             if ($isTarde)  return $c->disponivel_semana_tarde;
             return $c->disponivel_semana_noite;
-        });
+        };
 
-        // Exclui quem já está em escala na mesma data
+        // Shuffle antes de pontuar: mantém as regras de elegibilidade/score intactas, mas garante
+        // que empates (mesmo score, ex: vários que nunca serviram) não sejam sempre desempatados
+        // pela mesma ordem (id de cadastro) — sortByDesc é estável, então a ordem embaralhada aqui
+        // se propaga como critério de desempate.
+        $todos = Cerimoniario::where('ativo', true)->get()->shuffle();
+
+        // Exclui quem já está em escala na mesma data (vale para todos, inclusive mestre/experiente)
         $jaEscaladosIds = DB::table('escala_itens as ei')
             ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
             ->join('celebracoes as c', 'c.id', '=', 'e.celebracao_id')
@@ -317,24 +319,39 @@ class EscalaController extends Controller
             ->pluck('ei.cerimoniario_id')
             ->unique();
 
-        $disponiveis = $disponiveis->reject(fn ($c) => $jaEscaladosIds->contains($c->id));
+        $todos = $todos->reject(fn ($c) => $jaEscaladosIds->contains($c->id));
+
+        // Pool normal: respeita indisponibilidade temporária e disponibilidade por dia/período
+        $disponiveis = $todos->filter(
+            fn ($c) => ! $c->indisponivel_temporario && $disponivelNoPeriodo($c)
+        );
+
+        // Pool prioritário (mestre/experiente): para os slots que exigem essa qualificação, a
+        // disponibilidade cadastrada (por dia/período) e o "indisponível temporário" são ignorados —
+        // assume-se que essas pessoas topam servir mesmo fora do que está marcado no cadastro.
+        $poolMestreExperiente = $todos->filter(fn ($c) => $c->mestre || $c->experiente);
+
+        $scoreFn = function ($pool) use ($data) {
+            $ultimoServico = DB::table('escala_itens as ei')
+                ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
+                ->join('celebracoes as c', 'c.id', '=', 'e.celebracao_id')
+                ->whereIn('ei.cerimoniario_id', $pool->pluck('id'))
+                ->where('c.data', '<', $data->toDateString())
+                ->select('ei.cerimoniario_id', DB::raw('MAX(c.data) as ultimo'))
+                ->groupBy('ei.cerimoniario_id')
+                ->get()
+                ->keyBy('cerimoniario_id');
+
+            return $pool->map(function ($c) use ($ultimoServico, $data) {
+                $last = $ultimoServico->get($c->id);
+                $dias = $last ? $data->diffInDays(\Carbon\Carbon::parse($last->ultimo)) : 9999;
+                return ['cerimoniario' => $c, 'score' => $dias];
+            })->sortByDesc('score')->values();
+        };
 
         // Score por rotatividade: quem serviu há mais tempo vem primeiro
-        $ultimoServico = DB::table('escala_itens as ei')
-            ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
-            ->join('celebracoes as c', 'c.id', '=', 'e.celebracao_id')
-            ->whereIn('ei.cerimoniario_id', $disponiveis->pluck('id'))
-            ->where('c.data', '<', $data->toDateString())
-            ->select('ei.cerimoniario_id', DB::raw('MAX(c.data) as ultimo'))
-            ->groupBy('ei.cerimoniario_id')
-            ->get()
-            ->keyBy('cerimoniario_id');
-
-        $scored = $disponiveis->map(function ($c) use ($ultimoServico, $data) {
-            $last = $ultimoServico->get($c->id);
-            $dias = $last ? $data->diffInDays(\Carbon\Carbon::parse($last->ultimo)) : 9999;
-            return ['cerimoniario' => $c, 'score' => $dias];
-        })->sortByDesc('score')->values();
+        $scored          = $scoreFn($disponiveis);
+        $scoredMestreExp = $scoreFn($poolMestreExperiente);
 
         // Monta estrutura de slots
         $estrutura = $this->buildEstruturaSimples($celebracao);
@@ -348,14 +365,10 @@ class EscalaController extends Controller
         foreach ($estrutura as $idx => $slot) {
             $label = $slot['funcao_label'];
 
-            // Filtra candidatos ainda não atribuídos
-            $disponiveis = $scored->filter(fn ($s) => ! $usados->contains($s['cerimoniario']->id));
-
             if (in_array($label, $slotsExperientes)) {
-                // Pool restrito: apenas experiente=true OU mestre=true
-                $qualificados = $disponiveis->filter(
-                    fn ($s) => $s['cerimoniario']->experiente || $s['cerimoniario']->mestre
-                );
+                // Pool prioritário: mestre/experiente, ignorando a disponibilidade cadastrada
+                $qualificados = $scoredMestreExp->filter(fn ($s) => ! $usados->contains($s['cerimoniario']->id));
+
                 if ($label === 'Mestre') {
                     // Dentro dos qualificados, prefere mestre=true primeiro
                     $candidatos = $qualificados->filter(fn ($s) => $s['cerimoniario']->mestre);
@@ -365,17 +378,25 @@ class EscalaController extends Controller
                 } else {
                     $candidatos = $qualificados;
                 }
-                // Último recurso: qualquer disponível (evita slot vazio)
+
+                // Último recurso: se não há nenhum mestre/experiente, cai para o pool normal
                 if ($candidatos->isEmpty()) {
-                    $candidatos = $disponiveis;
+                    $candidatos = $scored->filter(fn ($s) => ! $usados->contains($s['cerimoniario']->id));
                 }
             } else {
-                // Demais funções: prioriza quem não é experiente nem mestre
-                $candidatos = $disponiveis->filter(
+                // Demais funções: prioriza quem não é experiente nem mestre, respeitando disponibilidade normal
+                $disponiveisSlot = $scored->filter(fn ($s) => ! $usados->contains($s['cerimoniario']->id));
+                $candidatos = $disponiveisSlot->filter(
                     fn ($s) => ! $s['cerimoniario']->experiente && ! $s['cerimoniario']->mestre
                 );
                 if ($candidatos->isEmpty()) {
-                    $candidatos = $disponiveis;
+                    $candidatos = $disponiveisSlot;
+                }
+                // Último recurso: se ninguém está disponível nem entre os experientes/mestres (que
+                // olham disponibilidade normal aqui), preenche obrigatoriamente com mestre/experiente
+                // ignorando a disponibilidade cadastrada deles — evita deixar a função vazia.
+                if ($candidatos->isEmpty()) {
+                    $candidatos = $scoredMestreExp->filter(fn ($s) => ! $usados->contains($s['cerimoniario']->id));
                 }
             }
 
@@ -552,12 +573,26 @@ class EscalaController extends Controller
 
     private function getTipoCelebracao(\App\Models\Celebracao $c): string
     {
-        if ($c->casamento)           return 'Casamento';
-        if ($c->batismo)             return 'Batismo';
-        if ($c->crisma)              return 'Crisma';
-        if ($c->celebracao_palavra)  return 'Celebração da Palavra';
-        if ($c->celebracao_solene)   return 'Missa Solene';
-        if ($c->celebracao_6h)       return 'Missa';
+        // Ordem de prioridade: a primeira característica marcada define o tipo.
+        // Sem nenhuma marcada (ou Santa Missa), o tipo é "Missa".
+        if ($c->casamento)            return 'Casamento';
+        if ($c->batismo)              return 'Batismo';
+        if ($c->crisma)               return 'Crisma';
+        if ($c->primeira_eucaristia)  return 'Primeira Eucaristia';
+        if ($c->quinta_eucaristica)   return 'Quinta Eucarística';
+        if ($c->triduo)               return 'Tríduo';
+        if ($c->ordenacao)            return 'Ordenação';
+        if ($c->exequias)             return 'Exéquias';
+        if ($c->vigilia_pascal)       return 'Vigília Pascal';
+        if ($c->paixao_senhor)        return 'Paixão do Senhor';
+        if ($c->corpus_christi)       return 'Corpus Christi';
+        if ($c->missa_crismal)        return 'Missa Crismal';
+        if ($c->missa_pontifical)     return 'Missa Pontifical';
+        if ($c->adoracao_santissimo)  return 'Adoração ao Santíssimo';
+        if ($c->procissao)            return 'Procissão';
+        if ($c->via_sacra)            return 'Via-Sacra';
+        if ($c->celebracao_palavra)   return 'Celebração da Palavra';
+        if ($c->celebracao_solene)    return 'Missa Solene';
         return 'Missa';
     }
 

@@ -60,6 +60,8 @@ export interface Celebracao {
   batismo: boolean
   crisma: boolean
   primeira_eucaristia: boolean
+  quinta_eucaristica: boolean
+  triduo: boolean
   adoracao_santissimo: boolean
   procissao: boolean
   via_sacra: boolean

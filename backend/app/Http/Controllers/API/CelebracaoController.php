@@ -7,6 +7,7 @@ use App\Models\Celebracao;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class CelebracaoController extends Controller
 {
@@ -67,6 +68,21 @@ class CelebracaoController extends Controller
             'casamento' => 'boolean',
             'batismo' => 'boolean',
             'crisma' => 'boolean',
+            'primeira_eucaristia' => 'boolean',
+            'quinta_eucaristica' => 'boolean',
+            'triduo' => 'boolean',
+            'adoracao_santissimo' => 'boolean',
+            'procissao' => 'boolean',
+            'via_sacra' => 'boolean',
+            'exequias' => 'boolean',
+            'vigilia_pascal' => 'boolean',
+            'paixao_senhor' => 'boolean',
+            'ordenacao' => 'boolean',
+            'santa_missa' => 'boolean',
+            'missa_crismal' => 'boolean',
+            'corpus_christi' => 'boolean',
+            'missa_pontifical' => 'boolean',
+            'cor_liturgica' => 'nullable|string',
             'final_de_semana' => 'boolean',
             'observacao' => 'nullable|string',
         ];
@@ -130,6 +146,48 @@ class CelebracaoController extends Controller
         return response()->json([
             'data' => $created,
             'message' => count($created) . ' celebrações criadas com sucesso.',
+        ], 201);
+    }
+
+    /** Import em lote (CSV ou extração via IA) — cada item validado/criado independentemente */
+    public function importar(Request $request): JsonResponse
+    {
+        $request->validate(['celebracoes' => 'required|array|min:1|max:500']);
+
+        $criadas = [];
+        $puladas = [];
+        $erros = [];
+
+        foreach ($request->input('celebracoes', []) as $i => $item) {
+            $validator = Validator::make(is_array($item) ? $item : [], $this->validateCelebracaoFields());
+
+            if ($validator->fails()) {
+                $erros[] = ['indice' => $i, 'erros' => $validator->errors()->toArray()];
+                continue;
+            }
+
+            $validated = $validator->validated();
+
+            $duplicada = Celebracao::where('ativo', true)
+                ->where('data', $validated['data'])
+                ->where('horario', $validated['horario'])
+                ->exists();
+
+            if ($duplicada) {
+                $puladas[] = [
+                    'indice' => $i,
+                    'motivo' => "Já existe celebração em {$validated['data']} às {$validated['horario']}",
+                ];
+                continue;
+            }
+
+            $this->applyAutoNoite($validated);
+            $criadas[] = Celebracao::create($validated);
+        }
+
+        return response()->json([
+            'data' => compact('criadas', 'puladas', 'erros'),
+            'message' => count($criadas) . ' criada(s), ' . count($puladas) . ' pulada(s), ' . count($erros) . ' com erro(s).',
         ], 201);
     }
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\API\AgendaImportController;
 use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\BuscaController;
 use App\Http\Controllers\API\ChatController;
@@ -73,6 +74,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('celebracoes/{celebracao}/toggle-ativo', [CelebracaoController::class, 'toggleAtivo']);
     Route::get('celebracoes/grupo', [CelebracaoController::class, 'porGrupo']);
     Route::post('celebracoes/batch', [CelebracaoController::class, 'storeBatch']);
+    Route::post('celebracoes/import', [CelebracaoController::class, 'importar']);
+    Route::post('celebracoes/extrair-agenda', [AgendaImportController::class, 'extrair']);
     Route::apiResource('celebracoes', CelebracaoController::class)
         ->parameters(['celebracoes' => 'celebracao']);
 

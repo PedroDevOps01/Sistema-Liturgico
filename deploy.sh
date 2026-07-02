@@ -239,7 +239,7 @@ server {
         fastcgi_param SCRIPT_FILENAME \$document_root/index.php;
         fastcgi_param SCRIPT_NAME /index.php;
         fastcgi_param REQUEST_URI \$request_uri;
-        fastcgi_read_timeout 60;
+        fastcgi_read_timeout 120;
         include fastcgi_params;
     }
 

@@ -4,13 +4,17 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Plus, Search, Pencil, Calendar, Clock, CheckCircle2, XCircle, Moon, X, Copy, MoreVertical, ToggleLeft, ToggleRight, Users } from 'lucide-react'
+import { Plus, Search, Pencil, Calendar, Clock, CheckCircle2, XCircle, Moon, X, Copy, MoreVertical, ToggleLeft, ToggleRight, Users, Upload, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useNavigate, useLocation } from 'react-router-dom'
 import api from '../lib/api'
 import { getPeriodoLiturgico, getPeriodoBadgeVariant } from '../lib/liturgico'
 import type { Celebracao, Escala } from '../types'
+import type { FlagKey } from '../lib/celebracaoUtils'
+import { getQtdCerimoniariosDefault, mapTipoParaFlags, resolverTipoLabel, TIPO_CELEBRACAO_OPCOES, PERIODOS_LITURGICOS } from '../lib/celebracaoUtils'
 import Modal from '../components/common/Modal'
+import CelebracaoImportPreview from '../components/celebracoes/CelebracaoImportPreview'
+import type { CelebracaoPreviewRow, CelebracaoImportResultado } from '../components/celebracoes/CelebracaoImportPreview'
 import ConfirmDialog from '../components/common/ConfirmDialog'
 import ActionsDrawer from '../components/common/ActionsDrawer'
 import InativosToggle from '../components/common/InativosToggle'
@@ -20,23 +24,7 @@ import SelectField from '../components/common/SelectField'
 import CalcNote from '../components/common/CalcNote'
 import { SkeletonRow } from '../components/common/LoadingSpinner'
 
-const PERIODOS = [
-  'Advento',
-  'Tempo do Natal',
-  'Tempo Comum',
-  'Quaresma',
-  'Tríduo Pascal',
-  'Tempo Pascal',
-  'Pentecostes',
-]
-
-type FlagKey =
-  | 'celebracao_noite' | 'celebracao_6h' | 'possui_bispo' | 'celebracao_palavra'
-  | 'celebracao_solene' | 'casamento' | 'batismo' | 'crisma'
-  | 'primeira_eucaristia' | 'adoracao_santissimo' | 'procissao' | 'via_sacra'
-  | 'exequias' | 'vigilia_pascal' | 'paixao_senhor' | 'ordenacao'
-  | 'santa_missa' | 'missa_crismal' | 'corpus_christi' | 'missa_pontifical'
-  | 'quinta_eucaristica'
+const PERIODOS = PERIODOS_LITURGICOS
 
 const FLAG_OPTIONS: { key: FlagKey; label: string; group?: string }[] = [
   // Tipo da celebração
@@ -58,6 +46,7 @@ const FLAG_OPTIONS: { key: FlagKey; label: string; group?: string }[] = [
   { key: 'procissao',           label: 'Procissão',               group: 'devocao' },
   { key: 'corpus_christi',      label: 'Corpus Christi',          group: 'devocao' },
   { key: 'via_sacra',           label: 'Via-Sacra',              group: 'devocao' },
+  { key: 'triduo',              label: 'Tríduo',                  group: 'devocao' },
   // Datas solenes
   { key: 'vigilia_pascal',      label: 'Vigília Pascal',          group: 'solene' },
   { key: 'paixao_senhor',       label: 'Paixão do Senhor',        group: 'solene' },
@@ -126,6 +115,7 @@ const schema = z.object({
   corpus_christi: z.boolean(),
   missa_pontifical: z.boolean(),
   quinta_eucaristica: z.boolean(),
+  triduo: z.boolean(),
   cor_liturgica: z.string().optional(),
   observacao: z.string().optional(),
 })
@@ -158,6 +148,7 @@ const defaultFormValues: FormData = {
   corpus_christi: false,
   missa_pontifical: false,
   quinta_eucaristica: false,
+  triduo: false,
   cor_liturgica: '',
   observacao: '',
 }
@@ -261,6 +252,101 @@ function defaultBatchForm(): BatchForm {
   return { data: '', horario: '', periodo_liturgico: 'Tempo Comum' }
 }
 
+// ─── CSV import ──────────────────────────────────────────────────────────
+
+function parseDataCSV(raw: string): string | undefined {
+  const s = raw.trim()
+  const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (br) {
+    const [, d, m, y] = br
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+  return undefined
+}
+
+function parseHorarioCSV(raw: string): string | undefined {
+  const s = raw.trim().toLowerCase()
+  let m = s.match(/^(\d{1,2}):(\d{2})/)
+  if (m) return `${m[1].padStart(2, '0')}:${m[2]}`
+  m = s.match(/^(\d{1,2})h(\d{2})?$/)
+  if (m) return `${m[1].padStart(2, '0')}:${(m[2] ?? '00').padStart(2, '0')}`
+  return undefined
+}
+
+function parseCelebracaoCSV(text: string): CelebracaoPreviewRow[] {
+  const lines = text
+    .replace(/^﻿/, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .trim()
+    .split('\n')
+
+  if (lines.length < 2) return []
+
+  const headers = lines[0].split(/[,;]/).map((h) => h.trim().toLowerCase().replace(/['"]/g, ''))
+
+  return lines
+    .slice(1)
+    .filter((l) => l.trim())
+    .map((line, i) => {
+      const values = line.split(/[,;]/).map((v) => v.trim().replace(/^["']|["']$/g, ''))
+      const get = (key: string) => {
+        const idx = headers.indexOf(key)
+        return idx >= 0 ? values[idx]?.trim() || undefined : undefined
+      }
+
+      const rawData = get('data') ?? ''
+      const rawHorario = get('horario') ?? ''
+      const data = parseDataCSV(rawData)
+      const horario = parseHorarioCSV(rawHorario)
+      const tipo = resolverTipoLabel(get('tipo'), { fuzzy: true })
+
+      const rawPeriodo = get('periodo_liturgico') ?? get('periodo') ?? get('período')
+      const periodoMatch = rawPeriodo
+        ? PERIODOS_LITURGICOS.find((p) => p.toLowerCase() === rawPeriodo.toLowerCase())
+        : undefined
+      const periodo_liturgico = periodoMatch ?? (data ? getPeriodoLiturgico(data).periodo : undefined)
+
+      const rawQtd = get('qtd_cerimoniarios') ?? get('qtd') ?? get('cerimoniarios')
+      const qtdParsed = rawQtd ? parseInt(rawQtd, 10) : NaN
+      const qtd_cerimoniarios = Number.isFinite(qtdParsed) && qtdParsed > 0
+        ? qtdParsed
+        : (horario ? getQtdCerimoniariosDefault(horario) : undefined)
+
+      let erro: string | undefined
+      if (!data) erro = `Data inválida: "${rawData}"`
+      else if (!horario) erro = `Horário inválido: "${rawHorario}"`
+
+      return {
+        _key: `csv-${i}-${Math.random().toString(36).slice(2)}`,
+        data: data ?? '',
+        horario: horario ?? '',
+        tipo,
+        periodo_liturgico,
+        qtd_cerimoniarios,
+        observacao: get('observacao') ?? get('obs'),
+        erro,
+      }
+    })
+}
+
+function downloadTemplateCelebracoes() {
+  const rows = [
+    'data,horario,tipo,periodo_liturgico,qtd_cerimoniarios,observacao',
+    '05/07/2026,09:30,Missa,Tempo Comum,5,',
+    '09/07/2026,19:30,Quinta Eucarística,Tempo Comum,6,Diácono Samuel',
+    '26/07/2026,17:00,Casamento,Tempo Comum,6,Ítalo e Laurícia',
+  ]
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'modelo_celebracoes.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function Celebracoes() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -282,6 +368,12 @@ export default function Celebracoes() {
   const [batchForms, setBatchForms] = useState<BatchForm[]>([])
   const [repetirDias, setRepetirDias] = useState(false)
   const [batchSaving, setBatchSaving] = useState(false)
+  // Import CSV
+  const [csvModalOpen, setCsvModalOpen] = useState(false)
+  const [csvRows, setCsvRows] = useState<CelebracaoPreviewRow[]>([])
+  const [csvError, setCsvError] = useState<string | null>(null)
+  const [csvImporting, setCsvImporting] = useState(false)
+  const [csvResultado, setCsvResultado] = useState<CelebracaoImportResultado | null>(null)
 
   const { register, handleSubmit, reset, watch, setValue, formState: { errors, isSubmitting } } =
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -295,8 +387,7 @@ export default function Celebracoes() {
     if (horario) {
       const [h] = horario.split(':').map(Number)
       setValue('celebracao_noite', h >= 17)
-      // Regra: antes das 18h → 5 cerimoniários; 18h+ → 6 (+ Turiferário)
-      setValue('qtd_cerimoniarios', h >= 18 ? 6 : 5)
+      setValue('qtd_cerimoniarios', getQtdCerimoniariosDefault(horario))
     }
   }, [horario, setValue])
 
@@ -394,7 +485,7 @@ export default function Celebracoes() {
           horario: bf.horario,
           periodo_liturgico: bf.periodo_liturgico,
           celebracao_noite: h >= 17,
-          qtd_cerimoniarios: h >= 18 ? 6 : 5,   // regra: 5 antes das 18h, 6 a partir das 18h
+          qtd_cerimoniarios: getQtdCerimoniariosDefault(bf.horario || '00:00'),
         }
       })
       await api.post('/celebracoes/batch', { celebracoes })
@@ -405,6 +496,64 @@ export default function Celebracoes() {
       toast.error('Erro ao criar celebrações em lote')
     } finally {
       setBatchSaving(false)
+    }
+  }
+
+  // ─── CSV import ─────────────────────────────────────────────────────────
+
+  function handleCsvFile(file: File) {
+    setCsvError(null)
+    setCsvResultado(null)
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const text = e.target?.result as string
+      const rows = parseCelebracaoCSV(text)
+      if (rows.length === 0) {
+        setCsvError('Nenhum dado válido encontrado. Verifique o formato do arquivo.')
+      }
+      setCsvRows(rows)
+    }
+    reader.onerror = () => setCsvError('Erro ao ler o arquivo.')
+    reader.readAsText(file, 'UTF-8')
+  }
+
+  function closeCsvModal() {
+    setCsvModalOpen(false)
+    setCsvRows([])
+    setCsvError(null)
+    setCsvResultado(null)
+  }
+
+  async function confirmarImportCsv() {
+    if (csvRows.length === 0) return
+    setCsvImporting(true)
+    try {
+      const payload = csvRows.map((r) => ({
+        data: r.data,
+        horario: r.horario,
+        periodo_liturgico: r.periodo_liturgico || (r.data ? getPeriodoLiturgico(r.data).periodo : undefined),
+        qtd_cerimoniarios: r.qtd_cerimoniarios ?? (r.horario ? getQtdCerimoniariosDefault(r.horario) : undefined),
+        observacao: r.observacao || null,
+        ...mapTipoParaFlags(r.tipo),
+      }))
+      const resultado = await api.post<CelebracaoImportResultado>('/celebracoes/import', { celebracoes: payload })
+
+      setCsvResultado(resultado.data)
+      setCsvRows((prev) => prev.map((r, i) => {
+        const erro = resultado.data.erros.find((e) => e.indice === i)
+        return erro ? { ...r, erro: Object.values(erro.erros).flat().join(' ') } : { ...r, erro: undefined }
+      }))
+
+      if (resultado.data.criadas.length) toast.success(`${resultado.data.criadas.length} celebração(ões) importada(s)!`)
+      if (resultado.data.puladas.length) toast(`${resultado.data.puladas.length} já existia(m) e foram puladas.`)
+      if (resultado.data.erros.length) toast.error(`${resultado.data.erros.length} linha(s) com erro — corrija e tente novamente.`)
+      else closeCsvModal()
+
+      loadList()
+    } catch {
+      toast.error('Erro ao importar celebrações')
+    } finally {
+      setCsvImporting(false)
     }
   }
 
@@ -468,6 +617,8 @@ export default function Celebracoes() {
           batismo:             data.batismo,
           crisma:              data.crisma,
           primeira_eucaristia: data.primeira_eucaristia,
+          quinta_eucaristica:  data.quinta_eucaristica,
+          triduo:              data.triduo,
           adoracao_santissimo: data.adoracao_santissimo,
           procissao:           data.procissao,
           via_sacra:           data.via_sacra,
@@ -924,10 +1075,16 @@ export default function Celebracoes() {
         title="Celebrações"
         subtitle={`${list.length} celebrações cadastradas`}
         action={
-          <button onClick={openCreate} className="btn-primary">
-            <Plus size={18} />
-            Nova Celebração
-          </button>
+          <>
+            <button onClick={() => setCsvModalOpen(true)} className="btn-secondary">
+              <Upload size={16} />
+              Importar CSV
+            </button>
+            <button onClick={openCreate} className="btn-primary">
+              <Plus size={18} />
+              Nova Celebração
+            </button>
+          </>
         }
       />
 
@@ -1139,6 +1296,83 @@ export default function Celebracoes() {
       </div>
 
       {FormModal}
+
+      {/* ─── CSV Import Modal ──────────────────────────────────────────── */}
+      <Modal
+        isOpen={csvModalOpen}
+        onClose={closeCsvModal}
+        title="Importar Celebrações por CSV"
+        size="xl"
+      >
+        <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
+            <p className="font-semibold mb-1">Formato esperado do CSV:</p>
+            <code className="text-xs bg-blue-100 px-2 py-0.5 rounded">
+              data, horario, tipo, periodo_liturgico, qtd_cerimoniarios, observacao
+            </code>
+            <p className="mt-1.5 text-xs text-blue-600">
+              Data no formato <strong>DD/MM/AAAA</strong>, horário em <strong>HH:mm</strong>.
+              O <strong>tipo</strong> é opcional — deixe em branco (ou "Missa") para uma missa comum,
+              ou escreva exatamente uma destas características:
+            </p>
+            <p className="mt-1 text-xs text-blue-700 leading-relaxed">
+              {TIPO_CELEBRACAO_OPCOES.filter((t) => t !== 'Missa').join(' · ')}
+            </p>
+            <p className="mt-1.5 text-xs text-blue-600">
+              <strong>periodo_liturgico</strong> e <strong>qtd_cerimoniarios</strong> também são
+              opcionais — se deixados em branco, são calculados automaticamente a partir da data e do
+              horário (e continuam editáveis na pré-visualização antes de confirmar). Se preencher o
+              período manualmente, use exatamente um destes:
+            </p>
+            <p className="mt-1 text-xs text-blue-700 leading-relaxed">
+              {PERIODOS_LITURGICOS.join(' · ')}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={downloadTemplateCelebracoes}
+            className="flex items-center gap-2 text-sm text-wine-700 hover:text-wine-900 font-medium transition-colors"
+          >
+            <Download size={16} />
+            Baixar modelo CSV
+          </button>
+
+          <label
+            htmlFor="celebracoes-csv-file-input"
+            className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-wine-400 hover:bg-wine-50/30 transition-colors"
+          >
+            <Upload size={32} className="text-gray-400" />
+            <div className="text-center">
+              <p className="text-sm font-medium text-gray-600">Clique para selecionar o arquivo</p>
+              <p className="text-xs text-gray-400 mt-0.5">Apenas arquivos .csv</p>
+            </div>
+            <input
+              id="celebracoes-csv-file-input"
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(e) => { if (e.target.files?.[0]) handleCsvFile(e.target.files[0]) }}
+            />
+          </label>
+
+          {csvError && (
+            <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {csvError}
+            </p>
+          )}
+
+          {csvRows.length > 0 && (
+            <CelebracaoImportPreview
+              rows={csvRows}
+              onChange={setCsvRows}
+              onConfirm={confirmarImportCsv}
+              confirming={csvImporting}
+              resultado={csvResultado}
+            />
+          )}
+        </div>
+      </Modal>
 
       <ConfirmDialog
         isOpen={!!deleteTarget}

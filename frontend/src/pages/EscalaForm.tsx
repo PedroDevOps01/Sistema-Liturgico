@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { formatHorario } from '../lib/dateUtils'
+import { getTipoCelebracao } from '../lib/celebracaoUtils'
 import {
   DndContext,
   closestCenter,
@@ -359,15 +360,6 @@ function abbreviateFuncao(label: string | null | undefined): string {
 function horarioCompact(raw: string): string {
   const [h, m] = raw.substring(0, 5).split(':').map(Number)
   return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`
-}
-
-function getTipoCelebracao(c: Celebracao): string {
-  if (c.casamento)          return 'Casamento'
-  if (c.batismo)            return 'Batismo'
-  if (c.crisma)             return 'Crisma'
-  if (c.celebracao_palavra) return 'Celebração da Palavra'
-  if (c.celebracao_solene)  return 'Missa Solene'
-  return 'Missa'
 }
 
 function buildWhatsAppText(celebracao: Celebracao, items: EscalaItem[]): string {
@@ -1204,30 +1196,52 @@ export default function EscalaForm() {
             </button>
           </div>
 
-          <div className="space-y-3 text-sm text-gray-600">
+          <div className="space-y-3 text-sm text-gray-600 max-h-[70vh] overflow-y-auto pr-1">
             <p>
-              A sugestão é baseada em <strong>rotatividade</strong> — acólitos que serviram há mais tempo recebem prioridade — e em <strong>disponibilidade</strong> declarada no horário da celebração.
+              A sugestão passa por várias etapas, nesta ordem, até decidir quem preencher em cada função:
             </p>
+
+            <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 space-y-2">
+              <p className="font-semibold text-gray-800">1. Quem entra na lista</p>
+              <ul className="text-gray-600 text-xs space-y-1 list-disc pl-4">
+                <li>Só cerimoniários <strong>ativos</strong> são considerados.</li>
+                <li>Quem já foi escalado em <strong>outra celebração no mesmo dia</strong> é excluído.</li>
+                <li>Para as funções comuns, só entra quem está marcado como <strong>disponível</strong> naquele dia da semana e período (domingo manhã/tarde/noite, sábado, semana manhã/tarde/noite) e que não está com <strong>"indisponível temporário"</strong> ativado.</li>
+              </ul>
+            </div>
+
+            <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 space-y-2">
+              <p className="font-semibold text-gray-800">2. Quem vem primeiro (rotatividade)</p>
+              <p className="text-gray-600 text-xs">
+                Prioridade para quem serviu <strong>há mais tempo</strong> — contando os dias desde a última vez que serviu numa escala. Quem nunca serviu tem prioridade máxima. Em caso de <strong>empate</strong> (ex: vários que nunca serviram), a ordem entre eles é sorteada a cada vez que a sugestão é gerada, para não favorecer sempre a mesma pessoa.
+              </p>
+            </div>
 
             <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 space-y-2">
               <p className="font-semibold text-amber-900 flex items-center gap-1.5">
                 <span className="w-4 h-4 rounded-full bg-amber-700 text-white text-[10px] flex items-center justify-center font-bold">!</span>
-                Funções prioritárias
+                3. Funções prioritárias
               </p>
               <p className="text-amber-800 text-xs">
-                <strong>Mestre, 2º Auxiliar e Turiferário</strong> são reservados exclusivamente para cerimoniários marcados como <strong>Experiente</strong> ou <strong>Mestre</strong>. Para a função Mestre, acólitos com a flag <em>Mestre</em> têm preferência dentro desse grupo.
+                <strong>Mestre, 2º Auxiliar e Turiferário</strong> são reservados exclusivamente para cerimoniários marcados como <strong>Experiente</strong> ou <strong>Mestre</strong>. Para a função Mestre, quem tem a flag <em>Mestre</em> tem preferência dentro desse grupo.
+              </p>
+              <p className="text-amber-800 text-xs">
+                Só para essas 3 funções, a <strong>disponibilidade cadastrada</strong> (dia/período) e o <strong>"indisponível temporário"</strong> são <strong>ignorados</strong> — assume-se que mestres e experientes topam servir mesmo fora do que está marcado no cadastro deles. Se não houver nenhum mestre/experiente disponível de jeito nenhum, a sugestão cai para o pool comum como último recurso.
               </p>
             </div>
 
             <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 space-y-2">
-              <p className="font-semibold text-gray-800">Demais funções</p>
+              <p className="font-semibold text-gray-800">4. Demais funções</p>
               <p className="text-gray-600 text-xs">
-                São preenchidas priorizando cerimoniários <strong>sem</strong> a flag experiente ou mestre, reservando os mais experientes para as funções acima. Se não houver disponíveis nesse perfil, a sugestão considera qualquer cerimoniário disponível.
+                São preenchidas priorizando cerimoniários <strong>sem</strong> a flag experiente ou mestre, reservando os mais experientes para as funções acima (e, ao contrário das prioritárias, respeitando a disponibilidade cadastrada normalmente). Se não houver ninguém nesse perfil disponível, a sugestão considera qualquer cerimoniário disponível dentro da disponibilidade normal.
+              </p>
+              <p className="text-gray-600 text-xs">
+                <strong>Último recurso:</strong> se mesmo assim ninguém estiver disponível (nem experiente, nem não-experiente), a função é preenchida obrigatoriamente com um mestre/experiente <strong>ignorando a disponibilidade cadastrada dele</strong> — a função só fica vazia se não houver absolutamente ninguém elegível, nem mestres/experientes.
               </p>
             </div>
 
             <p className="text-xs text-gray-400">
-              Nenhum cerimoniário é sugerido duas vezes na mesma escala.
+              Nenhum cerimoniário é sugerido duas vezes na mesma escala. A sugestão é só um ponto de partida — qualquer função pode ser trocada manualmente depois.
             </p>
           </div>
 

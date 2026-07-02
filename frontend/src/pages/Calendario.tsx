@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, Plus, Calendar,
-  Clock, X, Eye, Pencil, FileDown, Copy, MessageCircle,
+  Clock, X, Eye, Pencil, FileDown, Copy, MessageCircle, FileUp, Upload,
 } from 'lucide-react'
 import { format, addMonths, subMonths, startOfMonth, endOfMonth,
          startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth,
@@ -13,8 +13,19 @@ import toast from 'react-hot-toast'
 import api from '../lib/api'
 import type { Celebracao, Escala } from '../types'
 import { formatHorario } from '../lib/dateUtils'
+import { getTipoCelebracao, getQtdCerimoniariosDefault, mapTipoParaFlags } from '../lib/celebracaoUtils'
+import { getPeriodoLiturgico } from '../lib/liturgico'
+import { compressToBlob, readFileAsBase64 } from '../lib/fileUtils'
 import Badge from '../components/common/Badge'
 import LoadingSpinner from '../components/common/LoadingSpinner'
+import Modal from '../components/common/Modal'
+import CelebracaoImportPreview from '../components/celebracoes/CelebracaoImportPreview'
+import type { CelebracaoPreviewRow, CelebracaoImportResultado } from '../components/celebracoes/CelebracaoImportPreview'
+
+const MESES_PT = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+]
 
 const CELEBRATION_COLORS: Record<string, string> = {
   casamento:          'bg-pink-500',
@@ -39,13 +50,7 @@ function getCelebrationColor(c: Celebracao): string {
 }
 
 function getCelebrationLabel(c: Celebracao): string {
-  if (c.casamento)          return 'Casamento'
-  if (c.batismo)            return 'Batismo'
-  if (c.crisma)             return 'Crisma'
-  if (c.celebracao_solene)  return 'Solene'
-  if (c.celebracao_palavra) return 'Palavra'
-  if (c.celebracao_6h)      return '6h'
-  return 'Missa'
+  return getTipoCelebracao(c)
 }
 
 function safeParseDate(raw: string): Date {
@@ -66,15 +71,30 @@ export default function Calendario() {
   const [celebracoes, setCelebracoes] = useState<Celebracao[]>([])
   const [loading, setLoading] = useState(true)
   const [drawer, setDrawer] = useState<DrawerState | null>(null)
+  // Importar agenda (PDF/Imagem via IA)
+  const [agendaModalOpen, setAgendaModalOpen] = useState(false)
+  const [agendaFile, setAgendaFile] = useState<File | null>(null)
+  const [agendaMes, setAgendaMes] = useState(currentMonth.getMonth() + 1)
+  const [agendaAno, setAgendaAno] = useState(currentMonth.getFullYear())
+  const [agendaExtraindo, setAgendaExtraindo] = useState(false)
+  const [agendaError, setAgendaError] = useState<string | null>(null)
+  const [agendaRows, setAgendaRows] = useState<CelebracaoPreviewRow[]>([])
+  const [agendaImportando, setAgendaImportando] = useState(false)
+  const [agendaResultado, setAgendaResultado] = useState<CelebracaoImportResultado | null>(null)
 
-  useEffect(() => {
+  function reloadCelebracoes() {
     setLoading(true)
     const start = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
     const end   = format(endOfMonth(currentMonth),   'yyyy-MM-dd')
-    api.get<Celebracao[]>(`/celebracoes?data_inicio=${start}&data_fim=${end}`)
+    return api.get<Celebracao[]>(`/celebracoes?data_inicio=${start}&data_fim=${end}`)
       .then(r => setCelebracoes(Array.isArray(r.data) ? r.data : []))
       .catch(() => toast.error('Erro ao carregar celebrações'))
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    reloadCelebracoes()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMonth])
 
   async function openDrawer(c: Celebracao) {
@@ -98,6 +118,102 @@ export default function Calendario() {
       document.body.appendChild(a); a.click(); a.remove()
       window.URL.revokeObjectURL(url)
     } catch { toast.error('Erro ao baixar PDF') }
+  }
+
+  // ── Importar agenda (PDF/Imagem via IA) ─────────────────────────────────
+
+  function openAgendaModal() {
+    setAgendaMes(currentMonth.getMonth() + 1)
+    setAgendaAno(currentMonth.getFullYear())
+    setAgendaFile(null)
+    setAgendaRows([])
+    setAgendaError(null)
+    setAgendaResultado(null)
+    setAgendaModalOpen(true)
+  }
+
+  function closeAgendaModal() {
+    setAgendaModalOpen(false)
+    setAgendaFile(null)
+    setAgendaRows([])
+    setAgendaError(null)
+    setAgendaResultado(null)
+  }
+
+  async function extrairAgenda() {
+    if (!agendaFile) return
+    setAgendaExtraindo(true)
+    setAgendaError(null)
+    setAgendaRows([])
+    setAgendaResultado(null)
+    try {
+      let mimeType = agendaFile.type
+      let arquivo_base64: string
+      if (mimeType.startsWith('image/') && agendaFile.size > 2 * 1024 * 1024) {
+        const blob = await compressToBlob(agendaFile)
+        mimeType = 'image/jpeg'
+        arquivo_base64 = await readFileAsBase64(blob)
+      } else {
+        arquivo_base64 = await readFileAsBase64(agendaFile)
+      }
+
+      const r = await api.post<{ celebracoes: { data: string; horario: string; tipo: string; observacao?: string }[] }>(
+        '/celebracoes/extrair-agenda',
+        { arquivo_base64, mime_type: mimeType, mes: agendaMes, ano: agendaAno },
+        { timeout: 110_000 },
+      )
+
+      const rows: CelebracaoPreviewRow[] = r.data.celebracoes.map((c, i) => ({
+        _key: `ia-${i}-${Math.random().toString(36).slice(2)}`,
+        data: c.data,
+        horario: c.horario,
+        tipo: c.tipo,
+        periodo_liturgico: c.data ? getPeriodoLiturgico(c.data).periodo : undefined,
+        qtd_cerimoniarios: c.horario ? getQtdCerimoniariosDefault(c.horario) : undefined,
+        observacao: c.observacao,
+      }))
+
+      if (rows.length === 0) setAgendaError('Nenhuma celebração foi identificada na agenda enviada.')
+      setAgendaRows(rows)
+    } catch (err) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setAgendaError(msg ?? 'Erro ao extrair a agenda. Tente novamente ou cadastre manualmente.')
+    } finally {
+      setAgendaExtraindo(false)
+    }
+  }
+
+  async function confirmarImportAgenda() {
+    if (agendaRows.length === 0) return
+    setAgendaImportando(true)
+    try {
+      const payload = agendaRows.map((r) => ({
+        data: r.data,
+        horario: r.horario,
+        periodo_liturgico: r.periodo_liturgico || (r.data ? getPeriodoLiturgico(r.data).periodo : undefined),
+        qtd_cerimoniarios: r.qtd_cerimoniarios ?? (r.horario ? getQtdCerimoniariosDefault(r.horario) : undefined),
+        observacao: r.observacao || null,
+        ...mapTipoParaFlags(r.tipo),
+      }))
+      const resultado = await api.post<CelebracaoImportResultado>('/celebracoes/import', { celebracoes: payload })
+
+      setAgendaResultado(resultado.data)
+      setAgendaRows((prev) => prev.map((r, i) => {
+        const erro = resultado.data.erros.find((e) => e.indice === i)
+        return erro ? { ...r, erro: Object.values(erro.erros).flat().join(' ') } : { ...r, erro: undefined }
+      }))
+
+      if (resultado.data.criadas.length) toast.success(`${resultado.data.criadas.length} celebração(ões) importada(s)!`)
+      if (resultado.data.puladas.length) toast(`${resultado.data.puladas.length} já existia(m) e foram puladas.`)
+      if (resultado.data.erros.length) toast.error(`${resultado.data.erros.length} linha(s) com erro — corrija e tente novamente.`)
+      else closeAgendaModal()
+
+      reloadCelebracoes()
+    } catch {
+      toast.error('Erro ao importar celebrações')
+    } finally {
+      setAgendaImportando(false)
+    }
   }
 
   // ── Copy entire month ──────────────────────────────────
@@ -133,7 +249,7 @@ export default function Calendario() {
     const end   = format(endOfMonth(currentMonth),   'yyyy-MM-dd')
 
     const r = await api.get<{
-      celebracao?: { data: string; horario: string; periodo_liturgico: string }
+      celebracao?: Celebracao
       escala_itens?: { funcao_label?: string; funcao?: { titulo: string }; cerimoniario?: { nome: string; mestre?: boolean } }[]
     }[]>(`/escalas?data_inicio=${start}&data_fim=${end}`).catch(() => null)
 
@@ -158,8 +274,9 @@ export default function Calendario() {
           const [hh, mm] = (e.celebracao.horario ?? '00:00').substring(0, 5).split(':').map(Number)
           const hStr = mm === 0 ? `${hh}h` : `${hh}h${String(mm).padStart(2, '0')}`
           const periodo = e.celebracao.periodo_liturgico   // ← período após a data
+          const tipo = getTipoCelebracao(e.celebracao)
           lines.push(`${d} — ${periodo}`)
-          lines.push(`Missa às ${hStr}`)
+          lines.push(`${tipo} às ${hStr}`)
           ;(e.escala_itens ?? []).forEach(item => {
             const label  = item.funcao_label ?? item.funcao?.titulo ?? 'Função'
             const nome   = item.cerimoniario?.nome ?? 'A escalar'
@@ -248,6 +365,9 @@ export default function Calendario() {
                   style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)' }}
                   title="Enviar mês pelo WhatsApp">
             <MessageCircle size={15} /> WhatsApp
+          </button>
+          <button onClick={openAgendaModal} className="btn-secondary text-sm px-3 py-2" title="Importar agenda em PDF ou foto">
+            <FileUp size={15} /> Importar Agenda
           </button>
           <button onClick={() => navigate('/celebracoes')} className="btn-primary text-sm px-4 py-2">
             <Plus size={16} /> Nova Celebração
@@ -503,6 +623,102 @@ export default function Calendario() {
         </>,
         document.body
       )}
+
+      {/* ── Importar Agenda (PDF/Imagem via IA) ─────────────────────────── */}
+      <Modal isOpen={agendaModalOpen} onClose={closeAgendaModal} title="Importar Agenda (PDF ou Foto)" size="xl">
+        <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
+            Envie o PDF ou uma foto da agenda paroquial do mês. A IA identifica automaticamente os dias
+            com celebrações (Missa, Casamento, Quinta Eucarística etc.) e ignora compromissos que não
+            são celebrações (reuniões, terços, folgas, viagens...). Revise e edite antes de confirmar.
+          </div>
+
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="text-sm font-medium text-gray-600">
+              Mês
+              <select
+                value={agendaMes}
+                onChange={(e) => setAgendaMes(Number(e.target.value))}
+                className="input-field ml-2 py-1.5 w-40 inline-block"
+              >
+                {MESES_PT.map((m, i) => (
+                  <option key={m} value={i + 1}>{m}</option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm font-medium text-gray-600">
+              Ano
+              <input
+                type="number"
+                value={agendaAno}
+                onChange={(e) => setAgendaAno(Number(e.target.value))}
+                className="input-field ml-2 py-1.5 w-24 inline-block"
+              />
+            </label>
+          </div>
+
+          <label
+            htmlFor="agenda-file-input"
+            className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-wine-400 hover:bg-wine-50/30 transition-colors"
+          >
+            <Upload size={32} className="text-gray-400" />
+            <div className="text-center">
+              <p className="text-sm font-medium text-gray-600">
+                {agendaFile ? agendaFile.name : 'Clique para selecionar o PDF ou foto'}
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">PDF, JPG, PNG, WEBP ou HEIC</p>
+            </div>
+            <input
+              id="agenda-file-input"
+              type="file"
+              accept=".pdf,image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) {
+                  setAgendaFile(f)
+                  setAgendaRows([])
+                  setAgendaError(null)
+                  setAgendaResultado(null)
+                }
+              }}
+            />
+          </label>
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={extrairAgenda}
+              disabled={!agendaFile || agendaExtraindo}
+              className="btn-primary text-sm px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {agendaExtraindo ? 'Extraindo... (pode levar até 1 minuto)' : 'Extrair celebrações'}
+            </button>
+          </div>
+
+          {agendaExtraindo && (
+            <div className="flex items-center justify-center py-6">
+              <LoadingSpinner size="lg" />
+            </div>
+          )}
+
+          {agendaError && (
+            <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {agendaError}
+            </p>
+          )}
+
+          {agendaRows.length > 0 && (
+            <CelebracaoImportPreview
+              rows={agendaRows}
+              onChange={setAgendaRows}
+              onConfirm={confirmarImportAgenda}
+              confirming={agendaImportando}
+              resultado={agendaResultado}
+            />
+          )}
+        </div>
+      </Modal>
     </div>
   )
 }

@@ -199,11 +199,24 @@
     $dataBR = \Carbon\Carbon::parse($cel->data)->locale('pt_BR')->isoFormat('D [de] MMMM [de] YYYY');
 
     $tipo = 'Missa';
-    if ($cel->casamento)          $tipo = 'Casamento';
-    elseif ($cel->batismo)        $tipo = 'Batismo';
-    elseif ($cel->crisma)         $tipo = 'Crisma';
-    elseif ($cel->celebracao_palavra) $tipo = 'Celebração da Palavra';
-    elseif ($cel->celebracao_solene)  $tipo = 'Missa Solene';
+    if ($cel->casamento)               $tipo = 'Casamento';
+    elseif ($cel->batismo)             $tipo = 'Batismo';
+    elseif ($cel->crisma)              $tipo = 'Crisma';
+    elseif ($cel->primeira_eucaristia) $tipo = 'Primeira Eucaristia';
+    elseif ($cel->quinta_eucaristica)  $tipo = 'Quinta Eucarística';
+    elseif ($cel->triduo)              $tipo = 'Tríduo';
+    elseif ($cel->ordenacao)           $tipo = 'Ordenação';
+    elseif ($cel->exequias)            $tipo = 'Exéquias';
+    elseif ($cel->vigilia_pascal)      $tipo = 'Vigília Pascal';
+    elseif ($cel->paixao_senhor)       $tipo = 'Paixão do Senhor';
+    elseif ($cel->corpus_christi)      $tipo = 'Corpus Christi';
+    elseif ($cel->missa_crismal)       $tipo = 'Missa Crismal';
+    elseif ($cel->missa_pontifical)    $tipo = 'Missa Pontifical';
+    elseif ($cel->adoracao_santissimo) $tipo = 'Adoração ao Santíssimo';
+    elseif ($cel->procissao)           $tipo = 'Procissão';
+    elseif ($cel->via_sacra)           $tipo = 'Via-Sacra';
+    elseif ($cel->celebracao_palavra)  $tipo = 'Celebração da Palavra';
+    elseif ($cel->celebracao_solene)   $tipo = 'Missa Solene';
 
     $flags = [];
     if ($cel->celebracao_noite) $flags[] = 'Noturna';
