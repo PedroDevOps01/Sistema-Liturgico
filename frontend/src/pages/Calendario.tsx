@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, Plus, Calendar,
   Clock, X, Eye, Pencil, FileDown, Copy, MessageCircle, FileUp, Upload,
+  CheckSquare, Square, ListChecks,
 } from 'lucide-react'
 import { format, addMonths, subMonths, startOfMonth, endOfMonth,
          startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth,
@@ -71,6 +72,9 @@ export default function Calendario() {
   const [celebracoes, setCelebracoes] = useState<Celebracao[]>([])
   const [loading, setLoading] = useState(true)
   const [drawer, setDrawer] = useState<DrawerState | null>(null)
+  // Seleção de dias específicos para copiar
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedDays, setSelectedDays] = useState<Set<string>>(new Set())
   // Importar agenda (PDF/Imagem via IA)
   const [agendaModalOpen, setAgendaModalOpen] = useState(false)
   const [agendaFile, setAgendaFile] = useState<File | null>(null)
@@ -252,7 +256,8 @@ export default function Calendario() {
   ]
 
   // ── Build the month text (shared by copy and WhatsApp) ───────────────────
-  async function buildMonthText(): Promise<string | null> {
+  // `diasFiltro`, quando informado, restringe o texto só aos dias selecionados (YYYY-MM-DD).
+  async function buildMonthText(diasFiltro?: Set<string>): Promise<string | null> {
     const start = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
     const end   = format(endOfMonth(currentMonth),   'yyyy-MM-dd')
 
@@ -266,12 +271,16 @@ export default function Calendario() {
     const grouped: Record<string, typeof r.data> = {}
     r.data.forEach(e => {
       const key = e.celebracao?.data?.substring(0, 10) ?? ''
+      if (diasFiltro && !diasFiltro.has(key)) return
       if (!grouped[key]) grouped[key] = []
       grouped[key].push(e)
     })
 
+    if (Object.keys(grouped).length === 0) return null
+
     const monthName = format(currentMonth, "MMMM 'de' yyyy", { locale: ptBR }).toUpperCase()
-    const lines: string[] = [`📅 ESCALAS — ${monthName}`, '']
+    const titulo = diasFiltro ? `📅 ESCALAS SELECIONADAS — ${monthName}` : `📅 ESCALAS — ${monthName}`
+    const lines: string[] = [titulo, '']
 
     Object.keys(grouped).sort().forEach(dateKey => {
       const d = dateKey.split('-').reverse().slice(0, 2).join('/')
@@ -312,6 +321,41 @@ export default function Calendario() {
   async function sendMonthWhatsApp() {
     const text = await buildMonthText()
     if (!text) { toast.error('Nenhuma escala para este mês'); return }
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
+  }
+
+  // ── Seleção de dias específicos ───────────────────────────
+  function toggleSelectMode() {
+    setSelectMode(m => !m)
+    setSelectedDays(new Set())
+  }
+
+  function toggleDaySelection(key: string) {
+    setSelectedDays(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  async function copySelectedDays() {
+    if (selectedDays.size === 0) { toast.error('Selecione ao menos um dia'); return }
+    const text = await buildMonthText(selectedDays)
+    if (!text) { toast.error('Nenhuma escala encontrada nos dias selecionados'); return }
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        toast.success('Escalas selecionadas copiadas!')
+        setSelectMode(false)
+        setSelectedDays(new Set())
+      })
+      .catch(() => toast.error('Erro ao copiar'))
+  }
+
+  async function sendSelectedDaysWhatsApp() {
+    if (selectedDays.size === 0) { toast.error('Selecione ao menos um dia'); return }
+    const text = await buildMonthText(selectedDays)
+    if (!text) { toast.error('Nenhuma escala encontrada nos dias selecionados'); return }
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
   }
   // ───────────────────────────────────────────────────────
@@ -365,21 +409,43 @@ export default function Calendario() {
               <ChevronRight size={18} />
             </button>
           </div>
-          <button onClick={copyMonth} className="btn-secondary text-sm px-3 py-2" title="Copiar mês inteiro">
-            <Copy size={15} /> Copiar mês
-          </button>
-          <button onClick={sendMonthWhatsApp}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-xl text-white transition-all active:scale-95"
-                  style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)' }}
-                  title="Enviar mês pelo WhatsApp">
-            <MessageCircle size={15} /> WhatsApp
-          </button>
-          <button onClick={openAgendaModal} className="btn-secondary text-sm px-3 py-2" title="Importar agenda em PDF ou foto">
-            <FileUp size={15} /> Importar Agenda
-          </button>
-          <button onClick={() => navigate('/celebracoes')} className="btn-primary text-sm px-4 py-2">
-            <Plus size={16} /> Nova Celebração
-          </button>
+          {selectMode ? (
+            <>
+              <button onClick={copySelectedDays} className="btn-secondary text-sm px-3 py-2" title="Copiar dias selecionados">
+                <Copy size={15} /> Copiar selecionados ({selectedDays.size})
+              </button>
+              <button onClick={sendSelectedDaysWhatsApp}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-xl text-white transition-all active:scale-95"
+                      style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)' }}
+                      title="Enviar dias selecionados pelo WhatsApp">
+                <MessageCircle size={15} /> WhatsApp
+              </button>
+              <button onClick={toggleSelectMode} className="btn-secondary text-sm px-3 py-2" title="Cancelar seleção">
+                <X size={15} /> Cancelar
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={toggleSelectMode} className="btn-secondary text-sm px-3 py-2" title="Selecionar dias específicos para copiar">
+                <ListChecks size={15} /> Selecionar dias
+              </button>
+              <button onClick={copyMonth} className="btn-secondary text-sm px-3 py-2" title="Copiar mês inteiro">
+                <Copy size={15} /> Copiar mês
+              </button>
+              <button onClick={sendMonthWhatsApp}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-xl text-white transition-all active:scale-95"
+                      style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)' }}
+                      title="Enviar mês pelo WhatsApp">
+                <MessageCircle size={15} /> WhatsApp
+              </button>
+              <button onClick={openAgendaModal} className="btn-secondary text-sm px-3 py-2" title="Importar agenda em PDF ou foto">
+                <FileUp size={15} /> Importar Agenda
+              </button>
+              <button onClick={() => navigate('/celebracoes')} className="btn-primary text-sm px-4 py-2">
+                <Plus size={16} /> Nova Celebração
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -427,19 +493,23 @@ export default function Calendario() {
         ) : (
           <div className="grid grid-cols-7">
             {calDays.map((day, idx) => {
-              const key      = format(day, 'yyyy-MM-dd')
-              const dayCels  = (byDate[key] ?? []).sort((a, b) => a.horario.localeCompare(b.horario))
-              const inMonth  = isSameMonth(day, currentMonth)
-              const isT      = isToday(day)
-              const isSun    = idx % 7 === 0
-              const isSat    = idx % 7 === 6
+              const key        = format(day, 'yyyy-MM-dd')
+              const dayCels    = (byDate[key] ?? []).sort((a, b) => a.horario.localeCompare(b.horario))
+              const inMonth    = isSameMonth(day, currentMonth)
+              const isT        = isToday(day)
+              const isSun      = idx % 7 === 0
+              const isSat      = idx % 7 === 6
+              const selectable = selectMode && inMonth && dayCels.length > 0
+              const isSelected = selectedDays.has(key)
 
               return (
                 <div key={key}
+                     onClick={() => { if (selectable) toggleDaySelection(key) }}
                      className={`border-r border-b border-gray-100 p-1.5 min-h-[110px] flex flex-col transition-colors ${
+                       isSelected ? 'bg-wine-100 ring-2 ring-inset ring-wine-500' :
                        !inMonth ? 'bg-gray-50/80' :
                        isSun || isSat ? 'bg-wine-50/40' : 'bg-white hover:bg-wine-50/20'
-                     }`}>
+                     } ${selectable ? 'cursor-pointer' : ''}`}>
                   {/* Day number */}
                   <div className="flex items-center justify-between mb-1.5">
                     <span className={`text-xs font-bold w-7 h-7 flex items-center justify-center rounded-full ${
@@ -450,10 +520,18 @@ export default function Calendario() {
                     style={isT ? { background: 'linear-gradient(135deg, var(--theme-btn-to), var(--theme-mid))' } : undefined}>
                       {format(day, 'd')}
                     </span>
-                    {dayCels.length > 0 && inMonth && (
-                      <span className="text-[9px] text-gray-400 font-medium">
-                        {dayCels.length}×
-                      </span>
+                    {selectMode ? (
+                      selectable && (
+                        isSelected
+                          ? <CheckSquare size={15} className="text-wine-600 flex-shrink-0" />
+                          : <Square size={15} className="text-gray-300 flex-shrink-0" />
+                      )
+                    ) : (
+                      dayCels.length > 0 && inMonth && (
+                        <span className="text-[9px] text-gray-400 font-medium">
+                          {dayCels.length}×
+                        </span>
+                      )
                     )}
                   </div>
 
@@ -462,7 +540,10 @@ export default function Calendario() {
                     {dayCels.slice(0, 4).map(c => (
                       <button
                         key={c.id}
-                        onClick={() => openDrawer(c)}
+                        onClick={(e) => {
+                          if (selectMode) { e.stopPropagation(); toggleDaySelection(key) }
+                          else openDrawer(c)
+                        }}
                         className={`w-full text-left px-1.5 py-1 rounded text-white text-[10px] font-semibold truncate flex items-center gap-1 hover:opacity-85 active:opacity-70 transition-opacity cursor-pointer ${getCelebrationColor(c)}`}
                         title={`${formatHorario(c.horario)} — ${c.periodo_liturgico}`}
                       >
@@ -472,7 +553,7 @@ export default function Calendario() {
                         {c.escala && <span className="ml-auto text-green-200 flex-shrink-0 font-bold">✓</span>}
                       </button>
                     ))}
-                    {dayCels.length > 4 && (
+                    {dayCels.length > 4 && !selectMode && (
                       <button
                         onClick={() => openDrawer(dayCels[4])}
                         className="text-[10px] text-wine-600 font-semibold pl-1 hover:underline"
