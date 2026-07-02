@@ -388,7 +388,7 @@ export default function EscalaView() {
               // link confirmado OU toggle manual confirmado
               const isConfirmed = confirmacao === 'confirmado' || linkStatus === 'confirmado'
               // padrão é "não confirmou" — ativo sempre que não confirmado (inclusive itens novos sem presença)
-              const isNotConfirmedActive = linkStatus === 'recusado' || (!isConfirmed && linkStatus !== 'confirmado')
+              const isNotConfirmedActive = linkStatus === 'recusado' || !isConfirmed
               return (
                 <div
                   key={item.id}

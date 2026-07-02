@@ -21,6 +21,16 @@ DB_USER="escala"
 DB_PASS=$(openssl rand -base64 20 | tr -dc 'a-zA-Z0-9' | head -c 20)
 APP_KEY=$(openssl rand -base64 32)
 
+# ── Credenciais opcionais (preencha antes de rodar, ou deixe em branco e
+#    configure depois em ${APP_DIR}/backend/.env) ────────────────────────────
+GEMINI_API_KEY=""                  # Chatbot "Sávio" + importação de agenda por IA (copie do seu .env local)
+EVOLUTION_API_URL=""               # Ex: "http://localhost:8080" — deixe vazio até a Evolution API estar rodando
+EVOLUTION_API_KEY=""
+EVOLUTION_INSTANCE="default"
+MAIL_MAILER="log"                  # Troque para "postmark" ou "resend" quando configurar e-mail de alerta admin
+POSTMARK_API_KEY=""
+RESEND_API_KEY=""
+
 YELLOW='\033[1;33m'; GREEN='\033[0;32m'; RED='\033[0;31m'; NC='\033[0m'
 log()  { echo -e "${GREEN}[OK]${NC} $1"; }
 warn() { echo -e "${YELLOW}[>>]${NC} $1"; }
@@ -32,7 +42,7 @@ warn "========================================"
 echo ""
 
 # ── 1. Swap (essencial em 1 GB RAM) ──────────────────────────────────────────
-warn "[1/10] Criando swap de 2 GB..."
+warn "[1/11] Criando swap de 2 GB..."
 if ! swapon --show | grep -q '/swapfile'; then
   sudo fallocate -l 2G /swapfile
   sudo chmod 600 /swapfile
@@ -47,7 +57,7 @@ else
 fi
 
 # ── 2. Pacotes ───────────────────────────────────────────────────────────────
-warn "[2/10] Instalando dependências..."
+warn "[2/11] Instalando dependências..."
 sudo apt-get update -qq
 sudo apt-get install -y -qq \
   nginx \
@@ -55,8 +65,9 @@ sudo apt-get install -y -qq \
   php8.4-xml php8.4-curl php8.4-zip php8.4-bcmath php8.4-gd \
   php8.4-intl php8.4-tokenizer php8.4-fileinfo \
   postgresql postgresql-contrib \
-  git curl unzip ufw \
+  git curl unzip ufw cron \
   certbot python3-certbot-nginx 2>/dev/null
+sudo systemctl enable --now cron 2>/dev/null || true
 
 # Node.js 20
 if ! command -v node &>/dev/null; then
@@ -73,7 +84,7 @@ fi
 log "Dependências instaladas"
 
 # ── 3. PostgreSQL ─────────────────────────────────────────────────────────────
-warn "[3/10] Configurando PostgreSQL..."
+warn "[3/11] Configurando PostgreSQL..."
 sudo systemctl enable postgresql --quiet
 sudo systemctl start postgresql
 
@@ -96,7 +107,7 @@ sudo systemctl restart postgresql
 log "PostgreSQL configurado (DB: ${DB_NAME} / USER: ${DB_USER})"
 
 # ── 4. PHP-FPM tuning ─────────────────────────────────────────────────────────
-warn "[4/10] Configurando PHP-FPM..."
+warn "[4/11] Configurando PHP-FPM..."
 sudo tee /etc/php/8.3/fpm/pool.d/www.conf > /dev/null <<'EOF'
 [www]
 user = www-data
@@ -121,7 +132,7 @@ sudo systemctl restart php8.4-fpm
 log "PHP-FPM configurado"
 
 # ── 5. Copiar projeto ─────────────────────────────────────────────────────────
-warn "[5/10] Copiando arquivos do projeto..."
+warn "[5/11] Copiando arquivos do projeto..."
 sudo mkdir -p ${APP_DIR}
 sudo cp -r ~/Escala/backend  ${APP_DIR}/
 sudo cp -r ~/Escala/frontend ${APP_DIR}/
@@ -133,7 +144,7 @@ sudo chmod -R 775 ${APP_DIR}/backend/bootstrap/cache
 log "Arquivos copiados para ${APP_DIR}"
 
 # ── 6. .env do Laravel ────────────────────────────────────────────────────────
-warn "[6/10] Configurando .env do Laravel..."
+warn "[6/11] Configurando .env do Laravel..."
 PRODUCTION_URL="http://$(curl -s ifconfig.me)"
 [ -n "$DOMAIN" ] && PRODUCTION_URL="https://${DOMAIN}"
 
@@ -159,12 +170,24 @@ SESSION_LIFETIME=120
 CACHE_STORE=database
 QUEUE_CONNECTION=database
 FILESYSTEM_DISK=local
+
+MAIL_MAILER=${MAIL_MAILER}
+MAIL_FROM_ADDRESS="noreply@$([ -n "$DOMAIN" ] && echo "${DOMAIN}" || echo "localhost")"
+MAIL_FROM_NAME="\${APP_NAME}"
+POSTMARK_API_KEY=${POSTMARK_API_KEY}
+RESEND_API_KEY=${RESEND_API_KEY}
+
+GEMINI_API_KEY=${GEMINI_API_KEY}
+
+EVOLUTION_API_URL=${EVOLUTION_API_URL}
+EVOLUTION_API_KEY=${EVOLUTION_API_KEY}
+EVOLUTION_INSTANCE=${EVOLUTION_INSTANCE}
 EOF
 
 log ".env criado"
 
 # ── 7. CORS ────────────────────────────────────────────────────────────────────
-warn "[7/10] Atualizando CORS do Laravel..."
+warn "[7/11] Atualizando CORS do Laravel..."
 SERVER_IP=$(curl -s ifconfig.me)
 CORS_ORIGIN="${PRODUCTION_URL}"
 
@@ -205,8 +228,12 @@ log "Laravel configurado"
 # ── 9. Cron do Laravel Scheduler ──────────────────────────────────────────────
 warn "[9/11] Configurando cron do scheduler (lembretes, aniversários, etc)..."
 CRON_LINE="* * * * * cd ${APP_DIR}/backend && php artisan schedule:run >> /dev/null 2>&1"
-(sudo -u www-data crontab -l 2>/dev/null | grep -vF "artisan schedule:run"; echo "$CRON_LINE") | sudo -u www-data crontab -
-log "Cron configurado (roda schedule:run a cada minuto como www-data)"
+if (sudo -u www-data crontab -l 2>/dev/null | grep -vF "artisan schedule:run"; echo "$CRON_LINE") | sudo -u www-data crontab - 2>/tmp/cron_err; then
+  log "Cron configurado (roda schedule:run a cada minuto como www-data)"
+else
+  echo -e "${YELLOW}[!] Não consegui configurar o cron automaticamente:${NC} $(cat /tmp/cron_err 2>/dev/null)"
+  echo "    Rode manualmente: echo '${CRON_LINE}' | sudo -u www-data crontab -"
+fi
 
 # ── 10. Build do frontend ──────────────────────────────────────────────────────
 warn "[10/11] Buildando React (pode demorar ~2 min)..."

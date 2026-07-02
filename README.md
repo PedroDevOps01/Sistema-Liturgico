@@ -76,6 +76,12 @@ bash redeploy.sh                          # no servidor
 
 **Requisitos do servidor:** Ubuntu 24.04 · PHP 8.4 · PostgreSQL 16 · Nginx · Node 20
 
+Tanto `deploy.sh` quanto `redeploy.sh` configuram automaticamente o cron do Laravel Scheduler
+(necessário pros lembretes automáticos). Após o primeiro deploy com essa versão, confira se
+`GEMINI_API_KEY` e, quando disponível, `EVOLUTION_API_URL`/`EVOLUTION_API_KEY` estão preenchidos
+no `.env` de produção (`sudo nano /var/www/escala/backend/.env`) — o `redeploy.sh` avisa no final
+se alguma dessas variáveis estiver faltando.
+
 ---
 
 ## Funcionalidades
@@ -117,8 +123,10 @@ bash redeploy.sh                          # no servidor
 - Detecção automática de celebração noturna (horário ≥ 17h)
 - **Quantidade de cerimoniários calculada automaticamente** ao preencher o horário: < 18h → 5; ≥ 18h → 6 (Turiferário incluso) — com preview visual no formulário
 - **Cor litúrgica CNBB** configurável por celebração
-- Flags: Possui Bispo/Arcebispo · Celebração das 6h · Celebração da Palavra · Celebração Solene · Casamento · Batismo · Crisma · Primeira Eucaristia · Adoração ao Santíssimo · Procissão · Via-Sacra · Exéquias · Vigília Pascal · Paixão do Senhor · Ordenação
+- Flags: Possui Bispo/Arcebispo · Celebração das 6h · Celebração da Palavra · Celebração Solene · Casamento · Batismo · Crisma · Primeira Eucaristia · Quinta Eucarística · Tríduo · Adoração ao Santíssimo · Procissão · Via-Sacra · Exéquias · Vigília Pascal · Paixão do Senhor · Ordenação
 - Ordenação por data com badge "Data passada" para celebrações anteriores
+- **Import via CSV** — planilha com data/horário/tipo/período/qtd. de cerimoniários, pré-visualização editável antes de confirmar
+- **Import automático via IA** — envia o PDF ou foto da agenda paroquial do mês (Gemini identifica os dias com celebração e ignora compromissos que não são celebrações), com a mesma pré-visualização editável
 
 ### Escalas
 - Estrutura **automática** gerada pelas flags da celebração
@@ -136,7 +144,7 @@ bash redeploy.sh                          # no servidor
 ### Exportação
 - **Copiar para WhatsApp** — texto formatado com prefixo `M -` para mestres
 - **PDF estilizado** — layout com logo, tabela de funções e legenda
-- **Calendário mensal** — cópia de todas as escalas do mês
+- **Calendário mensal** — cópia de todas as escalas do mês, ou **seleção de dias específicos** pra copiar/enviar só o que interessa
 
 ### Presença
 - Registro pós-celebração por cerimoniário
@@ -205,6 +213,19 @@ bash redeploy.sh                          # no servidor
 - CRUD de administradores com usuário/senha (sem e-mail)
 - Resetar senha, ativar/desativar, soft delete
 
+### Comunicação Automática
+- **Canal WhatsApp** via [Evolution API](https://doc.evolution-api.com) (self-hospedada, gratuita, atrás de uma interface (`WhatsappChannel`) trocável por outro provedor sem mudar a lógica de negócio)
+- **Automáticos aos cerimoniários** (WhatsApp + registrados na aba Comunicados do Portal do Membro):
+  - Escala publicada (assim que é criada)
+  - Lembrete de escala 24h antes e no dia da celebração
+  - Aniversário — mensagem de parabéns usando o template configurável em Configurações
+  - Convite de reunião/treinamento — só para convidados/participantes
+  - Lembrete de reunião/treinamento 24h antes
+- **Comunicados Gerais** (tela `/comunicados`) — admin escreve um aviso e escolhe destinatário (todos, pessoas específicas ou por perfil experiente/mestre) e canal (Portal, WhatsApp ou ambos)
+- **Alertas administrativos por e-mail** (Postmark/Resend): pedido de substituto e bloqueio de período/indisponibilidade — endereço configurável em Configurações
+- Agendador via Laravel Scheduler (`bootstrap/app.php`) — depende de um cron no servidor chamando `php artisan schedule:run` a cada minuto (`deploy.sh`/`redeploy.sh` já configuram isso automaticamente)
+- Commands: `app:notificar-aniversariantes` · `app:lembrar-escala-24h` · `app:lembrar-escala-dia` · `app:lembrar-reuniao-treinamento`
+
 ---
 
 ## Estrutura do Banco
@@ -228,6 +249,11 @@ bash redeploy.sh                          # no servidor
 | `formacao_niveis` | Níveis de formação litúrgica |
 | `formacao_competencias` | Competências vinculadas a cada nível |
 | `cerimoniario_competencias` | Progresso individual por competência: `nao_iniciado`, `em_andamento`, `concluido` — campo `concluido_por` registra o usuário que marcou |
+| `reunioes` / `reuniao_presencas` | Reuniões e lista real de convidados com status de presença |
+| `datas_bloqueadas` | Períodos de indisponibilidade que o próprio cerimoniário bloqueia |
+| `pedidos_substituto` | Pedido de troca de escala feito pelo cerimoniário, com voluntário vinculado |
+| `comunicados` | Avisos gerais e pessoais exibidos na aba Comunicados do Portal do Membro (`categoria`, `canal`, `cerimoniario_id` nullable = geral) |
+| `notificacoes_enviadas` | Log de auditoria de todo envio (WhatsApp/e-mail), com dedup por referência |
 
 Todas as tabelas principais usam **soft delete** (`deleted_at`).
 
@@ -267,4 +293,20 @@ CACHE_STORE=file
 FILESYSTEM_DISK=local
 SANCTUM_STATEFUL_DOMAINS=localhost:5173
 FRONTEND_URL=http://localhost:5173
+
+# Chatbot "Sávio" e importação de agenda por IA (Google AI Studio)
+GEMINI_API_KEY=
+
+# E-mail para alertas administrativos (pedido de substituto, bloqueio de período)
+MAIL_MAILER=log                # troque para "postmark" ou "resend" para enviar de verdade
+POSTMARK_API_KEY=
+RESEND_API_KEY=
+
+# WhatsApp — Evolution API (self-hospedada). Deixe em branco até ter uma instância
+# conectada: o sistema funciona normalmente sem isso, só não envia WhatsApp.
+EVOLUTION_API_URL=
+EVOLUTION_API_KEY=
+EVOLUTION_INSTANCE=default
 ```
+
+> Depois de editar o `.env` de produção, rode `php artisan config:cache` para aplicar.

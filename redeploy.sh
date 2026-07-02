@@ -34,6 +34,21 @@ sudo -u www-data php artisan storage:link --force 2>/dev/null || true
 sudo mkdir -p ${APP_DIR}/backend/storage/app/public/portal
 sudo chown -R www-data:www-data ${APP_DIR}/backend/storage
 
+warn "Configurando cron do scheduler (lembretes, aniversários, comunicados)..."
+if ! command -v crontab &>/dev/null; then
+  sudo apt-get install -y -qq cron 2>/dev/null || true
+  sudo systemctl enable --now cron 2>/dev/null || true
+fi
+CRON_LINE="* * * * * cd ${APP_DIR}/backend && php artisan schedule:run >> /dev/null 2>&1"
+if (sudo -u www-data crontab -l 2>/dev/null | grep -vF "artisan schedule:run"; echo "$CRON_LINE") | sudo -u www-data crontab - 2>/tmp/cron_err; then
+  log "Cron configurado"
+else
+  echo -e "${YELLOW}[!] Não consegui configurar o cron automaticamente:${NC} $(cat /tmp/cron_err 2>/dev/null)"
+  echo "    Lembretes automáticos (escala, aniversário, reunião) não vão disparar até isso ser resolvido."
+  echo "    Rode manualmente no servidor:"
+  echo "    echo '${CRON_LINE}' | sudo -u www-data crontab -"
+fi
+
 warn "Limpando cache..."
 sudo -u www-data php artisan config:cache
 sudo -u www-data php artisan route:cache
@@ -55,3 +70,19 @@ sudo nginx -t && sudo systemctl reload nginx
 echo ""
 echo -e "${GREEN}Redeploy concluído!${NC}"
 echo ""
+
+# ── Checagem de variáveis novas no .env (não falha o deploy, só avisa) ───────
+ENV_FILE="${APP_DIR}/backend/.env"
+MISSING=""
+for VAR in GEMINI_API_KEY EVOLUTION_API_URL EVOLUTION_API_KEY EVOLUTION_INSTANCE; do
+  if ! sudo grep -qE "^${VAR}=.+" "${ENV_FILE}" 2>/dev/null; then
+    MISSING="${MISSING} ${VAR}"
+  fi
+done
+
+if [ -n "$MISSING" ]; then
+  echo -e "${YELLOW}[!] Variáveis ausentes ou vazias em ${ENV_FILE}:${NC}${MISSING}"
+  echo "    Edite o .env de produção (sudo nano ${ENV_FILE}) e rode:"
+  echo "    sudo -u www-data php artisan config:cache"
+  echo ""
+fi
