@@ -12,6 +12,7 @@ use App\Models\PedidoSubstituto;
 use App\Models\Presenca;
 use App\Models\Reuniao;
 use App\Models\ReuniaoPresenca;
+use App\Services\JanelaPresencaService;
 use App\Services\NotificacaoService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -19,8 +20,10 @@ use Illuminate\Http\Request;
 
 class MembroController extends Controller
 {
-    public function __construct(private NotificacaoService $notificacao)
-    {
+    public function __construct(
+        private NotificacaoService $notificacao,
+        private JanelaPresencaService $janelaPresenca,
+    ) {
     }
 
     private function cerimoniario(Request $request): Cerimoniario
@@ -231,6 +234,10 @@ class MembroController extends Controller
             if (! $escala?->presenca_aberta) {
                 return response()->json(['message' => 'A janela de presença não está aberta.'], 422);
             }
+            $inicio = $this->janelaPresenca->inicioCelebracao($escala);
+            if ($inicio && now()->gte($inicio)) {
+                return response()->json(['message' => 'O prazo para marcar presença encerrou no início da celebração.'], 422);
+            }
             $confirmado = ($existente?->status_confirmacao === 'confirmado')
                        || ($item->status_confirmacao === 'confirmado');
             if (! $confirmado) {
@@ -316,19 +323,18 @@ class MembroController extends Controller
 
     // ── Presenças do dia (portal membro) ──────────────────────────────────
 
+    private function autoAbrirJanela(Escala $escala): void
+    {
+        if ($this->janelaPresenca->deveAbrirAutomaticamente($escala)) {
+            $this->janelaPresenca->abrir($escala);
+        }
+    }
+
     private function autoFecharJanela(Escala $escala): void
     {
-        if (! $escala->presenca_aberta || ! $escala->presenca_aberta_em) return;
-        if (Carbon::parse($escala->presenca_aberta_em)->diffInMinutes(now()) < 60) return;
-
-        $escala->load('itens.presenca');
-        foreach ($escala->itens as $it) {
-            if (! $it->cerimoniario_id) continue;
-            if (! $it->presenca || ! $it->presenca->status) {
-                Presenca::updateOrCreate(['escala_item_id' => $it->id], ['status' => 'faltou']);
-            }
+        if ($this->janelaPresenca->deveEncerrar($escala)) {
+            $this->janelaPresenca->encerrar($escala);
         }
-        $escala->update(['presenca_aberta' => false, 'presenca_fechada_em' => now()]);
     }
 
     public function presencasDia(Request $request): JsonResponse
@@ -354,8 +360,9 @@ class MembroController extends Controller
         ->get()
         ->sortBy(fn($i) => ($i->escala?->celebracao?->horario ?? ''));
 
-        // Auto-fechar janelas abertas há mais de 1 hora
+        // Rede de segurança: abre/fecha a janela mesmo se o comando agendado ainda não rodou
         foreach ($meusItens as $item) {
+            $this->autoAbrirJanela($item->escala);
             $this->autoFecharJanela($item->escala);
             $item->escala->refresh();
         }
@@ -419,19 +426,17 @@ class MembroController extends Controller
             return response()->json(['message' => 'Apenas o mestre da escala pode controlar a janela.'], 403);
         }
 
-        $escala->load('celebracao');
-        if ($escala->celebracao) {
-            $inicio = Carbon::createFromFormat('Y-m-d H:i:s', substr($escala->celebracao->data, 0, 10) . ' ' . $escala->celebracao->horario, 'America/Sao_Paulo');
+        $inicio = $this->janelaPresenca->inicioCelebracao($escala);
+        if ($inicio) {
             if (now()->lt($inicio->copy()->subHour())) {
                 return response()->json(['message' => 'A janela pode ser aberta a partir de 1 hora antes da celebração.'], 422);
             }
+            if (now()->gte($inicio)) {
+                return response()->json(['message' => 'A celebração já começou; a janela não pode mais ser aberta.'], 422);
+            }
         }
 
-        $escala->update([
-            'presenca_aberta'     => true,
-            'presenca_aberta_em'  => now(),
-            'presenca_fechada_em' => null,
-        ]);
+        $this->janelaPresenca->abrir($escala);
 
         return response()->json(['message' => 'Janela de presença aberta.']);
     }
@@ -453,22 +458,7 @@ class MembroController extends Controller
             return response()->json(['message' => 'Apenas o mestre da escala pode controlar a janela.'], 403);
         }
 
-        $escala->load('itens.presenca');
-
-        foreach ($escala->itens as $it) {
-            if (! $it->cerimoniario_id) continue;
-            if (! $it->presenca || ! $it->presenca->status) {
-                Presenca::updateOrCreate(
-                    ['escala_item_id' => $it->id],
-                    ['status' => 'faltou']
-                );
-            }
-        }
-
-        $escala->update([
-            'presenca_aberta'     => false,
-            'presenca_fechada_em' => now(),
-        ]);
+        $this->janelaPresenca->encerrar($escala);
 
         return response()->json(['message' => 'Janela fechada. Faltas automáticas aplicadas.']);
     }

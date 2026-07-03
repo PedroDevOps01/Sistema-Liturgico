@@ -515,11 +515,11 @@ export default function Sidebar({
           onMouseLeave={onLeave}
         >
           <div
-            className="sidebar-gradient rounded-2xl overflow-hidden shadow-2xl min-w-[200px]"
+            className="sidebar-gradient rounded-2xl shadow-2xl min-w-[200px] max-h-[70vh] overflow-y-auto overflow-x-hidden sidebar-scroll"
             style={{ border: '1px solid rgba(255,255,255,0.15)' }}
           >
             <p
-              className="text-[10px] font-bold uppercase tracking-widest px-4 py-2.5 text-white/40"
+              className="text-[10px] font-bold uppercase tracking-widest px-4 py-2.5 text-white/40 sticky top-0 sidebar-gradient"
               style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}
             >
               {flyoutModule.label}

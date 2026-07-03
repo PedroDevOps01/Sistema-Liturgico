@@ -3,7 +3,7 @@ import { format, differenceInSeconds } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
   Clock, CheckCircle2, XCircle, AlertCircle, Users,
-  Lock, Unlock, RefreshCw, ShieldCheck, Timer,
+  Lock, Unlock, RefreshCw, ShieldCheck, Timer, Info, ChevronDown,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import membroApi from '../../lib/membroApi'
@@ -66,13 +66,18 @@ function Avatar({ nome, foto, size = 32 }: { nome: string; foto?: string | null;
   )
 }
 
-const JANELA_MINUTOS = 60
+/** A janela sempre encerra no início da celebração, então usa a mesma convenção
+ * local (ano/mês/dia/hora locais) do resto do app para montar esse horário. */
+function parseInicioCelebracao(data: string, horario: string): Date {
+  const [y, m, d] = data.substring(0, 10).split('-').map(Number)
+  const [hh, mm, ss] = horario.split(':').map(Number)
+  return new Date(y, m - 1, d, hh, mm, ss || 0)
+}
 
-function tempoRestante(abertaEm: string | null): { mm: number; ss: number; pct: number } | null {
-  if (!abertaEm) return null
-  const totalSeg = JANELA_MINUTOS * 60
-  const decorrido = differenceInSeconds(new Date(), new Date(abertaEm))
-  const restante = Math.max(0, totalSeg - decorrido)
+function tempoRestante(abertaEm: string | null, inicio: Date | null): { mm: number; ss: number; pct: number } | null {
+  if (!abertaEm || !inicio) return null
+  const totalSeg = Math.max(1, differenceInSeconds(inicio, new Date(abertaEm)))
+  const restante = Math.max(0, differenceInSeconds(inicio, new Date()))
   return {
     mm: Math.floor(restante / 60),
     ss: restante % 60,
@@ -87,6 +92,7 @@ export default function MembroPresencas() {
   const [now, setNow] = useState(new Date())
   const [justItemId, setJustItemId] = useState<number | null>(null)
   const [salvandoJust, setSalvandoJust] = useState(false)
+  const [mostrarAjuda, setMostrarAjuda] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -192,6 +198,33 @@ export default function MembroPresencas() {
             <RefreshCw size={13} />
             Atualizar
           </button>
+        </div>
+
+        {/* Como funciona a janela de presença */}
+        <div className="pr-card card overflow-hidden">
+          <button
+            onClick={() => setMostrarAjuda(v => !v)}
+            className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left"
+          >
+            <span className="flex items-center gap-2 text-sm font-semibold text-gray-600">
+              <Info size={15} style={{ color: GOLD }} />
+              Como funciona a janela de presença
+            </span>
+            <ChevronDown
+              size={16}
+              className="text-gray-400 transition-transform"
+              style={{ transform: mostrarAjuda ? 'rotate(180deg)' : 'none' }}
+            />
+          </button>
+          {mostrarAjuda && (
+            <ul className="px-4 pb-4 -mt-1 space-y-1.5 text-xs text-gray-500 list-disc list-inside">
+              <li>A janela abre sozinha <strong>30min antes</strong> da celebração — o mestre também pode abri-la manualmente a qualquer momento até <strong>1h antes</strong>, dando mais tempo ao grupo.</li>
+              <li>Ela sempre <strong>fecha no horário de início</strong> da celebração, não importa quando foi aberta.</li>
+              <li>Assim que a janela abre, todos os escalados recebem aviso por <strong>WhatsApp e comunicado no Portal</strong>.</li>
+              <li>Quem não marcar presença até o fechamento recebe <strong>falta automática</strong> — dá pra justificar depois, aqui mesmo.</li>
+              <li>Se <strong>ninguém</strong> confirmar presença até o fechamento, o mestre recebe um alerta pra reforçar o aviso na próxima escala.</li>
+            </ul>
+          )}
         </div>
 
         {loading ? (
@@ -319,9 +352,10 @@ export default function MembroPresencas() {
                       )}
                     </div>
 
-                    {/* Countdown da janela */}
+                    {/* Countdown da janela — encerra sempre no início da celebração */}
                     {aberta && d.escala.presenca_aberta_em && (() => {
-                      const t = tempoRestante(d.escala.presenca_aberta_em)
+                      const inicio = parseInicioCelebracao(d.escala.celebracao.data, d.escala.celebracao.horario)
+                      const t = tempoRestante(d.escala.presenca_aberta_em, inicio)
                       if (!t) return null
                       const urgente = t.mm < 10
                       const cor = urgente ? '#EF4444' : '#10B981'
@@ -335,7 +369,7 @@ export default function MembroPresencas() {
                                 Encerra em {String(t.mm).padStart(2, '0')}:{String(t.ss).padStart(2, '0')}
                               </span>
                             </div>
-                            <span className="text-[10px] text-gray-400">Fecha automaticamente em {JANELA_MINUTOS} min</span>
+                            <span className="text-[10px] text-gray-400">Fecha no início da celebração ({formatHorario(d.escala.celebracao.horario)})</span>
                           </div>
                           <div className="mt-1.5 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                             <div className="h-full rounded-full transition-all duration-1000"

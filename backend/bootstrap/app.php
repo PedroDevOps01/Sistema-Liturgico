@@ -27,5 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('app:lembrar-escala-24h')->hourly();
         $schedule->command('app:lembrar-escala-dia')->dailyAt('07:00');
         $schedule->command('app:lembrar-reuniao-treinamento')->hourly();
+        $schedule->command('app:abrir-janelas-presenca')->everyMinute();
+        $schedule->command('app:fechar-janelas-presenca')->everyMinute();
     })
     ->create();

@@ -85,7 +85,7 @@ export default function Layout() {
 
       {/* Sidebar — Desktop */}
       <div
-        className={`hidden lg:block flex-shrink-0 isolate transition-all duration-300 ease-in-out ${
+        className={`hidden lg:block flex-shrink-0 transition-all duration-300 ease-in-out ${
           sidebarCollapsed ? 'w-[76px]' : 'w-64'
         }`}
       >
