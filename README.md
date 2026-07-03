@@ -110,7 +110,8 @@ se alguma dessas variáveis estiver faltando.
 - Mobile: drawer deslizante com overlay e header com logo
 
 ### Cerimoniários
-- Cadastro individual e **em massa** (várias linhas de uma vez)
+- Cadastro individual e **em massa** (várias linhas de uma vez, ou importação via CSV)
+- **Usuário e senha do Portal do Membro gerados automaticamente na criação** (login = slug do nome; senha = data de nascimento no formato `ddmmaaaa`, ou `123` quando não há data cadastrada) — vale tanto para cadastro individual quanto para importação em massa, já que os dois caminhos passam pelo mesmo endpoint
 - Disponibilidade por turno: domingo manhã/tarde/noite, semana manhã/tarde/noite, sábado
 - Flag de indisponibilidade temporária
 - Flag de **cerimoniário experiente** (destacado em listagens e relatórios)
@@ -150,6 +151,12 @@ se alguma dessas variáveis estiver faltando.
 - Registro pós-celebração por cerimoniário
 - Status: Confirmado · Serviu normalmente · Faltou · Substituído · Justificado
 - Campo de substituto vinculado ao status "Substituído"
+- **Justificativa de falta com aprovação do admin**: o membro justifica a falta com observação obrigatória — **uma única vez** por falta (sem reenviar em cima de uma pendente ou já recusada). A falta permanece "Faltou" com selo "Em análise" até o admin decidir em `/justificativas`; só vira "Justificado" quando aprovada. O admin pode **reverter a decisão a qualquer momento** (aprovar após já ter recusado, ou vice-versa)
+
+### Justificativas (admin)
+- Fila de análise das faltas justificadas pelos membros, com abas Pendentes / Aprovadas / Rejeitadas / Todas
+- Aprovar (falta vira "Justificado") ou rejeitar (falta é mantida) com um clique — decisão pode ser revertida depois
+- Mostra a observação do membro e quem analisou (e quando)
 
 ### Treinamentos
 - Cadastro com data, horário, tema, local, período litúrgico e funções alvo
@@ -211,6 +218,7 @@ se alguma dessas variáveis estiver faltando.
 
 ### Usuários
 - CRUD de administradores com usuário/senha (sem e-mail)
+- Campo de **número (WhatsApp)** com máscara — usado para receber os alertas administrativos automáticos
 - Resetar senha, ativar/desativar, soft delete
 
 ### Comunicação Automática
@@ -222,7 +230,7 @@ se alguma dessas variáveis estiver faltando.
   - Convite de reunião/treinamento — só para convidados/participantes
   - Lembrete de reunião/treinamento 24h antes
 - **Comunicados Gerais** (tela `/comunicados`) — admin escreve um aviso e escolhe destinatário (todos, pessoas específicas ou por perfil experiente/mestre) e canal (Portal, WhatsApp ou ambos)
-- **Alertas administrativos por e-mail** (Postmark/Resend): pedido de substituto e bloqueio de período/indisponibilidade — endereço configurável em Configurações
+- **Alertas administrativos — sempre por WhatsApp** (nunca e-mail): pedido de substituto, bloqueio de período/indisponibilidade e nova justificativa de falta pendente — enviados para todos os usuários admin ativos com número cadastrado (tela Usuários)
 - Agendador via Laravel Scheduler (`bootstrap/app.php`) — depende de um cron no servidor chamando `php artisan schedule:run` a cada minuto (`deploy.sh`/`redeploy.sh` já configuram isso automaticamente)
 - Commands: `app:notificar-aniversariantes` · `app:lembrar-escala-24h` · `app:lembrar-escala-dia` · `app:lembrar-reuniao-treinamento`
 
@@ -232,13 +240,13 @@ se alguma dessas variáveis estiver faltando.
 
 | Tabela | Descrição |
 |--------|-----------|
-| `users` | Administradores do sistema |
-| `cerimoniarios` | Cerimoniários/acólitos (flags `mestre`, `experiente`, `indisponivel_temporario`) |
+| `users` | Administradores do sistema (campo `numero` para alertas via WhatsApp) |
+| `cerimoniarios` | Cerimoniários/acólitos (flags `mestre`, `experiente`, `indisponivel_temporario`; `usuario`/`senha` do Portal do Membro) |
 | `funcoes` | 9 funções litúrgicas fixas |
 | `celebracoes` | Celebrações com flags, cor litúrgica e agrupamento de final de semana |
 | `escalas` | Escalas vinculadas a uma celebração |
 | `escala_itens` | Linhas da escala (função + cerimoniário + token de confirmação + status) |
-| `presencas` | Presença pós-celebração (com campo de substituto) |
+| `presencas` | Presença pós-celebração (substituto; fluxo de aprovação de justificativa: `justificativa_status`, `justificativa_analisada_em`, `justificativa_analisada_por`) |
 | `treinamentos` | Treinamentos com tema, local, período litúrgico e funções alvo |
 | `treinamento_presencas` | Presença individual por cerimoniário em cada treinamento (campo `formacao_competencia_id` para avanço automático) |
 | `historico_escalas` | Auditoria de criação/edição/exclusão |
@@ -253,7 +261,7 @@ se alguma dessas variáveis estiver faltando.
 | `datas_bloqueadas` | Períodos de indisponibilidade que o próprio cerimoniário bloqueia |
 | `pedidos_substituto` | Pedido de troca de escala feito pelo cerimoniário, com voluntário vinculado |
 | `comunicados` | Avisos gerais e pessoais exibidos na aba Comunicados do Portal do Membro (`categoria`, `canal`, `cerimoniario_id` nullable = geral) |
-| `notificacoes_enviadas` | Log de auditoria de todo envio (WhatsApp/e-mail), com dedup por referência |
+| `notificacoes_enviadas` | Log de auditoria de todo envio por WhatsApp, com dedup por referência |
 
 Todas as tabelas principais usam **soft delete** (`deleted_at`).
 
@@ -297,13 +305,10 @@ FRONTEND_URL=http://localhost:5173
 # Chatbot "Sávio" e importação de agenda por IA (Google AI Studio)
 GEMINI_API_KEY=
 
-# E-mail para alertas administrativos (pedido de substituto, bloqueio de período)
-MAIL_MAILER=log                # troque para "postmark" ou "resend" para enviar de verdade
-POSTMARK_API_KEY=
-RESEND_API_KEY=
-
 # WhatsApp — Evolution API (self-hospedada). Deixe em branco até ter uma instância
 # conectada: o sistema funciona normalmente sem isso, só não envia WhatsApp.
+# Usado tanto para os avisos aos cerimoniários quanto para os alertas administrativos
+# (pedido de substituto, bloqueio de período, justificativa pendente) — não há envio por e-mail.
 EVOLUTION_API_URL=
 EVOLUTION_API_KEY=
 EVOLUTION_INSTANCE=default
