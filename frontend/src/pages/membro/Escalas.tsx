@@ -10,7 +10,7 @@ import JustificativaModal from '../../components/common/JustificativaModal'
 const THEME_DARK = '#431407'
 const THEME_MID  = '#fbbf24'
 
-interface Presenca  { id: number; status: string; status_confirmacao?: string | null }
+interface Presenca  { id: number; status: string; status_confirmacao?: string | null; justificativa_status?: 'pendente' | 'aprovada' | 'rejeitada' | null }
 interface Funcao    { titulo: string }
 interface Celebracao { data: string; horario: string; periodo_liturgico?: string; local?: string; descricao?: string }
 interface EscalaNested { id: number; celebracao: Celebracao; presenca_aberta: boolean; observacao?: string }
@@ -207,8 +207,8 @@ export default function MembroEscalas() {
               const isSubstituido = st === 'substituido'
               // Confirmar escala: antes da celebração OU durante a janela (membro presente mas não havia confirmado)
               const podeConfirmarEscala = !isConfirmed && (beforeStart || janelaAberta) && !isSubstituido
-              // Justificar = explicar porque faltou → só após a falta ser registrada
-              const podeJustificar = st === 'faltou'
+              // Justificar = explicar porque faltou → só após a falta ser registrada, e só uma vez
+              const podeJustificar = st === 'faltou' && !item.presenca?.justificativa_status
               // Marcar que servi → janela aberta + confirmado
               const podeServir = janelaAberta && isConfirmed && st !== 'serviu' && !isSubstituido
 
@@ -244,7 +244,12 @@ export default function MembroEscalas() {
                         )}
 
                         <div className="flex items-center gap-2 mt-2 flex-wrap">
-                          {stCfg ? (
+                          {item.presenca?.justificativa_status === 'pendente' ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full"
+                              style={{ background: '#F59E0B15', color: '#F59E0B' }}>
+                              <Clock size={13} /> Justificativa em análise
+                            </span>
+                          ) : stCfg ? (
                             <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full"
                               style={{ background: stCfg.bg, color: stCfg.color }}>
                               {stCfg.icon} {stCfg.label}
@@ -276,6 +281,9 @@ export default function MembroEscalas() {
                             </span>
                           )}
                         </div>
+                        {item.presenca?.justificativa_status === 'rejeitada' && (
+                          <p className="text-xs text-red-500 mt-1.5">Sua justificativa foi recusada pelo admin.</p>
+                        )}
                       </div>
 
                       {/* Expand toggle */}

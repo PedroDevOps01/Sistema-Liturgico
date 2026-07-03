@@ -17,6 +17,7 @@ use App\Http\Controllers\API\EscalaController;
 use App\Http\Controllers\API\EstatisticasController;
 use App\Http\Controllers\API\FuncaoController;
 use App\Http\Controllers\API\InteressadoController;
+use App\Http\Controllers\API\JustificativaController;
 use App\Http\Controllers\API\PresencaController;
 use App\Http\Controllers\API\UserController;
 use App\Http\Controllers\API\PortalStatsController;
@@ -125,6 +126,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Controle de janela de presença (mestre)
     Route::post('escalas/{escala}/presenca/abrir', [ControlePresencaController::class, 'abrir']);
     Route::post('escalas/{escala}/presenca/fechar', [ControlePresencaController::class, 'fechar']);
+
+    // Justificativas de falta (aprovação/rejeição)
+    Route::get('justificativas', [JustificativaController::class, 'index']);
+    Route::put('justificativas/{presenca}/aprovar', [JustificativaController::class, 'aprovar']);
+    Route::put('justificativas/{presenca}/rejeitar', [JustificativaController::class, 'rejeitar']);
 
     // Conflitos
     Route::get('conflitos/verificar', [ConflitosController::class, 'verificar']);

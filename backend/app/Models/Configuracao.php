@@ -18,7 +18,6 @@ class Configuracao extends Model
         'portal_config',
         'aniversario_mensagem_texto',
         'aniversario_mensagem_imagem',
-        'admin_alerta_email',
     ];
 
     protected $casts = [

@@ -51,7 +51,7 @@ interface EscalaItem {
   }
   funcao: { titulo: string } | null
   funcao_label?: string
-  presenca: { id: number; status: string; status_confirmacao?: string | null } | null
+  presenca: { id: number; status: string; status_confirmacao?: string | null; justificativa_status?: 'pendente' | 'aprovada' | 'rejeitada' | null } | null
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -439,7 +439,7 @@ export default function MembroCalendario() {
 
                 const podeConfirmarEscala = !isConfirmed && (beforeStart || item.escala.presenca_aberta) && !isSubstituido
                 const podeServir = item.escala.presenca_aberta && isConfirmed && st !== 'serviu' && !isSubstituido
-                const podeJustificar = st === 'faltou'
+                const podeJustificar = st === 'faltou' && !item.presenca?.justificativa_status
 
                 return (
                   <div key={item.id} className="px-5 py-5 space-y-3">
@@ -501,19 +501,29 @@ export default function MembroCalendario() {
                     </div>
 
                     {/* Status */}
-                    {st ? (
-                      <div className="flex items-center gap-3 p-3 rounded-xl border"
-                        style={{
-                          background: STATUS_COLOR[st] ? `${STATUS_COLOR[st]}18` : '#fffbeb',
-                          borderColor: STATUS_COLOR[st] ? `${STATUS_COLOR[st]}35` : '#fde68a',
-                        }}>
-                        {st === 'serviu'
-                          ? <CheckCircle2 size={16} style={{ color: STATUS_COLOR[st] }} />
-                          : <AlertCircle size={16} style={{ color: STATUS_COLOR[st] ?? '#fbbf24' }} />
-                        }
-                        <span className="text-sm font-bold" style={{ color: STATUS_COLOR[st] ?? '#f59e0b' }}>
-                          {STATUS_LABEL[st] ?? st}
-                        </span>
+                    {item.presenca?.justificativa_status === 'pendente' ? (
+                      <div className="flex items-center gap-3 p-3 rounded-xl border" style={{ background: '#F59E0B18', borderColor: '#F59E0B35' }}>
+                        <Clock size={16} style={{ color: '#F59E0B' }} />
+                        <span className="text-sm font-bold" style={{ color: '#F59E0B' }}>Justificativa em análise</span>
+                      </div>
+                    ) : st ? (
+                      <div>
+                        <div className="flex items-center gap-3 p-3 rounded-xl border"
+                          style={{
+                            background: STATUS_COLOR[st] ? `${STATUS_COLOR[st]}18` : '#fffbeb',
+                            borderColor: STATUS_COLOR[st] ? `${STATUS_COLOR[st]}35` : '#fde68a',
+                          }}>
+                          {st === 'serviu'
+                            ? <CheckCircle2 size={16} style={{ color: STATUS_COLOR[st] }} />
+                            : <AlertCircle size={16} style={{ color: STATUS_COLOR[st] ?? '#fbbf24' }} />
+                          }
+                          <span className="text-sm font-bold" style={{ color: STATUS_COLOR[st] ?? '#f59e0b' }}>
+                            {STATUS_LABEL[st] ?? st}
+                          </span>
+                        </div>
+                        {item.presenca?.justificativa_status === 'rejeitada' && (
+                          <p className="text-xs text-red-500 mt-1.5 px-1">Sua justificativa foi recusada pelo admin.</p>
+                        )}
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 p-3 rounded-xl border border-gray-100 bg-gray-50">

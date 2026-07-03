@@ -4,12 +4,11 @@ namespace App\Services;
 
 use App\Models\Cerimoniario;
 use App\Models\Comunicado;
-use App\Models\Configuracao;
 use App\Models\NotificacaoEnviada;
+use App\Models\User;
 use App\Services\Whatsapp\WhatsappChannel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 /**
  * Ponto único de disparo de notificação do sistema. Qualquer gatilho (escala criada, convite de
@@ -74,38 +73,41 @@ class NotificacaoService
         return $enviado;
     }
 
-    /** Alerta interno por e-mail para os administradores (não passa pelo WhatsApp). */
-    public function alertarAdmin(string $assunto, string $mensagem): void
+    /**
+     * Envia uma notificação via WhatsApp para todos os usuários admin ativos com número cadastrado.
+     * Mesma deduplicação por referência do fluxo de cerimoniários (aqui, por número de destino).
+     */
+    public function alertarAdminWhatsapp(string $mensagem, string $categoria, ?Model $referencia = null): void
     {
-        $email = Configuracao::first()?->admin_alerta_email;
+        $admins = User::where('ativo', true)->whereNotNull('numero')->where('numero', '!=', '')->get();
 
-        $status = 'falhou';
-        $erro = null;
+        foreach ($admins as $admin) {
+            if ($referencia && $this->jaEnviadoAdmin($categoria, $referencia, $admin->numero)) {
+                continue;
+            }
 
-        if (empty($email)) {
-            $erro = 'Nenhum e-mail de alerta configurado (Configuracao.admin_alerta_email).';
-            Log::info("NotificacaoService::alertarAdmin sem destinatário — {$assunto}");
-        } else {
+            $enviado = false;
+            $erro = null;
+
             try {
-                Mail::raw($mensagem, function ($mail) use ($email, $assunto) {
-                    $mail->to($email)->subject($assunto);
-                });
-                $status = 'enviado';
+                $enviado = $this->whatsapp->enviar($admin->numero, $mensagem);
             } catch (\Throwable $e) {
                 $erro = $e->getMessage();
-                Log::error('NotificacaoService::alertarAdmin falhou.', ['erro' => $erro]);
+                Log::error('NotificacaoService: falha ao enviar WhatsApp para admin.', ['user_id' => $admin->id, 'erro' => $erro]);
             }
-        }
 
-        NotificacaoEnviada::create([
-            'cerimoniario_id' => null,
-            'canal'           => 'email',
-            'categoria'       => 'administrativo',
-            'destinatario'    => $email,
-            'mensagem'        => "{$assunto}\n\n{$mensagem}",
-            'status'          => $status,
-            'erro'            => $erro,
-        ]);
+            NotificacaoEnviada::create([
+                'cerimoniario_id' => null,
+                'canal'           => 'whatsapp',
+                'categoria'       => $categoria,
+                'referencia_type' => $referencia ? get_class($referencia) : null,
+                'referencia_id'   => $referencia?->id,
+                'destinatario'    => $admin->numero,
+                'mensagem'        => $mensagem,
+                'status'          => $enviado ? 'enviado' : 'falhou',
+                'erro'            => $erro,
+            ]);
+        }
     }
 
     private function jaEnviado(string $categoria, Model $referencia, int $cerimoniarioId): bool
@@ -114,6 +116,17 @@ class NotificacaoService
             ->where('referencia_type', get_class($referencia))
             ->where('referencia_id', $referencia->id)
             ->where('cerimoniario_id', $cerimoniarioId)
+            ->where('status', 'enviado')
+            ->exists();
+    }
+
+    private function jaEnviadoAdmin(string $categoria, Model $referencia, string $destinatario): bool
+    {
+        return NotificacaoEnviada::where('categoria', $categoria)
+            ->where('referencia_type', get_class($referencia))
+            ->where('referencia_id', $referencia->id)
+            ->whereNull('cerimoniario_id')
+            ->where('destinatario', $destinatario)
             ->where('status', 'enviado')
             ->exists();
     }

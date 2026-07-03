@@ -53,11 +53,11 @@ class CerimoniarioController extends Controller
         ]);
 
         $validated['usuario'] = Cerimoniario::gerarUsuario($validated['nome']);
-        if (!empty($validated['data_nascimento'])) {
-            $validated['senha'] = Hash::make(
-                Carbon::parse($validated['data_nascimento'])->format('dmY')
-            );
-        }
+        $validated['senha'] = Hash::make(
+            !empty($validated['data_nascimento'])
+                ? Carbon::parse($validated['data_nascimento'])->format('dmY')
+                : '123'
+        );
         $cerimoniario = Cerimoniario::create($validated);
 
         return response()->json([

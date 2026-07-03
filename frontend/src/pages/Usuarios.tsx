@@ -13,9 +13,18 @@ import PageHeader from '../components/common/PageHeader'
 import Badge from '../components/common/Badge'
 import { SkeletonRow } from '../components/common/LoadingSpinner'
 
+const numeroSchema = z
+  .string()
+  .optional()
+  .refine(
+    (v) => !v || /^[\d\s()\-+]{7,20}$/.test(v),
+    'Telefone inválido. Use formato: (11) 99999-9999',
+  )
+
 const createSchema = z.object({
   nome: z.string().min(2, 'Nome obrigatório'),
   usuario: z.string().min(3, 'Usuário deve ter pelo menos 3 caracteres'),
+  numero: numeroSchema,
   password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
   password_confirmation: z.string().min(6),
 }).refine((d) => d.password === d.password_confirmation, {
@@ -26,7 +35,16 @@ const createSchema = z.object({
 const editSchema = z.object({
   nome: z.string().min(2),
   usuario: z.string().min(3),
+  numero: numeroSchema,
 })
+
+function maskPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '').substring(0, 11)
+  if (digits.length <= 2) return digits.length ? `(${digits}` : ''
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
+}
 
 const resetSchema = z.object({
   password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
@@ -136,6 +154,7 @@ export default function Usuarios() {
     setEditing(u)
     editForm.setValue('nome', u.nome)
     editForm.setValue('usuario', u.usuario)
+    editForm.setValue('numero', maskPhone(u.numero ?? ''))
     setEditModalOpen(true)
   }
 
@@ -260,6 +279,23 @@ export default function Usuarios() {
             )}
           </div>
           <div>
+            <label className="label">Número (WhatsApp)</label>
+            <input
+              {...createForm.register('numero')}
+              className="input-field"
+              placeholder="(88) 99999-9999"
+              inputMode="numeric"
+              onChange={(e) => {
+                e.target.value = maskPhone(e.target.value)
+                createForm.register('numero').onChange(e)
+              }}
+            />
+            {createForm.formState.errors.numero && (
+              <p className="text-red-600 text-sm mt-1">{createForm.formState.errors.numero.message}</p>
+            )}
+            <p className="text-xs text-gray-400 mt-1">Usado para receber alertas administrativos por WhatsApp (ex: justificativas pendentes).</p>
+          </div>
+          <div>
             <label className="label">Senha *</label>
             <div className="relative">
               <input {...createForm.register('password')} type={showCreatePw ? 'text' : 'password'} className="input-field pr-11" />
@@ -310,6 +346,23 @@ export default function Usuarios() {
             {editForm.formState.errors.usuario && (
               <p className="text-red-600 text-sm mt-1">{editForm.formState.errors.usuario.message}</p>
             )}
+          </div>
+          <div>
+            <label className="label">Número (WhatsApp)</label>
+            <input
+              {...editForm.register('numero')}
+              className="input-field"
+              placeholder="(88) 99999-9999"
+              inputMode="numeric"
+              onChange={(e) => {
+                e.target.value = maskPhone(e.target.value)
+                editForm.register('numero').onChange(e)
+              }}
+            />
+            {editForm.formState.errors.numero && (
+              <p className="text-red-600 text-sm mt-1">{editForm.formState.errors.numero.message}</p>
+            )}
+            <p className="text-xs text-gray-400 mt-1">Usado para receber alertas administrativos por WhatsApp (ex: justificativas pendentes).</p>
           </div>
         </form>
       </Modal>

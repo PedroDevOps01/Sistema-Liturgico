@@ -13,7 +13,7 @@ import JustificativaModal from '../../components/common/JustificativaModal'
 const GOLD = '#fbbf24'
 const DARK = '#431407'
 
-interface PresencaStatus { status: string | null }
+interface PresencaStatus { status: string | null; justificativa_status?: 'pendente' | 'aprovada' | 'rejeitada' | null }
 interface MembroCel { id: number; nome: string; foto_base64?: string | null }
 
 interface ItemCel {
@@ -40,7 +40,7 @@ interface EscalaCel {
 interface PresencaDia {
   meu_item_id: number
   pode_controlar: boolean
-  minha_presenca: { status: string } | null
+  minha_presenca: PresencaStatus | null
   minha_confirmacao: 'confirmado' | null
   minha_funcao: string
   escala: EscalaCel
@@ -385,15 +385,28 @@ export default function MembroPresencas() {
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.14em] mb-2.5">
                       Minha Presença
                     </p>
-                    {stCfg ? (
+                    {d.minha_presenca?.justificativa_status === 'pendente' ? (
                       <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl w-fit"
-                        style={{ background: stCfg.bg, border: `1px solid ${stCfg.color}30` }}>
-                        {d.minha_presenca?.status === 'serviu' && <CheckCircle2 size={15} style={{ color: stCfg.color }} />}
-                        {d.minha_presenca?.status === 'faltou' && <XCircle size={15} style={{ color: stCfg.color }} />}
-                        {d.minha_presenca?.status === 'justificado' && <AlertCircle size={15} style={{ color: stCfg.color }} />}
-                        <span className="text-sm font-bold" style={{ color: stCfg.color }}>
-                          {stCfg.label}
+                        style={{ background: '#F59E0B15', border: '1px solid #F59E0B30' }}>
+                        <Clock size={15} style={{ color: '#F59E0B' }} />
+                        <span className="text-sm font-bold" style={{ color: '#F59E0B' }}>
+                          Justificativa em análise
                         </span>
+                      </div>
+                    ) : stCfg ? (
+                      <div>
+                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl w-fit"
+                          style={{ background: stCfg.bg, border: `1px solid ${stCfg.color}30` }}>
+                          {d.minha_presenca?.status === 'serviu' && <CheckCircle2 size={15} style={{ color: stCfg.color }} />}
+                          {d.minha_presenca?.status === 'faltou' && <XCircle size={15} style={{ color: stCfg.color }} />}
+                          {d.minha_presenca?.status === 'justificado' && <AlertCircle size={15} style={{ color: stCfg.color }} />}
+                          <span className="text-sm font-bold" style={{ color: stCfg.color }}>
+                            {stCfg.label}
+                          </span>
+                        </div>
+                        {d.minha_presenca?.justificativa_status === 'rejeitada' && (
+                          <p className="text-xs text-red-500 mt-1.5">Sua justificativa foi recusada pelo admin.</p>
+                        )}
                       </div>
                     ) : aberta && d.minha_confirmacao === 'confirmado' ? (
                       <button

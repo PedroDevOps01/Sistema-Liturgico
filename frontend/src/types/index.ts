@@ -2,6 +2,7 @@ export interface User {
   id: number
   nome: string
   usuario: string
+  numero?: string | null
   ativo: boolean
 }
 

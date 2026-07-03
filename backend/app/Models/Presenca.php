@@ -18,6 +18,9 @@ class Presenca extends Model
         'observacao',
         'substituto_id',
         'original_cerimoniario_id',
+        'justificativa_status',
+        'justificativa_analisada_em',
+        'justificativa_analisada_por',
     ];
 
     protected function casts(): array
@@ -35,5 +38,10 @@ class Presenca extends Model
     public function substituto(): BelongsTo
     {
         return $this->belongsTo(Cerimoniario::class, 'substituto_id');
+    }
+
+    public function analisadoPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'justificativa_analisada_por');
     }
 }

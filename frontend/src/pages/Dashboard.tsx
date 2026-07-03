@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import type { DashboardAlertaConfirmacao, DashboardAlertaConflito } from '../types'
 import { format } from 'date-fns'
@@ -452,7 +453,7 @@ export default function Dashboard() {
       )}
 
       {/* ── MODAL: todos os alertas ──────────────────────────────────────── */}
-      {alertasModal && (
+      {alertasModal && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
             {/* Header */}
@@ -515,7 +516,8 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── MAIN GRID ──────────────────────────────────────────────────── */}

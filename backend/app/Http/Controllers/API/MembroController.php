@@ -246,6 +246,14 @@ class MembroController extends Controller
         }
 
         if ($validated['status'] === 'justificado') {
+            if ($existente && $existente->justificativa_status) {
+                return response()->json(['message' => 'Você já enviou uma justificativa para esta falta — aguarde a análise do admin.'], 422);
+            }
+
+            if (empty($validated['observacao'])) {
+                return response()->json(['message' => 'Descreva o motivo para justificar — a observação é obrigatória.'], 422);
+            }
+
             $escala->load('celebracao');
             if ($escala->celebracao) {
                 $inicio = Carbon::createFromFormat(
@@ -260,13 +268,22 @@ class MembroController extends Controller
             }
         }
 
-        $updates = [
-            'status'     => $validated['status'],
-            'observacao' => $validated['observacao'] ?? null,
-        ];
-        // serviu implica confirmação; justificado preserva status_confirmacao existente
         if ($validated['status'] === 'serviu') {
-            $updates['status_confirmacao'] = 'confirmado';
+            // serviu implica confirmação; status muda na hora, sem precisar de aprovação
+            $updates = [
+                'status'             => 'serviu',
+                'status_confirmacao' => 'confirmado',
+                'observacao'         => $validated['observacao'] ?? null,
+            ];
+        } else {
+            // Justificativa entra em análise — o status (ex: faltou) só muda para "justificado"
+            // depois que o admin aprovar pelo portal admin.
+            $updates = [
+                'observacao'                  => $validated['observacao'],
+                'justificativa_status'        => 'pendente',
+                'justificativa_analisada_em'  => null,
+                'justificativa_analisada_por' => null,
+            ];
         }
 
         $presenca = Presenca::updateOrCreate(
@@ -274,9 +291,21 @@ class MembroController extends Controller
             $updates
         );
 
+        if ($validated['status'] === 'justificado') {
+            $funcao  = $item->funcao_label ?? $item->funcao?->titulo ?? '';
+            $data    = $escala->celebracao ? $escala->celebracao->data->format('d/m/Y') : '';
+            $horario = $escala->celebracao ? substr($escala->celebracao->horario, 0, 5) : '';
+            $texto = "*Nova justificativa pendente*\n\n{$cer->nome} justificou falta na escala de {$data} às {$horario}"
+                . ($funcao ? " ({$funcao})" : '') . ".\nMotivo: \"{$validated['observacao']}\"\n\n"
+                . 'Avalie no Portal Admin > Justificativas.';
+            $this->notificacao->alertarAdminWhatsapp($texto, 'justificativa_pendente', $presenca);
+        }
+
         return response()->json([
             'data'    => $presenca,
-            'message' => 'Presença registrada com sucesso.',
+            'message' => $validated['status'] === 'serviu'
+                ? 'Presença registrada com sucesso.'
+                : 'Justificativa enviada para análise do admin.',
         ]);
     }
 
@@ -380,7 +409,10 @@ class MembroController extends Controller
                     'nome'        => $i->cerimoniario->nome,
                     'foto_base64' => $i->cerimoniario->foto_base64,
                 ] : null,
-                'presenca' => $i->presenca ? ['status' => $i->presenca->status] : null,
+                'presenca' => $i->presenca ? [
+                    'status'                => $i->presenca->status,
+                    'justificativa_status'  => $i->presenca->justificativa_status,
+                ] : null,
             ]);
 
             $confirmado = ($item->presenca?->status_confirmacao === 'confirmado')
@@ -389,7 +421,10 @@ class MembroController extends Controller
             return [
                 'meu_item_id'       => $item->id,
                 'pode_controlar'    => $podeControlar,
-                'minha_presenca'    => $item->presenca ? ['status' => $item->presenca->status] : null,
+                'minha_presenca'    => $item->presenca ? [
+                    'status'               => $item->presenca->status,
+                    'justificativa_status' => $item->presenca->justificativa_status,
+                ] : null,
                 'minha_confirmacao' => $confirmado ? 'confirmado' : null,
                 'minha_funcao'      => $item->funcao_label ?? $item->funcao?->titulo ?? '—',
                 'escala' => [
@@ -656,9 +691,10 @@ class MembroController extends Controller
             ? $validated['data']
             : "{$validated['data']} a {$validated['data_fim']}";
         $motivo = $validated['motivo'] ?? 'não informado';
-        $this->notificacao->alertarAdmin(
-            'Bloqueio de período solicitado',
-            "{$cer->nome} bloqueou o período {$periodo}.\nMotivo: {$motivo}"
+        $this->notificacao->alertarAdminWhatsapp(
+            "*Bloqueio de período solicitado*\n\n{$cer->nome} bloqueou o período {$periodo}.\nMotivo: {$motivo}",
+            'bloqueio_periodo',
+            $registro
         );
 
         return response()->json(['data' => $registro, 'message' => 'Período bloqueado.'], 201);
@@ -720,9 +756,10 @@ class MembroController extends Controller
         $celebracao = $item->escala?->celebracao;
         $quando = $celebracao ? \Carbon\Carbon::parse($celebracao->data)->format('d/m/Y') . ' ' . substr($celebracao->horario, 0, 5) : 'data não identificada';
         $motivo = $validated['motivo'] ?? 'não informado';
-        $this->notificacao->alertarAdmin(
-            'Pedido de substituto',
-            "{$cer->nome} pediu substituto na escala de {$quando}.\nMotivo: {$motivo}"
+        $this->notificacao->alertarAdminWhatsapp(
+            "*Pedido de substituto*\n\n{$cer->nome} pediu substituto na escala de {$quando}.\nMotivo: {$motivo}",
+            'pedido_substituto',
+            $pedido
         );
 
         return response()->json(['data' => $pedido, 'message' => 'Pedido registrado.'], 201);

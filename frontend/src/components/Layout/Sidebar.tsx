@@ -30,6 +30,7 @@ import {
   ShieldCheck,
   Camera,
   Megaphone,
+  ClipboardCheck,
 } from 'lucide-react'
 import logogrupo from '../../assets/logogrupo.png'
 import { removeToken, removeUser, getUser } from '../../lib/auth'
@@ -88,6 +89,7 @@ const modules: Module[] = [
       { label: 'Reuniões',        icon: ClipboardList, to: '/reunioes'       },
       { label: 'Aniversariantes', icon: Gift,          to: '/aniversariantes'},
       { label: 'Comunicados',     icon: Megaphone,     to: '/comunicados'    },
+      { label: 'Justificativas',  icon: ClipboardCheck, to: '/justificativas'},
     ],
   },
   {

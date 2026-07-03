@@ -43,6 +43,7 @@ import RelatorioReunioes from './pages/RelatorioReunioes'
 import { ConfigProvider } from './contexts/ConfigContext'
 import Reunioes from './pages/Reunioes'
 import Comunicados from './pages/Comunicados'
+import Justificativas from './pages/Justificativas'
 import MembroLayout from './components/MembroLayout/MembroLayout'
 import MembroLogin from './pages/membro/Login'
 import MembroDashboard from './pages/membro/Dashboard'
@@ -152,6 +153,7 @@ export default function App() {
           <Route path="/treinamentos" element={<Treinamentos />} />
           <Route path="/reunioes" element={<Reunioes />} />
           <Route path="/comunicados" element={<Comunicados />} />
+          <Route path="/justificativas" element={<Justificativas />} />
           <Route path="/portal-config" element={<PortalConfig />} />
           <Route path="/interessados" element={<Interessados />} />
           <Route path="/analytics" element={<Analytics />} />
