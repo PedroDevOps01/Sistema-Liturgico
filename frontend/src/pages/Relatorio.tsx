@@ -10,6 +10,7 @@ import api from '../lib/api'
 import PageHeader from '../components/common/PageHeader'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import { formatDataShort, formatHorario } from '../lib/dateUtils'
+import { formatPeriodoParaExibicao } from '../lib/liturgico'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface Totais {
@@ -395,7 +396,7 @@ export default function Relatorio() {
                               <ChevronRight size={10} /> {formatHorario(c.horario)}
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{c.periodo_liturgico}</td>
+                          <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{formatPeriodoParaExibicao(c.periodo_liturgico, c.data)}</td>
                           <td className="text-center px-3 py-3 text-gray-600">{c.total}</td>
                           <td className="text-center px-3 py-3 font-bold text-green-600">{c.serviu}</td>
                           <td className="text-center px-3 py-3 font-bold text-red-500">{c.faltou || '—'}</td>
@@ -441,7 +442,7 @@ export default function Relatorio() {
                         <tr key={i} className={`border-t border-gray-100 hover:bg-wine-50/30 transition-colors ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                           <td className="px-4 py-3">
                             <div className="font-semibold text-gray-900">{formatDataShort(s.data)}</div>
-                            <div className="text-xs text-gray-500 mt-0.5">{formatHorario(s.horario)} · {s.periodo_liturgico}</div>
+                            <div className="text-xs text-gray-500 mt-0.5">{formatHorario(s.horario)} · {formatPeriodoParaExibicao(s.periodo_liturgico, s.data)}</div>
                           </td>
                           <td className="px-4 py-3 text-gray-600 text-xs">{s.funcao}</td>
                           <td className="px-4 py-3">

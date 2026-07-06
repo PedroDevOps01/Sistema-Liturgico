@@ -15,7 +15,7 @@ import api from '../lib/api'
 import type { Celebracao, Escala } from '../types'
 import { formatHorario } from '../lib/dateUtils'
 import { getTipoCelebracao, getQtdCerimoniariosDefault, mapTipoParaFlags, pluralizar } from '../lib/celebracaoUtils'
-import { getPeriodoLiturgico } from '../lib/liturgico'
+import { getPeriodoLiturgico, getPeriodoLiturgicoComNumero } from '../lib/liturgico'
 import { compressToBlob, readFileAsBase64 } from '../lib/fileUtils'
 import Badge from '../components/common/Badge'
 import LoadingSpinner from '../components/common/LoadingSpinner'
@@ -282,6 +282,9 @@ export default function Calendario() {
     const titulo = diasFiltro ? `📅 ESCALAS SELECIONADAS — ${monthName}` : `📅 ESCALAS — ${monthName}`
     const lines: string[] = [titulo, '']
 
+    // Só repete a linha do período litúrgico quando ele muda (não em toda celebração).
+    let ultimoPeriodo: string | null = null
+
     Object.keys(grouped).sort().forEach(dateKey => {
       const d = dateKey.split('-').reverse().slice(0, 2).join('/')
       grouped[dateKey]
@@ -290,9 +293,13 @@ export default function Calendario() {
           if (!e.celebracao) return
           const [hh, mm] = (e.celebracao.horario ?? '00:00').substring(0, 5).split(':').map(Number)
           const hStr = mm === 0 ? `${hh}h` : `${hh}h${String(mm).padStart(2, '0')}`
-          const periodo = e.celebracao.periodo_liturgico   // ← período após a data
+          const periodo = getPeriodoLiturgicoComNumero(e.celebracao.data)
           const tipo = getTipoCelebracao(e.celebracao)
-          lines.push(`${d} — ${periodo}`)
+          if (periodo !== ultimoPeriodo) {
+            lines.push(`── ${periodo} ──`)
+            ultimoPeriodo = periodo
+          }
+          lines.push(`${d}`)
           lines.push(`${tipo} às ${hStr}`)
           ;(e.escala_itens ?? []).forEach(item => {
             const label  = item.funcao_label ?? item.funcao?.titulo ?? 'Função'

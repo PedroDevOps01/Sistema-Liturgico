@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Cross, Clock, RefreshCw } from 'lucide-react'
 import api from '../lib/api'
+import { formatPeriodoParaExibicao } from '../lib/liturgico'
 import type { Celebracao } from '../types'
 
 interface TelaoEscala {
@@ -137,7 +138,7 @@ export default function Telao() {
                         <span className="text-2xl font-black tabular-nums">{item.celebracao.horario}</span>
                       </div>
                       <div className="text-white/60 text-base font-medium">
-                        {item.celebracao.periodo_liturgico}
+                        {formatPeriodoParaExibicao(item.celebracao.periodo_liturgico, item.celebracao.data)}
                       </div>
                     </div>
                     {/* Flags */}

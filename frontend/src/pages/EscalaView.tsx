@@ -29,7 +29,7 @@ import type { Cerimoniario, Escala, EscalaItem } from '../types'
 import Badge from '../components/common/Badge'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import { formatDataLong, formatHorario } from '../lib/dateUtils'
-import { getPeriodoBadgeVariant } from '../lib/liturgico'
+import { getPeriodoBadgeVariant, formatPeriodoParaExibicao } from '../lib/liturgico'
 
 // Resultado real (após a celebração) — só exibido se confirmado
 const PRESENCA_OPTIONS = [
@@ -72,7 +72,7 @@ function buildWhatsAppText(escala: Escala): string {
   const lines = [
     '🕊️ ESCALA LITÚRGICA',
     `📅 ${dataFormatada} - ⏰ ${formatHorario(celebracao.horario)}`,
-    `📖 ${celebracao.periodo_liturgico}`,
+    `📖 ${formatPeriodoParaExibicao(celebracao.periodo_liturgico, celebracao.data)}`,
     '',
   ]
 
@@ -349,7 +349,7 @@ export default function EscalaView() {
               </div>
             </div>
             <div className="flex flex-wrap gap-1.5 ml-auto">
-              <Badge variant={getPeriodoBadgeVariant(celebracao.periodo_liturgico)} size="sm">{celebracao.periodo_liturgico}</Badge>
+              <Badge variant={getPeriodoBadgeVariant(celebracao.periodo_liturgico)} size="sm">{formatPeriodoParaExibicao(celebracao.periodo_liturgico, celebracao.data)}</Badge>
               {celebracao.celebracao_noite && <Badge variant="blue" size="sm">Noite</Badge>}
               {celebracao.possui_bispo && <Badge variant="purple" size="sm">Bispo</Badge>}
               {celebracao.casamento && <Badge variant="gold" size="sm">Casamento</Badge>}

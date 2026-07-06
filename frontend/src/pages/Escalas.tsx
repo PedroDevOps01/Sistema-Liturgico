@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
-import { getPeriodoBadgeVariant } from '../lib/liturgico'
+import { getPeriodoBadgeVariant, formatPeriodoParaExibicao } from '../lib/liturgico'
 import type { Escala } from '../types'
 import ActionsDrawer from '../components/common/ActionsDrawer'
 import InativosToggle from '../components/common/InativosToggle'
@@ -261,7 +261,7 @@ async function handleDownloadPdf(escala: Escala) {
                   </td>
                   <td className="px-5 py-4 hidden md:table-cell">
                     {escala.celebracao?.periodo_liturgico ? (
-                      <Badge variant={getPeriodoBadgeVariant(escala.celebracao.periodo_liturgico)} size="sm">{escala.celebracao.periodo_liturgico}</Badge>
+                      <Badge variant={getPeriodoBadgeVariant(escala.celebracao.periodo_liturgico)} size="sm">{formatPeriodoParaExibicao(escala.celebracao.periodo_liturgico, escala.celebracao.data)}</Badge>
                     ) : <span className="text-gray-400">—</span>}
                   </td>
                   <td className="px-5 py-4 hidden lg:table-cell text-gray-500 text-sm">
@@ -303,7 +303,7 @@ async function handleDownloadPdf(escala: Escala) {
         isOpen={!!menuTarget}
         onClose={() => setMenuTarget(null)}
         title={menuTarget?.celebracao ? formatDataShort(menuTarget.celebracao.data) : `Escala #${menuTarget?.id}`}
-        subtitle={menuTarget?.celebracao ? `${formatHorario(menuTarget.celebracao.horario)} · ${menuTarget.celebracao.periodo_liturgico}` : ''}
+        subtitle={menuTarget?.celebracao ? `${formatHorario(menuTarget.celebracao.horario)} · ${formatPeriodoParaExibicao(menuTarget.celebracao.periodo_liturgico, menuTarget.celebracao.data)}` : ''}
         actions={menuTarget ? [
           { label: 'Visualizar', icon: <Eye size={18} />, onClick: () => navigate(`/escalas/${menuTarget.id}`) },
           { label: 'Editar', icon: <Pencil size={18} />, onClick: () => navigate(`/escalas/${menuTarget.id}/editar`) },

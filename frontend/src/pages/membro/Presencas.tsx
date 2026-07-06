@@ -8,7 +8,10 @@ import {
 import toast from 'react-hot-toast'
 import membroApi from '../../lib/membroApi'
 import { parseDate, formatHorario } from '../../lib/dateUtils'
+import { formatPeriodoParaExibicao } from '../../lib/liturgico'
 import JustificativaModal from '../../components/common/JustificativaModal'
+import ScanQrCodeModal from '../../components/common/ScanQrCodeModal'
+import QrCodeMestreModal from '../../components/common/QrCodeMestreModal'
 
 const GOLD = '#fbbf24'
 const DARK = '#431407'
@@ -93,6 +96,8 @@ export default function MembroPresencas() {
   const [justItemId, setJustItemId] = useState<number | null>(null)
   const [salvandoJust, setSalvandoJust] = useState(false)
   const [mostrarAjuda, setMostrarAjuda] = useState(false)
+  const [scanItemId, setScanItemId] = useState<number | null>(null)
+  const [qrEscalaId, setQrEscalaId] = useState<number | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -153,14 +158,14 @@ export default function MembroPresencas() {
     }
   }
 
-  async function handleMarcar(itemId: number, status: 'serviu' | 'justificado', observacao?: string) {
+  async function handleMarcar(itemId: number, status: 'serviu' | 'justificado', observacao?: string, qrcode?: string) {
     if (status === 'justificado' && observacao === undefined) {
       setJustItemId(itemId)
       return
     }
     if (status === 'justificado') setSalvandoJust(true)
     try {
-      await membroApi.put(`/escala-itens/${itemId}/presenca`, { status, observacao: observacao ?? null })
+      await membroApi.put(`/escala-itens/${itemId}/presenca`, { status, observacao: observacao ?? null, qrcode: qrcode ?? null })
       toast.success(status === 'serviu' ? '✅ Presença confirmada!' : '⚠️ Justificativa registrada.')
       setJustItemId(null)
       carregar(true)
@@ -169,6 +174,15 @@ export default function MembroPresencas() {
       toast.error(msg ?? 'Erro ao registrar presença')
     } finally {
       setSalvandoJust(false)
+    }
+  }
+
+  function handleServirClick(d: PresencaDia) {
+    if (d.pode_controlar) {
+      // Mestre já provou presença ao exibir o QR Code — não escaneia o próprio.
+      handleMarcar(d.meu_item_id, 'serviu')
+    } else {
+      setScanItemId(d.meu_item_id)
     }
   }
 
@@ -223,6 +237,7 @@ export default function MembroPresencas() {
               <li>Assim que a janela abre, todos os escalados recebem aviso por <strong>WhatsApp e comunicado no Portal</strong>.</li>
               <li>Quem não marcar presença até o fechamento recebe <strong>falta automática</strong> — dá pra justificar depois, aqui mesmo.</li>
               <li>Se <strong>ninguém</strong> confirmar presença até o fechamento, o mestre recebe um alerta pra reforçar o aviso na próxima escala.</li>
+              <li>Para marcar que serviu, é preciso <strong>escanear o QR Code</strong> exibido pelo mestre — assim só quem está presente na celebração consegue confirmar.</li>
             </ul>
           )}
         </div>
@@ -274,7 +289,7 @@ export default function MembroPresencas() {
                         {cel.periodo_liturgico && (
                           <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"
                             style={{ background: `${GOLD}cc`, color: DARK }}>
-                            {cel.periodo_liturgico}
+                            {formatPeriodoParaExibicao(cel.periodo_liturgico, cel.data)}
                           </span>
                         )}
                         {d.pode_controlar && (
@@ -330,25 +345,36 @@ export default function MembroPresencas() {
                       </div>
 
                       {d.pode_controlar && (
-                        !aberta ? (
-                          <button
-                            onClick={() => handleAbrir(d.escala.id)}
-                            disabled={isAcao}
-                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-60 flex-shrink-0"
-                            style={{ background: '#10B981', color: 'white', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
-                            <Unlock size={13} />
-                            {isAcao ? 'Abrindo...' : 'Abrir Janela'}
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleFechar(d.escala.id)}
-                            disabled={isAcao}
-                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-60 flex-shrink-0"
-                            style={{ background: '#EF4444', color: 'white', boxShadow: '0 4px 12px rgba(239,68,68,0.25)' }}>
-                            <Lock size={13} />
-                            {isAcao ? 'Fechando...' : 'Fechar Janela'}
-                          </button>
-                        )
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {aberta && (
+                            <button
+                              onClick={() => setQrEscalaId(d.escala.id)}
+                              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 flex-shrink-0"
+                              style={{ background: GOLD, color: DARK, boxShadow: '0 4px 12px rgba(251,191,36,0.3)' }}>
+                              <ShieldCheck size={13} />
+                              Exibir QR Code
+                            </button>
+                          )}
+                          {!aberta ? (
+                            <button
+                              onClick={() => handleAbrir(d.escala.id)}
+                              disabled={isAcao}
+                              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-60 flex-shrink-0"
+                              style={{ background: '#10B981', color: 'white', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
+                              <Unlock size={13} />
+                              {isAcao ? 'Abrindo...' : 'Abrir Janela'}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleFechar(d.escala.id)}
+                              disabled={isAcao}
+                              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-60 flex-shrink-0"
+                              style={{ background: '#EF4444', color: 'white', boxShadow: '0 4px 12px rgba(239,68,68,0.25)' }}>
+                              <Lock size={13} />
+                              {isAcao ? 'Fechando...' : 'Fechar Janela'}
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
 
@@ -410,7 +436,7 @@ export default function MembroPresencas() {
                       </div>
                     ) : aberta && d.minha_confirmacao === 'confirmado' ? (
                       <button
-                        onClick={() => handleMarcar(d.meu_item_id, 'serviu')}
+                        onClick={() => handleServirClick(d)}
                         className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95"
                         style={{ background: '#10B981', color: 'white', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
                         <CheckCircle2 size={14} />
@@ -526,6 +552,18 @@ export default function MembroPresencas() {
         onConfirm={(obs) => justItemId !== null && handleMarcar(justItemId, 'justificado', obs)}
         onCancel={() => setJustItemId(null)}
       />
+
+      <ScanQrCodeModal
+        isOpen={scanItemId !== null}
+        onCancel={() => setScanItemId(null)}
+        onScan={(code) => {
+          const id = scanItemId
+          setScanItemId(null)
+          if (id !== null) handleMarcar(id, 'serviu', undefined, code)
+        }}
+      />
+
+      <QrCodeMestreModal escalaId={qrEscalaId} onClose={() => setQrEscalaId(null)} />
     </>
   )
 }

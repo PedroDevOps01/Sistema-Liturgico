@@ -217,6 +217,7 @@ Route::prefix('membro')->group(function () {
         Route::get('presencas-dia',                               [MembroController::class, 'presencasDia']);
         Route::post('escalas/{escala}/presenca/abrir',            [MembroController::class, 'abrirPresenca']);
         Route::post('escalas/{escala}/presenca/fechar',           [MembroController::class, 'fecharPresenca']);
+        Route::get('escalas/{escala}/qrcode-presenca',            [MembroController::class, 'qrcodePresenca']);
         Route::get('comunicados',                                 [MembroController::class, 'comunicados']);
         Route::get('reunioes',                                    [MembroController::class, 'reunioesMembro']);
         Route::put('reunioes/{reuniao}/presenca',                 [MembroController::class, 'marcarPresencaReuniao']);

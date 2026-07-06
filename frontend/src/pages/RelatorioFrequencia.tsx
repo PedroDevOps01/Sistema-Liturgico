@@ -8,6 +8,7 @@ import type { RelatorioFrequenciaData, Cerimoniario } from "../types";
 import PageHeader from "../components/common/PageHeader";
 import Badge from "../components/common/Badge";
 import CalcNote from "../components/common/CalcNote";
+import { formatPeriodoParaExibicao } from "../lib/liturgico";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -434,7 +435,7 @@ export default function RelatorioFrequencia() {
                           {h.horario}
                         </td>
                         <td className="px-5 py-3 text-gray-500 hidden md:table-cell">
-                          {h.periodo_liturgico}
+                          {formatPeriodoParaExibicao(h.periodo_liturgico, h.data)}
                         </td>
                         <td className="px-5 py-3 text-gray-600">
                           {h.funcao_label}

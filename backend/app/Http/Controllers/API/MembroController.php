@@ -214,6 +214,7 @@ class MembroController extends Controller
         $validated = $request->validate([
             'status'     => 'required|in:serviu,justificado',
             'observacao' => 'nullable|string|max:500',
+            'qrcode'     => 'nullable|string',
         ]);
 
         $cer = $this->cerimoniario($request);
@@ -242,6 +243,15 @@ class MembroController extends Controller
                        || ($item->status_confirmacao === 'confirmado');
             if (! $confirmado) {
                 return response()->json(['message' => 'Confirme sua presença antes de marcar que serviu.'], 422);
+            }
+
+            // O mestre exibe o QR Code, então não escaneia o próprio código;
+            // os demais escalados precisam confirmar que estão fisicamente ali.
+            $fl = strtolower($item->funcao_label ?? $item->funcao?->titulo ?? '');
+            if (! str_contains($fl, 'mestre')) {
+                if (! $this->janelaPresenca->qrcodeValido($escala, $validated['qrcode'] ?? null)) {
+                    return response()->json(['message' => 'QR Code inválido ou desatualizado. Peça ao mestre da escala para exibir o código de presença.'], 422);
+                }
             }
         }
 
@@ -496,6 +506,33 @@ class MembroController extends Controller
         $this->janelaPresenca->encerrar($escala);
 
         return response()->json(['message' => 'Janela fechada. Faltas automáticas aplicadas.']);
+    }
+
+    public function qrcodePresenca(Request $request, Escala $escala): JsonResponse
+    {
+        $cer = $this->cerimoniario($request);
+
+        $item = EscalaItem::where('escala_id', $escala->id)
+            ->where('cerimoniario_id', $cer->id)
+            ->first();
+
+        if (! $item) {
+            return response()->json(['message' => 'Você não está nessa escala.'], 403);
+        }
+
+        $fl = strtolower($item->funcao_label ?? $item->funcao?->titulo ?? '');
+        if (! str_contains($fl, 'mestre')) {
+            return response()->json(['message' => 'Apenas o mestre da escala pode exibir o código de presença.'], 403);
+        }
+
+        if (! $escala->presenca_aberta) {
+            return response()->json(['message' => 'A janela de presença precisa estar aberta para exibir o código.'], 422);
+        }
+
+        return response()->json([
+            'data'    => ['qrcode' => $this->janelaPresenca->qrcodeToken($escala)],
+            'message' => 'Código de presença.',
+        ]);
     }
 
     // ── Comunicados ────────────────────────────────────────────────────────

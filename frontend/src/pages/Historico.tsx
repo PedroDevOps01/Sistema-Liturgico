@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
-import { getPeriodoBadgeVariant } from '../lib/liturgico'
+import { getPeriodoBadgeVariant, formatPeriodoParaExibicao } from '../lib/liturgico'
 import { parseDate } from '../lib/dateUtils'
 import type { Celebracao, EscalaItem } from '../types'
 import Badge from '../components/common/Badge'
@@ -136,7 +136,7 @@ function CelebRow({ escala, defaultOpen = false }: { escala: HistoricoEscala; de
             <span className="flex items-center gap-1 text-xs text-gray-500">
               <Clock size={12} />{formatHorario(c.horario)}
             </span>
-            <Badge variant={getPeriodoBadgeVariant(c.periodo_liturgico)} size="sm">{c.periodo_liturgico}</Badge>
+            <Badge variant={getPeriodoBadgeVariant(c.periodo_liturgico)} size="sm">{formatPeriodoParaExibicao(c.periodo_liturgico, c.data)}</Badge>
           </div>
           <div className="mt-1.5 flex items-center gap-3 flex-wrap">
             <CelebFlags c={c} />

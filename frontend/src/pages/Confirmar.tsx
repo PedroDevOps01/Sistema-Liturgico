@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
 import logoGrupo from '../assets/logogrupo.png'
+import { formatPeriodoParaExibicao } from '../lib/liturgico'
 
 interface ConfirmarData {
   cerimoniario: string
@@ -86,7 +87,7 @@ export default function Confirmar() {
                 ['Função',     data?.funcao],
                 ['Data',       data?.data],
                 ['Horário',    data?.horario],
-                ['Celebração', data?.periodo_liturgico],
+                ['Celebração', formatPeriodoParaExibicao(data?.periodo_liturgico, data?.data)],
               ].map(([label, value]) => (
                 <div key={label} className="flex items-center justify-between text-sm">
                   <span className="text-gray-500">{label}</span>

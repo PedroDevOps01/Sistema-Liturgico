@@ -224,7 +224,7 @@
           <td style="font-weight:600">{{ $dt->format('d/m/Y') }}</td>
           <td class="day-name">{{ ucfirst($dt->locale('pt_BR')->isoFormat('dddd')) }}</td>
           <td class="time-val">{{ substr($c->horario, 0, 5) }}</td>
-          <td><span class="lit">{{ $c->periodo_liturgico }}</span></td>
+          <td><span class="lit">{{ \App\Support\PeriodoLiturgico::comNumero($c->periodo_liturgico, $c->data) }}</span></td>
         </tr>
         @endforeach
       </tbody>

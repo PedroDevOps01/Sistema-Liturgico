@@ -23,6 +23,49 @@ function dateOnly(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate())
 }
 
+function diffDays(a: Date, b: Date): number {
+  return Math.round((a.getTime() - b.getTime()) / 86_400_000)
+}
+
+/** Domingo da semana litúrgica corrente (a própria data, se já for domingo). */
+function sundayOnOrBefore(d: Date): Date {
+  return addDays(d, -d.getDay())
+}
+
+const ROMAN_TABLE: [number, string][] = [
+  [1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'],
+  [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'],
+  [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I'],
+]
+
+function toRoman(n: number): string {
+  let num = n
+  let out = ''
+  for (const [value, symbol] of ROMAN_TABLE) {
+    while (num >= value) { out += symbol; num -= value }
+  }
+  return out
+}
+
+/**
+ * Número da semana do Tempo Comum (numeração oficial romana/CNBB, contada
+ * regressivamente a partir da semana 34 = Cristo Rei, véspera do Advento).
+ * O domingo do Batismo do Senhor não tem numeração própria (é substituído
+ * pela festa), então só numeramos a partir do dia seguinte.
+ */
+function getSemanaTempoComum(date: Date, baptism: Date, ashWed: Date, adventStart: Date): number | null {
+  if (date.getTime() === baptism.getTime()) return null
+
+  const sunday = sundayOnOrBefore(date)
+
+  if (date > baptism && date < ashWed) {
+    return diffDays(sunday, baptism) / 7 + 1
+  }
+
+  const sunday34 = addDays(adventStart, -7)
+  return 34 - diffDays(sunday34, sunday) / 7
+}
+
 /** Algoritmo de Meeus/Jones/Butcher para calcular a Páscoa. */
 function getEaster(year: number): Date {
   const a = year % 19
@@ -71,7 +114,10 @@ function getAdventStart(year: number): Date {
  * O período retornado bate exatamente com os valores do select do sistema.
  */
 export function getPeriodoLiturgico(input: Date | string = new Date()): PeriodoInfo {
-  const raw  = typeof input === 'string' ? new Date(input + 'T12:00:00') : input
+  // `input` pode vir como "YYYY-MM-DD" ou timestamp ISO completo (ex: cast 'date' do Laravel) —
+  // sempre trunca pros 10 primeiros chars antes de montar o horário fixo, senão a concatenação
+  // gera uma string de data inválida e todas as comparações abaixo falham silenciosamente.
+  const raw  = typeof input === 'string' ? new Date(input.substring(0, 10) + 'T12:00:00') : input
   const date = dateOnly(raw)
   const y    = date.getFullYear()
 
@@ -136,6 +182,40 @@ export function getPeriodoLiturgico(input: Date | string = new Date()): PeriodoI
 
   // Fallback
   return { periodo: 'Tempo Comum', cor: 'verde', badgeVariant: 'green' }
+}
+
+/**
+ * Período litúrgico para exibição textual (relatórios, texto de WhatsApp etc.),
+ * incluindo o número da semana quando cair no Tempo Comum (ex: "Tempo Comum XIV").
+ * Não usar para persistir em `periodo_liturgico` — esse campo é um enum fixo,
+ * comparado literalmente em vários lugares do sistema (selects, cores, citações).
+ */
+export function getPeriodoLiturgicoComNumero(input: Date | string = new Date()): string {
+  const raw    = typeof input === 'string' ? new Date(input.substring(0, 10) + 'T12:00:00') : input
+  const date   = dateOnly(raw)
+  const y      = date.getFullYear()
+  const { periodo } = getPeriodoLiturgico(input)
+
+  if (periodo !== 'Tempo Comum') return periodo
+
+  const easter      = getEaster(y)
+  const ashWed      = addDays(easter, -46)
+  const adventStart = getAdventStart(y)
+  const baptism     = getBaptism(y)
+
+  const semana = getSemanaTempoComum(date, baptism, ashWed, adventStart)
+  return semana ? `Tempo Comum ${toRoman(semana)}` : periodo
+}
+
+/**
+ * Mesma ideia de `getPeriodoLiturgicoComNumero`, mas a partir de um `periodo_liturgico`
+ * já salvo (enum) + a data da celebração — útil pra exibir o número sem recalcular
+ * o período do zero em telas que já recebem o enum pronto da API.
+ */
+export function formatPeriodoParaExibicao(periodo: string | undefined | null, data: string | undefined | null): string {
+  if (!periodo) return ''
+  if (periodo !== 'Tempo Comum' || !data) return periodo
+  return getPeriodoLiturgicoComNumero(data)
 }
 
 /**

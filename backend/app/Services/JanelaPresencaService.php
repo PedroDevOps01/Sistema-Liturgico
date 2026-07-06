@@ -65,6 +65,33 @@ class JanelaPresencaService
         return $inicio && now()->gte($inicio);
     }
 
+    /**
+     * Código exibido pelo mestre para os demais escalados escanearem antes de marcar
+     * que serviram. Derivado de escala_id + presenca_aberta_em, então roda sozinho a
+     * cada nova abertura da janela — não precisa de coluna própria nem de expiração manual.
+     */
+    public function qrcodeToken(Escala $escala): ?string
+    {
+        if (! $escala->presenca_aberta || ! $escala->presenca_aberta_em) {
+            return null;
+        }
+
+        $assinatura = substr(
+            hash_hmac('sha256', $escala->id . '|' . $escala->presenca_aberta_em->toISOString(), config('app.key')),
+            0,
+            16
+        );
+
+        return "ESCALA-{$escala->id}-{$assinatura}";
+    }
+
+    public function qrcodeValido(Escala $escala, ?string $qrcode): bool
+    {
+        $esperado = $this->qrcodeToken($escala);
+
+        return $qrcode && $esperado && hash_equals($esperado, $qrcode);
+    }
+
     public function abrir(Escala $escala): void
     {
         if ($escala->presenca_aberta) {

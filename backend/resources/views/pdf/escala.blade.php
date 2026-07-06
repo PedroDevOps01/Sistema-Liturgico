@@ -173,7 +173,7 @@
     <div class="info-right">
         <div class="nome-paroquia">{{ $configuracao ? $configuracao->nome_paroquia : 'Paróquia' }}</div>
         <div class="titulo-doc">Ministério dos Acólitos</div>
-        <div><span class="badge-periodo">{{ strtoupper($escala->celebracao->periodo_liturgico) }}</span></div>
+        <div><span class="badge-periodo">{{ strtoupper(\App\Support\PeriodoLiturgico::comNumero($escala->celebracao->periodo_liturgico, $escala->celebracao->data)) }}</span></div>
     </div>
 </div>
 
@@ -225,7 +225,7 @@
 
 {{-- ── Compact Escala Block ── --}}
 <div class="escala-block">
-    <div class="periodo-line">{{ strtoupper($cel->periodo_liturgico) }}</div>
+    <div class="periodo-line">{{ strtoupper(\App\Support\PeriodoLiturgico::comNumero($cel->periodo_liturgico, $cel->data)) }}</div>
     <div class="dia-line">DIA {{ $data }} — {{ $dataBR }}</div>
     <div class="horario-line">
         {{ $tipo }} às {{ $hCmpct }}

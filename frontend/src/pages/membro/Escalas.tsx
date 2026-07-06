@@ -5,7 +5,10 @@ import { Clock, CheckCircle2, XCircle, AlertCircle, HelpCircle, CalendarDays, Ma
 import toast from 'react-hot-toast'
 import membroApi from '../../lib/membroApi'
 import { parseDate, formatHorario, parseDateParts } from '../../lib/dateUtils'
+import { isFuncaoMestre } from '../../lib/funcaoUtils'
+import { formatPeriodoParaExibicao } from '../../lib/liturgico'
 import JustificativaModal from '../../components/common/JustificativaModal'
+import ScanQrCodeModal from '../../components/common/ScanQrCodeModal'
 
 const THEME_DARK = '#431407'
 const THEME_MID  = '#fbbf24'
@@ -36,6 +39,7 @@ export default function MembroEscalas() {
   const [confirmandoId, setConfirmandoId] = useState<number | null>(null)
   const [expandedId, setExpandedId]       = useState<number | null>(null)
   const [justItem, setJustItem]           = useState<EscalaItem | null>(null)
+  const [scanItem, setScanItem]           = useState<EscalaItem | null>(null)
   const hoje = new Date().toISOString().split('T')[0]
 
   function carregar(p: Periodo) {
@@ -60,16 +64,25 @@ export default function MembroEscalas() {
     } finally { setConfirmandoId(null) }
   }
 
-  async function handleServiu(item: EscalaItem) {
+  async function handleServiu(item: EscalaItem, qrcode?: string) {
     setConfirmandoId(item.id)
     try {
-      await membroApi.put(`/escala-itens/${item.id}/presenca`, { status: 'serviu' })
+      await membroApi.put(`/escala-itens/${item.id}/presenca`, { status: 'serviu', qrcode: qrcode ?? null })
       toast.success('✅ Presença registrada!')
       carregar(periodo)
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
       toast.error(msg ?? 'Erro ao registrar presença')
     } finally { setConfirmandoId(null) }
+  }
+
+  function handleServirClick(item: EscalaItem) {
+    // Mestre já provou presença ao exibir o QR Code — não escaneia o próprio.
+    if (isFuncaoMestre(item.funcao?.titulo ?? item.funcao_label)) {
+      handleServiu(item)
+    } else {
+      setScanItem(item)
+    }
   }
 
   async function handleJustificar(item: EscalaItem, observacao?: string) {
@@ -277,7 +290,7 @@ export default function MembroEscalas() {
 
                           {item.escala.celebracao.periodo_liturgico && (
                             <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
-                              {item.escala.celebracao.periodo_liturgico}
+                              {formatPeriodoParaExibicao(item.escala.celebracao.periodo_liturgico, item.escala.celebracao.data)}
                             </span>
                           )}
                         </div>
@@ -319,7 +332,7 @@ export default function MembroEscalas() {
                         )}
                         {/* Marcar que serviu — janela aberta, confirmado */}
                         {podeServir && (
-                          <button onClick={() => handleServiu(item)} disabled={isConfirmando}
+                          <button onClick={() => handleServirClick(item)} disabled={isConfirmando}
                             className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
                             style={{ background: '#10B981', color: 'white', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
                             <CheckCircle2 size={13} />
@@ -359,6 +372,16 @@ export default function MembroEscalas() {
         loading={justItem !== null && confirmandoId === justItem.id}
         onConfirm={(obs) => justItem && handleJustificar(justItem, obs)}
         onCancel={() => setJustItem(null)}
+      />
+
+      <ScanQrCodeModal
+        isOpen={!!scanItem}
+        onCancel={() => setScanItem(null)}
+        onScan={(code) => {
+          const item = scanItem
+          setScanItem(null)
+          if (item) handleServiu(item, code)
+        }}
       />
     </>
   )

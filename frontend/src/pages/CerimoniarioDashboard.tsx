@@ -22,6 +22,7 @@ import type { Cerimoniario } from '../types'
 import Badge from '../components/common/Badge'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import { parseDate, formatHorario, formatPhone } from '../lib/dateUtils'
+import { formatPeriodoParaExibicao } from '../lib/liturgico'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -477,7 +478,7 @@ export default function CerimoniarioDashboard() {
                       {formatHorario(item.horario)}
                     </td>
                     <td className="px-5 py-3">
-                      <Badge variant="wine" size="sm">{item.periodo_liturgico}</Badge>
+                      <Badge variant="wine" size="sm">{formatPeriodoParaExibicao(item.periodo_liturgico, item.data)}</Badge>
                     </td>
                     <td className="px-5 py-3 text-sm text-gray-600">
                       {item.funcao ?? <span className="text-gray-300">—</span>}
@@ -514,7 +515,7 @@ export default function CerimoniarioDashboard() {
                       {item.funcao ? ` · ${item.funcao}` : ''}
                     </p>
                   </div>
-                  <Badge variant="wine" size="sm">{item.periodo_liturgico}</Badge>
+                  <Badge variant="wine" size="sm">{formatPeriodoParaExibicao(item.periodo_liturgico, item.data)}</Badge>
                 </Link>
               ))}
             </div>

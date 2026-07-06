@@ -11,7 +11,10 @@ import { ptBR } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import membroApi from '../../lib/membroApi'
 import { parseDate, formatHorario } from '../../lib/dateUtils'
+import { isFuncaoMestre } from '../../lib/funcaoUtils'
+import { formatPeriodoParaExibicao } from '../../lib/liturgico'
 import JustificativaModal from '../../components/common/JustificativaModal'
+import ScanQrCodeModal from '../../components/common/ScanQrCodeModal'
 
 const INDIGO = '#431407'
 
@@ -101,6 +104,7 @@ export default function MembroCalendario() {
   const [confirmandoId, setConfirmandoId] = useState<number | null>(null)
   const [justItem, setJustItem] = useState<EscalaItem | null>(null)
   const [salvandoJust, setSalvandoJust] = useState(false)
+  const [scanItem, setScanItem] = useState<EscalaItem | null>(null)
 
   async function loadCalendario(month: Date): Promise<EscalaItem[]> {
     setLoading(true)
@@ -171,10 +175,10 @@ export default function MembroCalendario() {
     }
   }
 
-  async function handleServiu(item: EscalaItem) {
+  async function handleServiu(item: EscalaItem, qrcode?: string) {
     setConfirmandoId(item.id)
     try {
-      await membroApi.put(`/escala-itens/${item.id}/presenca`, { status: 'serviu' })
+      await membroApi.put(`/escala-itens/${item.id}/presenca`, { status: 'serviu', qrcode: qrcode ?? null })
       toast.success('✅ Presença confirmada!')
       refreshDrawer(await loadCalendario(currentMonth))
     } catch (e: unknown) {
@@ -182,6 +186,15 @@ export default function MembroCalendario() {
       toast.error(msg ?? 'Erro ao registrar presença')
     } finally {
       setConfirmandoId(null)
+    }
+  }
+
+  function handleServirClick(item: EscalaItem) {
+    // Mestre já provou presença ao exibir o QR Code — não escaneia o próprio.
+    if (isFuncaoMestre(item.funcao?.titulo ?? item.funcao_label)) {
+      handleServiu(item)
+    } else {
+      setScanItem(item)
     }
   }
 
@@ -409,7 +422,7 @@ export default function MembroCalendario() {
                   {format(parseDate(drawerDate), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                 </p>
                 <h2 className="text-lg font-bold">
-                  {drawer[0]?.escala.celebracao.periodo_liturgico ?? 'Celebração'}
+                  {drawer[0] ? (formatPeriodoParaExibicao(drawer[0].escala.celebracao.periodo_liturgico, drawer[0].escala.celebracao.data) || 'Celebração') : 'Celebração'}
                 </h2>
                 <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
                   {drawer.length} {drawer.length === 1 ? 'celebração' : 'celebrações'}
@@ -453,7 +466,7 @@ export default function MembroCalendario() {
                       {cel.periodo_liturgico && (
                         <span className="text-xs font-medium px-2.5 py-1 rounded-full text-white/80"
                           style={{ background: 'rgba(28,20,69,0.65)' }}>
-                          {cel.periodo_liturgico}
+                          {formatPeriodoParaExibicao(cel.periodo_liturgico, cel.data)}
                         </span>
                       )}
                       {cel.possui_bispo && (
@@ -547,7 +560,7 @@ export default function MembroCalendario() {
                         )}
                         {podeServir && (
                           <button
-                            onClick={() => handleServiu(item)}
+                            onClick={() => handleServirClick(item)}
                             disabled={isConf}
                             className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
                             style={{ background: '#10B981', color: 'white', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
@@ -600,6 +613,16 @@ export default function MembroCalendario() {
         loading={salvandoJust}
         onConfirm={(obs) => justItem && handleJustificar(justItem, obs)}
         onCancel={() => setJustItem(null)}
+      />
+
+      <ScanQrCodeModal
+        isOpen={!!scanItem}
+        onCancel={() => setScanItem(null)}
+        onScan={(code) => {
+          const item = scanItem
+          setScanItem(null)
+          if (item) handleServiu(item, code)
+        }}
       />
     </div>
   )

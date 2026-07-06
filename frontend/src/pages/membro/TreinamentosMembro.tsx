@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import membroApi from '../../lib/membroApi'
+import { formatPeriodoParaExibicao } from '../../lib/liturgico'
 import JustificativaModal from '../../components/common/JustificativaModal'
 
 const GOLD = '#fbbf24'
@@ -97,7 +98,7 @@ export default function MembroTreinamentos() {
             {t.periodo_liturgico && (
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
                 style={{ background: `${GOLD}cc`, color: DARK }}>
-                {t.periodo_liturgico}
+                {formatPeriodoParaExibicao(t.periodo_liturgico, t.data)}
               </span>
             )}
           </div>

@@ -9,6 +9,16 @@ import logoGrupo from './assets/logogrupo.png'
 applyLiturgicalTheme()
 applyDynamicFavicon(logoGrupo)
 
+// Dev only: testar a troca de cores no console sem mudar o relógio do sistema.
+// Ex: testarTema('2026-12-10') → Advento. testarTema() sem args volta pra hoje.
+if (import.meta.env.DEV) {
+  (window as unknown as { testarTema: (data?: string) => string }).testarTema = (data?: string) => {
+    const periodo = applyLiturgicalTheme(data ? new Date(`${data}T12:00:00`) : undefined)
+    console.log(`Tema aplicado: ${periodo}`)
+    return periodo
+  }
+}
+
 import Layout from './components/Layout/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
