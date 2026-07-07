@@ -13,6 +13,7 @@ Sistema web para gerenciamento do ministério de cerimoniários e acólitos: esc
 | Banco de dados | PostgreSQL 16 |
 | PDF | DomPDF (barryvdh/laravel-dompdf) |
 | Drag & Drop | @dnd-kit |
+| QR Code | qrcode.react (gerar) · html5-qrcode (ler pela câmera) |
 
 ---
 
@@ -127,12 +128,14 @@ se alguma dessas variáveis estiver faltando.
 - Flags: Possui Bispo/Arcebispo · Celebração das 6h · Celebração da Palavra · Celebração Solene · Casamento · Batismo · Crisma · Primeira Eucaristia · Quinta Eucarística · Tríduo · Adoração ao Santíssimo · Procissão · Via-Sacra · Exéquias · Vigília Pascal · Paixão do Senhor · Ordenação
 - Ordenação por data com badge "Data passada" para celebrações anteriores
 - **Import via CSV** — planilha com data/horário/tipo/período/qtd. de cerimoniários, pré-visualização editável antes de confirmar
-- **Import automático via IA** — envia o PDF ou foto da agenda paroquial do mês (Gemini identifica os dias com celebração e ignora compromissos que não são celebrações), com a mesma pré-visualização editável
+- **Import automático via IA** — envia o PDF ou foto da agenda paroquial do mês (Gemini identifica os dias com celebração, ignora compromissos que não são celebrações e descarta automaticamente missas das 6h, que não entram em escala), com a mesma pré-visualização editável; nova tentativa automática em caso de sobrecarga temporária da API (429/503) e mensagens de erro específicas por causa (sobrecarga, agenda grande demais)
 
 ### Escalas
 - Estrutura **automática** gerada pelas flags da celebração
 - **Regra de slots por horário**: horário < 18h → 5 slots (Mestre + 4 Aux); ≥ 18h → 6 slots (+ Turiferário); com Bispo → +3 extras (Môr/Mitra/Bácula); eventos especiais (Casamento, Batismo etc.) → apenas Mestre pré-preenchido
-- **Sugestão automática** por disponibilidade, rotatividade justa e priorização de mestres
+- **Sugestão automática** por disponibilidade, rotatividade justa e priorização de mestres — exibe um **aviso de ciclo completo** quando todos os acólitos ativos já foram escalados no mês, avisando que passará a haver repetições
+- **Corrigir Escalas do Mês** — ferramenta no Calendário que varre as escalas futuras do mês, identifica repetições evitáveis (cerimoniário escalado mais de uma vez enquanto há gente do mesmo perfil ainda não escalada) e propõe trocas; admin revisa e aplica em lote
+- **Paramentados** — cerimoniários que ficam paramentados na celebração sem ocupar uma função específica e sem entrar no controle de presença; selecionados por busca ao montar a escala, aparecem destacados junto ao restante
 - **Dois modos de visualização**: lista (drag & drop para reordenar) e **grade/matriz** (cerimoniários nas linhas × funções nas colunas, marcação direta por célula)
 - Select de cerimoniário com indicadores visuais de disponibilidade (verde/âmbar/vermelho/laranja)
 - Alertas de conflito e duplicatas
@@ -151,6 +154,7 @@ se alguma dessas variáveis estiver faltando.
 - Registro pós-celebração por cerimoniário
 - Status: Confirmado · Serviu normalmente · Faltou · Substituído · Justificado
 - Campo de substituto vinculado ao status "Substituído"
+- **Confirmação por QR Code**: com a janela de presença aberta, o mestre da escala exibe um QR Code na própria tela do Portal do Membro; os demais escalados escaneiam (ou digitam o código manualmente) pra marcar que serviram — o mestre não escaneia o próprio código, já que exibi-lo já comprova presença. Código derivado de `escala_id` + horário de abertura da janela (HMAC), sem coluna própria nem expiração manual
 - **Justificativa de falta com aprovação do admin**: o membro justifica a falta com observação obrigatória — **uma única vez** por falta (sem reenviar em cima de uma pendente ou já recusada). A falta permanece "Faltou" com selo "Em análise" até o admin decidir em `/justificativas`; só vira "Justificado" quando aprovada. O admin pode **reverter a decisão a qualquer momento** (aprovar após já ter recusado, ou vice-versa)
 
 ### Justificativas (admin)
@@ -191,7 +195,9 @@ se alguma dessas variáveis estiver faltando.
 - **Empréstimos de Túnicas**: tempo médio de devolução, cerimoniários com mais empréstimos, túnicas com mais ocorrências de perda e histórico completo com filtro por período
 - **Assiduidade**: por período litúrgico (Advento, Quaresma, Tempo Comum etc.), top ausentes, faltas por mês com top 5 por mês — padrão inclui próximos 30 dias para capturar faltas pré-registradas; CalcNote com fórmulas visível após filtrar
 - **Analytics**: ranking de assiduidade com tendência (subindo/estável/caindo), cerimoniários em risco (≥ 3 faltas consecutivas), score de saúde do ministério (0–100), projeção de celebrações para o próximo mês; **fórmulas exibidas via CalcNote**: score = Presença×40% + Confirmações×30% + Ativos×20% + Treinamentos×10%; projeção = média 3m×60% + mesmo mês ano anterior×40%
+- **Paramentados**: lista, por período, as celebrações que tiveram cerimoniários paramentados, junto com o restante da escala
 - Meses sempre em **português** (Jan, Fev, Mar…) independente do locale do servidor
+- Período litúrgico exibido com **numeração da semana no Tempo Comum** (ex.: "Tempo Comum XIV", numeração romana contada regressivamente a partir de Cristo Rei) em relatórios, PDF e texto de WhatsApp — não altera o valor salvo no banco, que continua sendo o enum fixo
 
 ### Chat — Consultas Rápidas (Sávio)
 - Interface de chat lateral com respostas em linguagem natural
@@ -246,6 +252,7 @@ se alguma dessas variáveis estiver faltando.
 | `celebracoes` | Celebrações com flags, cor litúrgica e agrupamento de final de semana |
 | `escalas` | Escalas vinculadas a uma celebração |
 | `escala_itens` | Linhas da escala (função + cerimoniário + token de confirmação + status) |
+| `escala_paramentados` | Cerimoniários paramentados numa escala, sem função nem controle de presença (pivot `escala_id` + `cerimoniario_id`) |
 | `presencas` | Presença pós-celebração (substituto; fluxo de aprovação de justificativa: `justificativa_status`, `justificativa_analisada_em`, `justificativa_analisada_por`) |
 | `treinamentos` | Treinamentos com tema, local, período litúrgico e funções alvo |
 | `treinamento_presencas` | Presença individual por cerimoniário em cada treinamento (campo `formacao_competencia_id` para avanço automático) |
