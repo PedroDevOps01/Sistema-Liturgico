@@ -89,6 +89,7 @@ export interface Escala {
   criado_por: number
   escala_itens?: EscalaItem[]   // API returns "escala_itens" (Laravel snake_case)
   itens?: EscalaItem[]          // alias used in some views
+  paramentados?: Cerimoniario[] // cerimoniários paramentados, sem função específica
   observacao?: string
   presenca_aberta: boolean
   presenca_aberta_em?: string | null

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -30,7 +31,7 @@ class AgendaImportController extends Controller
 
     public function extrair(Request $request): JsonResponse
     {
-        set_time_limit(100);
+        set_time_limit(200);
 
         $validated = $request->validate([
             'arquivo_base64' => 'required|string|max:14000000',
@@ -52,7 +53,14 @@ class AgendaImportController extends Controller
         $inicio = microtime(true);
 
         try {
-            $response = Http::timeout(90)->post("{$this->baseUrl}/{$this->model}:generateContent?key={$this->apiKey}", [
+            $response = Http::timeout(90)
+                // Gemini às vezes retorna 429/503 por sobrecarga temporária — tenta mais uma vez antes de desistir
+                ->retry(2, 3000, function ($exception) {
+                    $status = $exception instanceof RequestException ? $exception->response->status() : null;
+
+                    return in_array($status, [429, 503], true);
+                }, throw: false)
+                ->post("{$this->baseUrl}/{$this->model}:generateContent?key={$this->apiKey}", [
                 'contents' => [[
                     'role'  => 'user',
                     'parts' => [
@@ -62,7 +70,7 @@ class AgendaImportController extends Controller
                 ]],
                 'generation_config' => [
                     'temperature'        => 0.1,
-                    'max_output_tokens'  => 8192,
+                    'max_output_tokens'  => 32768,
                     'response_mime_type' => 'application/json',
                     'response_schema'    => $this->responseSchema(),
                 ],
@@ -75,22 +83,34 @@ class AgendaImportController extends Controller
 
         if ($response->failed()) {
             $erro = $response->json('error.message') ?? "HTTP {$response->status()}";
-            return response()->json([
-                'message' => "Erro na API Gemini: {$erro}",
-            ], 502);
+            Log::warning('AgendaImportController: falha na API Gemini', [
+                'status' => $response->status(),
+                'erro'   => $erro,
+            ]);
+
+            $mensagem = in_array($response->status(), [429, 503], true)
+                ? 'O serviço de IA está sobrecarregado no momento. Aguarde um pouco e tente novamente.'
+                : "Erro na API Gemini: {$erro}";
+
+            return response()->json(['message' => $mensagem], 502);
         }
 
         $texto = $response->json('candidates.0.content.parts.0.text');
         $itens = json_decode((string) $texto, true);
 
         if (! is_array($itens)) {
+            $finishReason = $response->json('candidates.0.finishReason');
             Log::warning('AgendaImportController: resposta Gemini não é JSON válido', [
-                'trecho' => mb_substr((string) $texto, 0, 500),
+                'finish_reason'   => $finishReason,
+                'tamanho_texto'   => mb_strlen((string) $texto),
+                'trecho_final'    => mb_substr((string) $texto, -500),
             ]);
 
-            return response()->json([
-                'message' => 'Não foi possível interpretar a agenda enviada. Tente novamente ou cadastre manualmente.',
-            ], 422);
+            $mensagem = $finishReason === 'MAX_TOKENS'
+                ? 'A agenda tem celebrações demais para ser processada de uma vez. Tente enviar o arquivo em partes ou cadastre manualmente.'
+                : 'Não foi possível interpretar a agenda enviada. Tente novamente ou cadastre manualmente.';
+
+            return response()->json(['message' => $mensagem], 422);
         }
 
         $celebracoes = $this->explodeHorarios($itens, $mes, $ano);
@@ -131,9 +151,16 @@ class AgendaImportController extends Controller
                     continue;
                 }
 
+                $hora = (int) $m[1];
+
+                // Missas das 6h não entram na escala — desconsideradas automaticamente na importação
+                if ($tipo === 'Missa' && $hora === 6) {
+                    continue;
+                }
+
                 $linhas[] = [
                     'data'       => sprintf('%04d-%02d-%02d', $ano, $mes, $dia),
-                    'horario'    => sprintf('%02d:%02d', (int) $m[1], (int) $m[2]),
+                    'horario'    => sprintf('%02d:%02d', $hora, (int) $m[2]),
                     'tipo'       => $tipo,
                     'observacao' => $observacao,
                 ];

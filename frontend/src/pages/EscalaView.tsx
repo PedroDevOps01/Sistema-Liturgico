@@ -22,7 +22,7 @@ import {
   Info,
   AlertTriangle,
 } from 'lucide-react'
-import SelectField from '../components/common/SelectField'
+import SearchableSelect from '../components/common/SearchableSelect'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
 import type { Cerimoniario, Escala, EscalaItem } from '../types'
@@ -591,20 +591,15 @@ export default function EscalaView() {
                       {statusPresenca === 'substituido' && (
                         <div className="flex items-center gap-1.5">
                           <RotateCcw size={11} className="text-amber-500 flex-shrink-0" />
-                          <SelectField
-                            variant="amber"
-                            value={item.presenca?.substituto_id ?? ''}
-                            onChange={(e) => handleSubstituto(item, e.target.value ? Number(e.target.value) : null)}
-                            wrapperClassName="max-w-[160px]"
-                            className="text-xs py-1 px-2.5"
-                          >
-                            <option value="">— Quem serviu? —</option>
-                            {cerimoniarios
+                          <SearchableSelect
+                            className="max-w-[180px]"
+                            options={cerimoniarios
                               .filter((c) => c.id !== item.cerimoniario_id)
-                              .map((c) => (
-                                <option key={c.id} value={c.id}>{c.nome}</option>
-                              ))}
-                          </SelectField>
+                              .map((c) => ({ value: c.id, label: c.nome }))}
+                            value={item.presenca?.substituto_id ?? null}
+                            onChange={(val) => handleSubstituto(item, val ? Number(val) : null)}
+                            placeholder="— Quem serviu? —"
+                          />
                         </div>
                       )}
                     </div>
@@ -761,21 +756,17 @@ export default function EscalaView() {
                       {(escala.presenca_aberta || !escala.presenca_fechada_em) && (
                         isSubstituindo ? (
                           <div className="flex items-center gap-1.5 flex-shrink-0">
-                            <select
-                              autoFocus
-                              className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-wine-300 max-w-[160px]"
-                              defaultValue=""
-                              onChange={e => {
-                                if (e.target.value) handleSubstituirNoControle(item, Number(e.target.value))
-                              }}
-                            >
-                              <option value="">— Escolher substituto —</option>
-                              {cerimoniarios
+                            <SearchableSelect
+                              className="max-w-[180px]"
+                              options={cerimoniarios
                                 .filter(c => c.ativo && c.id !== item.cerimoniario_id)
-                                .map(c => (
-                                  <option key={c.id} value={c.id}>{c.nome}</option>
-                                ))}
-                            </select>
+                                .map(c => ({ value: c.id, label: c.nome }))}
+                              value={null}
+                              onChange={(val) => {
+                                if (val) handleSubstituirNoControle(item, Number(val))
+                              }}
+                              placeholder="— Escolher substituto —"
+                            />
                             <button
                               onClick={() => setSubstituindoItemId(null)}
                               className="text-gray-400 hover:text-gray-600 transition-colors"

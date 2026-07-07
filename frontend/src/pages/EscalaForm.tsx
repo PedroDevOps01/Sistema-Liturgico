@@ -40,6 +40,8 @@ import {
   LayoutList,
   Info,
   X,
+  Shirt,
+  Search,
 } from 'lucide-react'
 import api from '../lib/api'
 import type { Celebracao, Cerimoniario, EscalaItem } from '../types'
@@ -517,6 +519,8 @@ export default function EscalaForm() {
   const [conflictMap, setConflictMap] = useState<Record<number, Array<{ horario: string; periodo_liturgico: string }>>>({})
   const [blockedIds, setBlockedIds] = useState<Set<number>>(new Set())
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
+  const [paramentadoIds, setParamentadoIds] = useState<number[]>([])
+  const [paramentadoSearch, setParamentadoSearch] = useState('')
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -584,6 +588,7 @@ export default function EscalaForm() {
           celebracao_id: number
           celebracao: Celebracao
           escala_itens: EscalaItem[]
+          paramentados?: Cerimoniario[]
           observacao?: string
         }>(`/escalas/${id}`)
         const escala = escalaR.data
@@ -591,6 +596,7 @@ export default function EscalaForm() {
         setObservacao(escala.observacao || '')
         setSelectedCelebracaoId(escala.celebracao_id)
         setSelectedCelebracao(escala.celebracao)
+        setParamentadoIds((escala.paramentados ?? []).map((c) => c.id))
 
         const loadedItems: EscalaItem[] = (escala.escala_itens || []).map((item) => ({
           ...item,
@@ -704,10 +710,11 @@ export default function EscalaForm() {
     if (!selectedCelebracaoId) return
     setSugerindo(true)
     try {
-      const r = await api.get<Array<{ slot: number; funcao_label: string; cerimoniario: Cerimoniario | null }>>(
-        `/escalas/sugerir?celebracao_id=${selectedCelebracaoId}`
-      )
-      const suggestions = r.data
+      const r = await api.get<{
+        sugestoes: Array<{ slot: number; funcao_label: string; cerimoniario: Cerimoniario | null }>
+        aviso: string | null
+      }>(`/escalas/sugerir?celebracao_id=${selectedCelebracaoId}`)
+      const { sugestoes: suggestions, aviso } = r.data
       setItems(prev => prev.map((item, idx) => {
         const sug = suggestions.find(s => s.slot === idx)
         if (sug?.cerimoniario) {
@@ -720,6 +727,9 @@ export default function EscalaForm() {
         return item
       }))
       toast.success('Sugestão aplicada! Ajuste conforme necessário.')
+      if (aviso) {
+        toast(aviso, { icon: 'ℹ️', duration: 6000 })
+      }
     } catch {
       toast.error('Erro ao gerar sugestão')
     } finally {
@@ -748,6 +758,14 @@ export default function EscalaForm() {
           : item
       )
     })
+  }
+
+  function toggleParamentado(cerimoniarioId: number) {
+    setParamentadoIds((prev) =>
+      prev.includes(cerimoniarioId)
+        ? prev.filter((id) => id !== cerimoniarioId)
+        : [...prev, cerimoniarioId]
+    )
   }
 
   function handleAddRow() {
@@ -795,6 +813,7 @@ export default function EscalaForm() {
           funcao_label: item.funcao_label,
           ordem: idx,
         })),
+        paramentado_ids: paramentadoIds,
       }
 
       if (isEditing && escalaId) {
@@ -1115,6 +1134,66 @@ export default function EscalaForm() {
         </div>
       )}
 
+      {/* Paramentados */}
+      {selectedCelebracao && (() => {
+        const paramentadoCandidates = cerimoniarios.filter((c) =>
+          (!blockedIds.has(c.id) || paramentadoIds.includes(c.id)) &&
+          !items.some((i) => i.cerimoniario_id === c.id)
+        )
+        const paramentadoFiltrados = paramentadoCandidates.filter((c) =>
+          c.nome.toLowerCase().includes(paramentadoSearch.toLowerCase())
+        )
+        return (
+          <div className="card p-5">
+            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-2">
+              <Shirt size={16} className="text-wine-600" />
+              Paramentados
+              {paramentadoIds.length > 0 && (
+                <span className="normal-case text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                  {paramentadoIds.length}
+                </span>
+              )}
+            </h2>
+            <p className="text-xs text-gray-400 mb-3">
+              Cerimoniários que ficaram paramentados nesta celebração, sem função específica e sem controle de presença.
+            </p>
+            <div className="relative mb-2">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Buscar cerimoniário..."
+                value={paramentadoSearch}
+                onChange={(e) => setParamentadoSearch(e.target.value)}
+                className="input-field text-sm py-2 pl-8"
+              />
+            </div>
+            <div className="max-h-48 overflow-y-auto border-2 border-gray-100 rounded-xl divide-y divide-gray-50">
+              {paramentadoFiltrados.length === 0 ? (
+                <p className="px-4 py-3 text-sm text-gray-400 text-center">Nenhum cerimoniário encontrado</p>
+              ) : (
+                paramentadoFiltrados.map((c) => {
+                  const selected = paramentadoIds.includes(c.id)
+                  return (
+                    <label
+                      key={c.id}
+                      className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${selected ? 'bg-wine-50' : 'hover:bg-gray-50'}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => toggleParamentado(c.id)}
+                        className="rounded border-wine-300 text-wine-700 focus:ring-wine-500"
+                      />
+                      <span className="text-sm font-medium text-gray-800">{c.nome}</span>
+                    </label>
+                  )
+                })
+              )}
+            </div>
+          </div>
+        )
+      })()}
+
       {/* Observação */}
       {selectedCelebracao && (
         <div className="card p-5">
@@ -1196,51 +1275,16 @@ export default function EscalaForm() {
           </div>
 
           <div className="space-y-3 text-sm text-gray-600 max-h-[70vh] overflow-y-auto pr-1">
-            <p>
-              A sugestão passa por várias etapas, nesta ordem, até decidir quem preencher em cada função:
-            </p>
-
-            <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 space-y-2">
-              <p className="font-semibold text-gray-800">1. Quem entra na lista</p>
-              <ul className="text-gray-600 text-xs space-y-1 list-disc pl-4">
-                <li>Só cerimoniários <strong>ativos</strong> são considerados.</li>
-                <li>Quem já foi escalado em <strong>outra celebração no mesmo dia</strong> é excluído.</li>
-                <li>Para as funções comuns, só entra quem está marcado como <strong>disponível</strong> naquele dia da semana e período (domingo manhã/tarde/noite, sábado, semana manhã/tarde/noite) e que não está com <strong>"indisponível temporário"</strong> ativado.</li>
-              </ul>
-            </div>
-
-            <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 space-y-2">
-              <p className="font-semibold text-gray-800">2. Quem vem primeiro (rotatividade)</p>
-              <p className="text-gray-600 text-xs">
-                Prioridade para quem serviu <strong>há mais tempo</strong> — contando os dias desde a última vez que serviu numa escala. Quem nunca serviu tem prioridade máxima. Em caso de <strong>empate</strong> (ex: vários que nunca serviram), a ordem entre eles é sorteada a cada vez que a sugestão é gerada, para não favorecer sempre a mesma pessoa.
-              </p>
-            </div>
-
-            <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 space-y-2">
-              <p className="font-semibold text-amber-900 flex items-center gap-1.5">
-                <span className="w-4 h-4 rounded-full bg-amber-700 text-white text-[10px] flex items-center justify-center font-bold">!</span>
-                3. Funções prioritárias
-              </p>
-              <p className="text-amber-800 text-xs">
-                <strong>Mestre, 2º Auxiliar e Turiferário</strong> são reservados exclusivamente para cerimoniários marcados como <strong>Experiente</strong> ou <strong>Mestre</strong>. Para a função Mestre, quem tem a flag <em>Mestre</em> tem preferência dentro desse grupo.
-              </p>
-              <p className="text-amber-800 text-xs">
-                Só para essas 3 funções, a <strong>disponibilidade cadastrada</strong> (dia/período) e o <strong>"indisponível temporário"</strong> são <strong>ignorados</strong> — assume-se que mestres e experientes topam servir mesmo fora do que está marcado no cadastro deles. Se não houver nenhum mestre/experiente disponível de jeito nenhum, a sugestão cai para o pool comum como último recurso.
-              </p>
-            </div>
-
-            <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 space-y-2">
-              <p className="font-semibold text-gray-800">4. Demais funções</p>
-              <p className="text-gray-600 text-xs">
-                São preenchidas priorizando cerimoniários <strong>sem</strong> a flag experiente ou mestre, reservando os mais experientes para as funções acima (e, ao contrário das prioritárias, respeitando a disponibilidade cadastrada normalmente). Se não houver ninguém nesse perfil disponível, a sugestão considera qualquer cerimoniário disponível dentro da disponibilidade normal.
-              </p>
-              <p className="text-gray-600 text-xs">
-                <strong>Último recurso:</strong> se mesmo assim ninguém estiver disponível (nem experiente, nem não-experiente), a função é preenchida obrigatoriamente com um mestre/experiente <strong>ignorando a disponibilidade cadastrada dele</strong> — a função só fica vazia se não houver absolutamente ninguém elegível, nem mestres/experientes.
-              </p>
-            </div>
+            <ul className="space-y-2.5 text-xs text-gray-600 list-disc pl-4">
+              <li><strong>Quem pode entrar:</strong> só ativos, disponíveis naquele dia/período e sem estar em outra escala no mesmo dia.</li>
+              <li><strong>Rotatividade:</strong> prioriza quem está há mais tempo sem ser escalado. Quem nunca foi escalado vem primeiro. Empates são sorteados a cada sugestão.</li>
+              <li><strong>Mestre, 2º Auxiliar e Turiferário:</strong> só para quem é Mestre ou Experiente (ignorando disponibilidade cadastrada). Sem ninguém assim, usa o pool comum.</li>
+              <li><strong>Demais funções:</strong> priorizam quem não é Mestre/Experiente, respeitando a disponibilidade normal.</li>
+              <li><strong>Ciclo completo:</strong> quando todos já foram escalados no mês, aparece um aviso dizendo que repetições passam a ser necessárias.</li>
+            </ul>
 
             <p className="text-xs text-gray-400">
-              Nenhum cerimoniário é sugerido duas vezes na mesma escala. A sugestão é só um ponto de partida — qualquer função pode ser trocada manualmente depois.
+              A sugestão é só um ponto de partida — qualquer função pode ser trocada manualmente depois.
             </p>
           </div>
 

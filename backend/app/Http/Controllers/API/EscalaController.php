@@ -26,7 +26,7 @@ class EscalaController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $query = Escala::with(['celebracao', 'criador', 'escalaItens.cerimoniario', 'escalaItens.funcao']);
+        $query = Escala::with(['celebracao', 'criador', 'escalaItens.cerimoniario', 'escalaItens.funcao', 'paramentados']);
         if (! $request->boolean('todos')) {
             $query->where('ativo', true);
         }
@@ -61,6 +61,8 @@ class EscalaController extends Controller
             'itens.*.funcao_id' => 'nullable|exists:funcoes,id',
             'itens.*.funcao_label' => 'nullable|string|max:255',
             'itens.*.ordem' => 'integer',
+            'paramentado_ids' => 'array',
+            'paramentado_ids.*' => 'exists:cerimoniarios,id',
         ]);
 
         // Check if celebracao already has an escala
@@ -82,6 +84,13 @@ class EscalaController extends Controller
                 return response()->json([
                     'data' => null,
                     'message' => 'Não é permitido duplicar cerimoniários na mesma escala.',
+                ], 422);
+            }
+
+            if ($cerimoniarioIds->intersect($validated['paramentado_ids'] ?? [])->isNotEmpty()) {
+                return response()->json([
+                    'data' => null,
+                    'message' => 'Um cerimoniário não pode ser paramentado e ter função ao mesmo tempo nesta escala.',
                 ], 422);
             }
         }
@@ -108,6 +117,8 @@ class EscalaController extends Controller
                 }
             }
 
+            $escala->paramentados()->sync($validated['paramentado_ids'] ?? []);
+
             HistoricoEscala::create([
                 'escala_id' => $escala->id,
                 'user_id' => $request->user()->id,
@@ -117,7 +128,7 @@ class EscalaController extends Controller
 
             DB::commit();
 
-            $escala->load(['celebracao', 'criador', 'escalaItens.cerimoniario', 'escalaItens.funcao']);
+            $escala->load(['celebracao', 'criador', 'escalaItens.cerimoniario', 'escalaItens.funcao', 'paramentados']);
 
             $this->notificarEscalaPublicada($escala);
 
@@ -162,6 +173,7 @@ class EscalaController extends Controller
             'escalaItens.funcao',
             'escalaItens.presenca.substituto',
             'escalaItens.pedidoSubstituto',
+            'paramentados',
             'historicos.user',
         ]);
 
@@ -181,6 +193,8 @@ class EscalaController extends Controller
             'itens.*.funcao_id' => 'nullable|exists:funcoes,id',
             'itens.*.funcao_label' => 'nullable|string|max:255',
             'itens.*.ordem' => 'integer',
+            'paramentado_ids' => 'array',
+            'paramentado_ids.*' => 'exists:cerimoniarios,id',
         ]);
 
         // Check for duplicate cerimoniario
@@ -196,6 +210,13 @@ class EscalaController extends Controller
                     'message' => 'Não é permitido duplicar cerimoniários na mesma escala.',
                 ], 422);
             }
+
+            if ($cerimoniarioIds->intersect($validated['paramentado_ids'] ?? [])->isNotEmpty()) {
+                return response()->json([
+                    'data' => null,
+                    'message' => 'Um cerimoniário não pode ser paramentado e ter função ao mesmo tempo nesta escala.',
+                ], 422);
+            }
         }
 
         DB::beginTransaction();
@@ -204,6 +225,10 @@ class EscalaController extends Controller
                 'editado_por' => $request->user()->id,
                 'observacao' => $validated['observacao'] ?? $escala->observacao,
             ]);
+
+            if (isset($validated['paramentado_ids'])) {
+                $escala->paramentados()->sync($validated['paramentado_ids']);
+            }
 
             if (isset($validated['itens'])) {
                 // Delete removed items
@@ -257,7 +282,7 @@ class EscalaController extends Controller
 
             DB::commit();
 
-            $escala->load(['celebracao', 'criador', 'editor', 'escalaItens.cerimoniario', 'escalaItens.funcao', 'escalaItens.presenca']);
+            $escala->load(['celebracao', 'criador', 'editor', 'escalaItens.cerimoniario', 'escalaItens.funcao', 'escalaItens.presenca', 'paramentados']);
 
             return response()->json([
                 'data' => $escala,
@@ -440,10 +465,221 @@ class EscalaController extends Controller
             ];
         }
 
+        // Aviso de ciclo completo: verifica se todos os acólitos ativos já foram escalados
+        // (em qualquer escala, não em presença — a celebração pode nem ter ocorrido ainda)
+        // dentro do período (mês) da celebração sendo montada.
+        $inicioPeriodo = $data->copy()->startOfMonth()->toDateString();
+        $fimPeriodo    = $data->copy()->endOfMonth()->toDateString();
+
+        $totalAtivos = Cerimoniario::where('ativo', true)->count();
+
+        $escaladosNoPeriodo = DB::table('escala_itens as ei')
+            ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
+            ->join('celebracoes as c', 'c.id', '=', 'e.celebracao_id')
+            ->whereBetween('c.data', [$inicioPeriodo, $fimPeriodo])
+            ->where('c.ativo', true)
+            ->whereNull('c.deleted_at')
+            ->whereNotNull('ei.cerimoniario_id')
+            ->distinct()
+            ->pluck('ei.cerimoniario_id')
+            ->unique();
+
+        $aviso = null;
+        if ($totalAtivos > 0 && $escaladosNoPeriodo->count() >= $totalAtivos) {
+            $aviso = 'Todos os acólitos já participaram das escalas neste período. '
+                . 'A partir de agora será necessária a repetição de alguns acólitos para completar as escalas.';
+        }
+
         return response()->json([
-            'data'    => $sugestoes,
+            'data'    => [
+                'sugestoes' => $sugestoes,
+                'aviso'     => $aviso,
+            ],
             'message' => 'Sugestão gerada com sucesso.',
         ]);
+    }
+
+    public function previewCorrecaoMes(Request $request): JsonResponse
+    {
+        $request->validate([
+            'mes' => 'required|integer|min:1|max:12',
+            'ano' => 'required|integer|min:2000|max:2100',
+        ]);
+
+        $inicioMes = \Carbon\Carbon::createFromDate((int) $request->ano, (int) $request->mes, 1)->startOfMonth();
+        $fimMes    = $inicioMes->copy()->endOfMonth();
+        $hoje      = \Carbon\Carbon::today();
+
+        $itensRaw = DB::table('escala_itens as ei')
+            ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
+            ->join('celebracoes as c', 'c.id', '=', 'e.celebracao_id')
+            ->whereBetween('c.data', [$inicioMes->toDateString(), $fimMes->toDateString()])
+            ->where('c.ativo', true)
+            ->whereNull('c.deleted_at')
+            ->orderBy('c.data')
+            ->orderBy('c.horario')
+            ->orderBy('ei.ordem')
+            ->select(
+                'ei.id as item_id', 'ei.escala_id', 'ei.cerimoniario_id', 'ei.funcao_label', 'ei.ordem',
+                'c.id as celebracao_id', 'c.data', 'c.horario'
+            )
+            ->get();
+
+        // Quantas vezes cada cerimoniário aparece no mês inteiro (passado + futuro)
+        $contagemMes = $itensRaw->filter(fn ($i) => $i->cerimoniario_id)->groupBy('cerimoniario_id')->map->count();
+
+        $ativos = Cerimoniario::where('ativo', true)->get()->keyBy('id');
+
+        // Quem ainda não foi escalado nenhuma vez no mês — pool de substitutos
+        $naoEscalados = $ativos->reject(fn ($c) => $contagemMes->has($c->id))->shuffle();
+
+        // Quem já está escalado em cada data, para não duplicar a mesma pessoa no mesmo dia
+        $escaladosPorData = [];
+        foreach ($itensRaw as $it) {
+            if ($it->cerimoniario_id) {
+                $escaladosPorData[$it->data][$it->cerimoniario_id] = true;
+            }
+        }
+
+        // Score de rotatividade global (histórico anterior ao mês), usado só para desempate
+        $ultimoServicoGlobal = DB::table('escala_itens as ei')
+            ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
+            ->join('celebracoes as c', 'c.id', '=', 'e.celebracao_id')
+            ->where('c.data', '<', $inicioMes->toDateString())
+            ->select('ei.cerimoniario_id', DB::raw('MAX(c.data) as ultimo'))
+            ->groupBy('ei.cerimoniario_id')
+            ->get()
+            ->keyBy('cerimoniario_id');
+
+        $slotsExperientes = ['Mestre', '2º Auxiliar', 'Turiferário'];
+
+        $disponivelNoPeriodo = function (Cerimoniario $c, \Carbon\Carbon $dataCel, string $horario) {
+            $hora      = (int) substr($horario, 0, 2);
+            $isManha   = $hora < 12;
+            $isTarde   = $hora >= 12 && $hora < 18;
+            $isDomingo = $dataCel->dayOfWeek === 0;
+            $isSabado  = $dataCel->dayOfWeek === 6;
+            if ($isDomingo) {
+                if ($isManha) return $c->disponivel_domingo_manha;
+                if ($isTarde) return $c->disponivel_domingo_tarde;
+                return $c->disponivel_domingo_noite;
+            }
+            if ($isSabado) return $c->disponivel_sabado;
+            if ($isManha)  return $c->disponivel_semana_manha;
+            if ($isTarde)  return $c->disponivel_semana_tarde;
+            return $c->disponivel_semana_noite;
+        };
+
+        $elegivel = function (Cerimoniario $c, string $funcaoLabel, \Carbon\Carbon $dataCel, string $horario) use ($slotsExperientes, $disponivelNoPeriodo) {
+            if (in_array($funcaoLabel, $slotsExperientes)) {
+                return $c->mestre || $c->experiente;
+            }
+            if ($c->indisponivel_temporario) return false;
+            return (bool) $disponivelNoPeriodo($c, $dataCel, $horario);
+        };
+
+        $scoreCandidato = fn (Cerimoniario $c) => $ultimoServicoGlobal->has($c->id)
+            ? $inicioMes->diffInDays(\Carbon\Carbon::parse($ultimoServicoGlobal->get($c->id)->ultimo))
+            : 9999;
+
+        $seenCount  = [];
+        $alteracoes = [];
+
+        foreach ($itensRaw as $item) {
+            if (! $item->cerimoniario_id) continue;
+
+            $seenCount[$item->cerimoniario_id] = ($seenCount[$item->cerimoniario_id] ?? 0) + 1;
+
+            $dataItem = \Carbon\Carbon::parse($item->data);
+            if ($dataItem->lt($hoje)) continue;             // só corrige escalas futuras
+            if ($seenCount[$item->cerimoniario_id] <= 1) continue; // 1ª aparição no mês: não é repetição
+
+            $candidatos = $naoEscalados
+                ->reject(fn ($c) => isset($escaladosPorData[$item->data][$c->id]))
+                ->filter(fn ($c) => $elegivel($c, $item->funcao_label, $dataItem, $item->horario));
+
+            if ($item->funcao_label === 'Mestre') {
+                $comFlagMestre = $candidatos->filter(fn ($c) => $c->mestre);
+                if ($comFlagMestre->isNotEmpty()) $candidatos = $comFlagMestre;
+            }
+
+            if ($candidatos->isEmpty()) continue; // sem substituto apto — mantém a repetição
+
+            $novo   = $candidatos->sortByDesc(fn ($c) => $scoreCandidato($c))->first();
+            $antigo = $ativos->get($item->cerimoniario_id);
+
+            $alteracoes[] = [
+                'escala_item_id'      => $item->item_id,
+                'escala_id'           => $item->escala_id,
+                'celebracao_id'       => $item->celebracao_id,
+                'data'                => $item->data,
+                'horario'             => $item->horario,
+                'funcao_label'        => $item->funcao_label,
+                'cerimoniario_antigo' => $antigo ? ['id' => $antigo->id, 'nome' => $antigo->nome] : null,
+                'cerimoniario_novo'   => ['id' => $novo->id, 'nome' => $novo->nome],
+            ];
+
+            // Atualiza estado para as próximas iterações do laço
+            unset($escaladosPorData[$item->data][$item->cerimoniario_id]);
+            $escaladosPorData[$item->data][$novo->id] = true;
+            $naoEscalados = $naoEscalados->reject(fn ($c) => $c->id === $novo->id);
+        }
+
+        return response()->json([
+            'data' => [
+                'alteracoes'                     => $alteracoes,
+                'total_nao_escalados_restantes'  => $naoEscalados->count(),
+            ],
+            'message' => $alteracoes
+                ? count($alteracoes) . ' correção(ões) de rotatividade encontrada(s).'
+                : 'Nenhuma repetição corrigível encontrada — a distribuição já está equilibrada ou não há substitutos aptos disponíveis.',
+        ]);
+    }
+
+    public function aplicarCorrecaoMes(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'alteracoes'                    => 'required|array|min:1',
+            'alteracoes.*.escala_item_id'   => 'required|exists:escala_itens,id',
+            'alteracoes.*.cerimoniario_id'  => 'required|exists:cerimoniarios,id',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $escalasAfetadas = collect();
+
+            foreach ($validated['alteracoes'] as $alt) {
+                $item = EscalaItem::find($alt['escala_item_id']);
+                if (! $item || $item->cerimoniario_id === (int) $alt['cerimoniario_id']) continue;
+
+                $item->update([
+                    'cerimoniario_id'    => $alt['cerimoniario_id'],
+                    'token_confirmacao'  => Str::random(40),
+                    'status_confirmacao' => null,
+                ]);
+
+                $escalasAfetadas->push($item->escala_id);
+            }
+
+            foreach ($escalasAfetadas->unique() as $escalaId) {
+                HistoricoEscala::create([
+                    'escala_id' => $escalaId,
+                    'user_id'   => $request->user()->id,
+                    'acao'      => 'editou',
+                    'descricao' => 'Escala corrigida automaticamente (rotatividade do mês).',
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'data'    => ['escalas_afetadas' => $escalasAfetadas->unique()->count()],
+                'message' => 'Correções aplicadas com sucesso.',
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
     }
 
     private function buildEstruturaSimples(Celebracao $celebracao): array

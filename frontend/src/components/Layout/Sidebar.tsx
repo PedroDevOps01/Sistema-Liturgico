@@ -113,6 +113,7 @@ const modules: Module[] = [
       { label: 'Treinamentos',             icon: GraduationCap, to: '/relatorios/treinamentos'    },
       { label: 'Reuniões',                 icon: ClipboardList, to: '/relatorios/reunioes'         },
       { label: 'Empréstimos de Túnicas',   icon: Shirt,         to: '/relatorios/tunicas'         },
+      { label: 'Paramentados',             icon: Shirt,         to: '/relatorios/paramentados'    },
       { label: 'Assiduidade',              icon: UserCheck,     to: '/relatorios/assiduidade'     },
       { label: 'Auditoria do Sistema',     icon: ShieldCheck,   to: '/relatorios/auditoria'       },
       { label: 'Analytics',                icon: Activity,      to: '/analytics'                  },

@@ -50,6 +50,7 @@ import RelatorioTunicas from './pages/RelatorioTunicas'
 import RelatorioAssiduidade from './pages/RelatorioAssiduidade'
 import RelatorioAuditoria from './pages/RelatorioAuditoria'
 import RelatorioReunioes from './pages/RelatorioReunioes'
+import RelatorioParamentados from './pages/RelatorioParamentados'
 import { ConfigProvider } from './contexts/ConfigContext'
 import Reunioes from './pages/Reunioes'
 import Comunicados from './pages/Comunicados'
@@ -177,6 +178,7 @@ export default function App() {
           <Route path="/relatorios/assiduidade" element={<RelatorioAssiduidade />} />
           <Route path="/relatorios/auditoria" element={<RelatorioAuditoria />} />
           <Route path="/relatorios/reunioes" element={<RelatorioReunioes />} />
+          <Route path="/relatorios/paramentados" element={<RelatorioParamentados />} />
           <Route path="/documentos" element={<AdminDocumentos />} />
         </Route>
 

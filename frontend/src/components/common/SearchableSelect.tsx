@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronDown, Search } from 'lucide-react'
 
 export interface SelectOption {
@@ -17,6 +18,9 @@ interface SearchableSelectProps {
   className?: string
 }
 
+// Altura estimada do dropdown (busca + lista), usada para decidir se abre pra cima ou pra baixo
+const DROPDOWN_HEIGHT = 300
+
 function StatusDot({ status }: { status?: SelectOption['status'] }) {
   if (!status) return null
   const cls =
@@ -30,6 +34,13 @@ function StatusDot({ status }: { status?: SelectOption['status'] }) {
   return <span className={`inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ${cls}`} />
 }
 
+interface Coords {
+  left: number
+  width: number
+  top?: number
+  bottom?: number
+}
+
 export default function SearchableSelect({
   options,
   value,
@@ -40,7 +51,10 @@ export default function SearchableSelect({
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [coords, setCoords] = useState<Coords | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
   const selected = options.find((o) => o.value === value)
@@ -50,10 +64,40 @@ export default function SearchableSelect({
     (o.subLabel ?? '').toLowerCase().includes(search.toLowerCase())
   )
 
-  // Close on outside click
+  function updatePosition() {
+    const rect = triggerRef.current?.getBoundingClientRect()
+    if (!rect) return
+
+    const spaceBelow = window.innerHeight - rect.bottom
+    const openUp = spaceBelow < DROPDOWN_HEIGHT && rect.top > spaceBelow
+
+    setCoords(
+      openUp
+        ? { left: rect.left, width: rect.width, bottom: window.innerHeight - rect.top + 4 }
+        : { left: rect.left, width: rect.width, top: rect.bottom + 4 }
+    )
+  }
+
+  // Posiciona o dropdown (portal em document.body) sempre que abrir, e acompanha scroll/resize
+  useLayoutEffect(() => {
+    if (!open) return
+    updatePosition()
+    window.addEventListener('scroll', updatePosition, true)
+    window.addEventListener('resize', updatePosition)
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true)
+      window.removeEventListener('resize', updatePosition)
+    }
+  }, [open])
+
+  // Close on outside click (considera clique tanto no trigger quanto no dropdown portalizado)
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      if (
+        containerRef.current && !containerRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
         setOpen(false)
         setSearch('')
       }
@@ -85,6 +129,7 @@ export default function SearchableSelect({
     <div ref={containerRef} className={`relative ${className}`}>
       {/* Trigger button */}
       <button
+        ref={triggerRef}
         type="button"
         disabled={disabled}
         onClick={() => {
@@ -111,9 +156,19 @@ export default function SearchableSelect({
         />
       </button>
 
-      {/* Dropdown */}
-      {open && (
-        <div className="absolute z-50 mt-1 w-full min-w-[200px] bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+      {/* Dropdown — portalizado em document.body para nunca ficar cortado por overflow/z-index de ancestrais */}
+      {open && coords && createPortal(
+        <div
+          ref={dropdownRef}
+          style={{
+            position: 'fixed',
+            left: coords.left,
+            width: Math.max(coords.width, 200),
+            top: coords.top,
+            bottom: coords.bottom,
+          }}
+          className="z-[9999] bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden"
+        >
           {/* Search input */}
           <div className="p-2 border-b border-gray-100">
             <div className="relative">
@@ -184,7 +239,8 @@ export default function SearchableSelect({
               ))
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

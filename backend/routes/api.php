@@ -91,6 +91,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Escalas
     Route::get('historico', [EscalaController::class, 'historico']);
     Route::get('escalas/sugerir', [EscalaController::class, 'sugerir']);
+    Route::get('escalas/corrigir-mes/preview', [EscalaController::class, 'previewCorrecaoMes']);
+    Route::post('escalas/corrigir-mes/aplicar', [EscalaController::class, 'aplicarCorrecaoMes']);
     Route::post('escalas/gerar-estrutura', [EscalaController::class, 'gerarEstrutura']);
     Route::patch('escalas/{escala}/toggle-ativo', [EscalaController::class, 'toggleAtivo']);
     Route::get('escalas/ultima', [EscalaController::class, 'ultima']);

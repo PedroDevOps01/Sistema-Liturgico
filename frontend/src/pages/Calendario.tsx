@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, Plus, Calendar,
   Clock, X, Eye, Pencil, FileDown, Copy, MessageCircle, FileUp, Upload,
-  CheckSquare, Square, ListChecks,
+  CheckSquare, Square, ListChecks, Wand2,
 } from 'lucide-react'
 import { format, addMonths, subMonths, startOfMonth, endOfMonth,
          startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth,
@@ -66,6 +66,17 @@ interface DrawerState {
   loading: boolean
 }
 
+interface CorrecaoAlteracao {
+  escala_item_id: number
+  escala_id: number
+  celebracao_id: number
+  data: string
+  horario: string
+  funcao_label: string
+  cerimoniario_antigo: { id: number; nome: string } | null
+  cerimoniario_novo: { id: number; nome: string }
+}
+
 export default function Calendario() {
   const navigate = useNavigate()
   const [currentMonth, setCurrentMonth] = useState(new Date())
@@ -85,6 +96,11 @@ export default function Calendario() {
   const [agendaRows, setAgendaRows] = useState<CelebracaoPreviewRow[]>([])
   const [agendaImportando, setAgendaImportando] = useState(false)
   const [agendaResultado, setAgendaResultado] = useState<CelebracaoImportResultado | null>(null)
+  // Corrigir escalas do mês (rotatividade)
+  const [correcaoModalOpen, setCorrecaoModalOpen] = useState(false)
+  const [correcaoLoading, setCorrecaoLoading] = useState(false)
+  const [correcaoAplicando, setCorrecaoAplicando] = useState(false)
+  const [correcaoAlteracoes, setCorrecaoAlteracoes] = useState<CorrecaoAlteracao[]>([])
 
   function reloadCelebracoes() {
     setLoading(true)
@@ -122,6 +138,48 @@ export default function Calendario() {
       document.body.appendChild(a); a.click(); a.remove()
       window.URL.revokeObjectURL(url)
     } catch { toast.error('Erro ao baixar PDF') }
+  }
+
+  // ── Corrigir escalas do mês (rotatividade) ──────────────────────────────
+
+  async function abrirCorrecaoMes() {
+    setCorrecaoModalOpen(true)
+    setCorrecaoLoading(true)
+    setCorrecaoAlteracoes([])
+    try {
+      const mes = currentMonth.getMonth() + 1
+      const ano = currentMonth.getFullYear()
+      const r = await api.get<{ alteracoes: CorrecaoAlteracao[]; total_nao_escalados_restantes: number }>(
+        `/escalas/corrigir-mes/preview?mes=${mes}&ano=${ano}`
+      )
+      setCorrecaoAlteracoes(r.data.alteracoes)
+    } catch {
+      toast.error('Erro ao analisar as escalas do mês')
+      setCorrecaoModalOpen(false)
+    } finally {
+      setCorrecaoLoading(false)
+    }
+  }
+
+  async function aplicarCorrecaoMes() {
+    if (correcaoAlteracoes.length === 0) return
+    setCorrecaoAplicando(true)
+    try {
+      await api.post('/escalas/corrigir-mes/aplicar', {
+        alteracoes: correcaoAlteracoes.map((a) => ({
+          escala_item_id: a.escala_item_id,
+          cerimoniario_id: a.cerimoniario_novo.id,
+        })),
+      })
+      toast.success('Escalas corrigidas com sucesso!')
+      setCorrecaoModalOpen(false)
+      setCorrecaoAlteracoes([])
+      reloadCelebracoes()
+    } catch {
+      toast.error('Erro ao aplicar as correções')
+    } finally {
+      setCorrecaoAplicando(false)
+    }
   }
 
   // ── Importar agenda (PDF/Imagem via IA) ─────────────────────────────────
@@ -448,6 +506,9 @@ export default function Calendario() {
               <button onClick={openAgendaModal} className="btn-secondary text-sm px-3 py-2" title="Importar agenda em PDF ou foto">
                 <FileUp size={15} /> Importar Agenda
               </button>
+              <button onClick={abrirCorrecaoMes} className="btn-secondary text-sm px-3 py-2" title="Analisar e corrigir repetições de acólitos nas escalas futuras do mês">
+                <Wand2 size={15} /> Corrigir Escalas do Mês
+              </button>
               <button onClick={() => navigate('/celebracoes')} className="btn-primary text-sm px-4 py-2">
                 <Plus size={16} /> Nova Celebração
               </button>
@@ -721,7 +782,7 @@ export default function Calendario() {
       )}
 
       {/* ── Importar Agenda (PDF/Imagem via IA) ─────────────────────────── */}
-      <Modal isOpen={agendaModalOpen} onClose={closeAgendaModal} title="Importar Agenda (PDF ou Foto)" size="xl">
+      <Modal isOpen={agendaModalOpen} onClose={closeAgendaModal} title="Importar Agenda (PDF ou Foto)" size="4xl">
         <div className="space-y-4">
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
             Envie o PDF ou uma foto da agenda paroquial do mês. A IA identifica automaticamente os dias
@@ -814,6 +875,73 @@ export default function Calendario() {
             />
           )}
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={correcaoModalOpen}
+        onClose={() => !correcaoAplicando && setCorrecaoModalOpen(false)}
+        title="Corrigir Escalas do Mês"
+        size="xl"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setCorrecaoModalOpen(false)}
+              disabled={correcaoAplicando}
+              className="btn-secondary text-sm px-4 py-2 disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={aplicarCorrecaoMes}
+              disabled={correcaoLoading || correcaoAplicando || correcaoAlteracoes.length === 0}
+              className="btn-primary text-sm px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {correcaoAplicando
+                ? 'Aplicando...'
+                : `Aplicar ${correcaoAlteracoes.length} correção(ões)`}
+            </button>
+          </>
+        }
+      >
+        {correcaoLoading ? (
+          <div className="flex justify-center py-10">
+            <LoadingSpinner size="lg" />
+          </div>
+        ) : correcaoAlteracoes.length === 0 ? (
+          <p className="text-sm text-gray-500 text-center py-6">
+            Nenhuma repetição corrigível encontrada — a distribuição já está equilibrada ou não há substitutos aptos disponíveis nas escalas futuras deste mês.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-xs text-gray-500 mb-2">
+              Substituições propostas para reduzir repetições nas escalas futuras deste mês. Revise e confirme.
+            </p>
+            {correcaoAlteracoes.map((a) => (
+              <div
+                key={a.escala_item_id}
+                className="flex items-center justify-between gap-3 border border-gray-200 rounded-xl px-3 py-2 text-sm"
+              >
+                <div>
+                  <p className="font-semibold text-gray-800">
+                    {format(safeParseDate(a.data), "dd/MM", { locale: ptBR })} · {a.funcao_label}
+                  </p>
+                  <p className="text-xs text-gray-400">{formatHorario(a.horario)}</p>
+                </div>
+                <div className="flex items-center gap-2 text-xs flex-shrink-0">
+                  <span className="px-2 py-1 rounded-lg bg-gray-100 text-gray-600">
+                    {a.cerimoniario_antigo?.nome ?? '—'}
+                  </span>
+                  <span className="text-gray-400">→</span>
+                  <span className="px-2 py-1 rounded-lg bg-green-100 text-green-700 font-semibold">
+                    {a.cerimoniario_novo.nome}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </Modal>
     </div>
   )

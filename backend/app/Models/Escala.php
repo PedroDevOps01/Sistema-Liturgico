@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Escala extends Model
@@ -59,5 +60,11 @@ class Escala extends Model
     public function historicos(): HasMany
     {
         return $this->hasMany(HistoricoEscala::class, 'escala_id')->orderByDesc('created_at');
+    }
+
+    /** Cerimoniários paramentados na celebração, sem função específica nem controle de presença. */
+    public function paramentados(): BelongsToMany
+    {
+        return $this->belongsToMany(Cerimoniario::class, 'escala_paramentados')->withTimestamps();
     }
 }
