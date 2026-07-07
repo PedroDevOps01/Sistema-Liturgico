@@ -384,12 +384,19 @@ class EscalaController extends Controller
         // assume-se que essas pessoas topam servir mesmo fora do que está marcado no cadastro.
         $poolMestreExperiente = $todos->filter(fn ($c) => $c->mestre || $c->experiente);
 
-        $scoreFn = function ($pool) use ($data) {
+
+        // Rotatividade separada por domingo/semana: servir num tríduo ou quinta eucarística
+        // durante a semana não pode "resetar" a prioridade de alguém pra próxima vaga de
+        // domingo (e vice-versa) — é isso que garante que a prioridade real do ministério
+        // (todos servirem nos domingos) não seja atropelada por serviços de semana.
+        $scoreFn = function ($pool) use ($data, $isDomingo) {
             $ultimoServico = DB::table('escala_itens as ei')
                 ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
                 ->join('celebracoes as c', 'c.id', '=', 'e.celebracao_id')
                 ->whereIn('ei.cerimoniario_id', $pool->pluck('id'))
                 ->where('c.data', '<', $data->toDateString())
+                ->when($isDomingo, fn ($q) => $q->whereRaw('EXTRACT(DOW FROM c.data) = 0'))
+                ->when(! $isDomingo, fn ($q) => $q->whereRaw('EXTRACT(DOW FROM c.data) <> 0'))
                 ->select('ei.cerimoniario_id', DB::raw('MAX(c.data) as ultimo'))
                 ->groupBy('ei.cerimoniario_id')
                 ->get()
@@ -465,29 +472,32 @@ class EscalaController extends Controller
             ];
         }
 
-        // Aviso de ciclo completo: verifica se todos os acólitos ativos já foram escalados
-        // (em qualquer escala, não em presença — a celebração pode nem ter ocorrido ainda)
-        // dentro do período (mês) da celebração sendo montada.
+        // Aviso de ciclo completo: a prioridade do ministério é que TODOS os acólitos ativos
+        // sirvam em algum domingo do mês antes de repetir alguém — por isso o aviso mede
+        // especificamente participação em domingo (não em qualquer celebração), refletindo
+        // a mesma regra usada no score de rotatividade acima.
         $inicioPeriodo = $data->copy()->startOfMonth()->toDateString();
         $fimPeriodo    = $data->copy()->endOfMonth()->toDateString();
 
         $totalAtivos = Cerimoniario::where('ativo', true)->count();
 
-        $escaladosNoPeriodo = DB::table('escala_itens as ei')
+        $escaladosDomingoNoPeriodo = DB::table('escala_itens as ei')
             ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
             ->join('celebracoes as c', 'c.id', '=', 'e.celebracao_id')
             ->whereBetween('c.data', [$inicioPeriodo, $fimPeriodo])
             ->where('c.ativo', true)
             ->whereNull('c.deleted_at')
             ->whereNotNull('ei.cerimoniario_id')
+            ->whereRaw('EXTRACT(DOW FROM c.data) = 0')
             ->distinct()
             ->pluck('ei.cerimoniario_id')
             ->unique();
 
         $aviso = null;
-        if ($totalAtivos > 0 && $escaladosNoPeriodo->count() >= $totalAtivos) {
-            $aviso = 'Todos os acólitos já participaram das escalas neste período. '
-                . 'A partir de agora será necessária a repetição de alguns acólitos para completar as escalas.';
+        if ($totalAtivos > 0 && $escaladosDomingoNoPeriodo->count() >= $totalAtivos) {
+            $aviso = 'Todos os acólitos ativos já serviram em pelo menos um domingo este mês. '
+                . 'A prioridade do sistema é que todos sirvam aos domingos antes de repetir alguém — '
+                . 'a partir de agora, repetições em domingo serão necessárias para completar as escalas.';
         }
 
         return response()->json([
@@ -525,31 +535,7 @@ class EscalaController extends Controller
             )
             ->get();
 
-        // Quantas vezes cada cerimoniário aparece no mês inteiro (passado + futuro)
-        $contagemMes = $itensRaw->filter(fn ($i) => $i->cerimoniario_id)->groupBy('cerimoniario_id')->map->count();
-
         $ativos = Cerimoniario::where('ativo', true)->get()->keyBy('id');
-
-        // Quem ainda não foi escalado nenhuma vez no mês — pool de substitutos
-        $naoEscalados = $ativos->reject(fn ($c) => $contagemMes->has($c->id))->shuffle();
-
-        // Quem já está escalado em cada data, para não duplicar a mesma pessoa no mesmo dia
-        $escaladosPorData = [];
-        foreach ($itensRaw as $it) {
-            if ($it->cerimoniario_id) {
-                $escaladosPorData[$it->data][$it->cerimoniario_id] = true;
-            }
-        }
-
-        // Score de rotatividade global (histórico anterior ao mês), usado só para desempate
-        $ultimoServicoGlobal = DB::table('escala_itens as ei')
-            ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
-            ->join('celebracoes as c', 'c.id', '=', 'e.celebracao_id')
-            ->where('c.data', '<', $inicioMes->toDateString())
-            ->select('ei.cerimoniario_id', DB::raw('MAX(c.data) as ultimo'))
-            ->groupBy('ei.cerimoniario_id')
-            ->get()
-            ->keyBy('cerimoniario_id');
 
         $slotsExperientes = ['Mestre', '2º Auxiliar', 'Turiferário'];
 
@@ -578,57 +564,118 @@ class EscalaController extends Controller
             return (bool) $disponivelNoPeriodo($c, $dataCel, $horario);
         };
 
-        $scoreCandidato = fn (Cerimoniario $c) => $ultimoServicoGlobal->has($c->id)
-            ? $inicioMes->diffInDays(\Carbon\Carbon::parse($ultimoServicoGlobal->get($c->id)->ultimo))
-            : 9999;
+        // Domingo e semana têm rotatividade própria: servir num tríduo ou quinta eucarística
+        // não deve contar como "já serviu" pra fins de repetição em domingo (e vice-versa) —
+        // é isso que faz a prioridade real (todos servirem nos domingos) valer também aqui,
+        // igual ao que foi feito no score de sugerir(). Cada bucket roda a correção sozinho.
+        $processarBucket = function ($itensBucket, bool $isDomingoBucket) use ($ativos, $elegivel, $inicioMes, $hoje) {
+            $contagem = $itensBucket->filter(fn ($i) => $i->cerimoniario_id)->groupBy('cerimoniario_id')->map->count();
 
-        $seenCount  = [];
-        $alteracoes = [];
-
-        foreach ($itensRaw as $item) {
-            if (! $item->cerimoniario_id) continue;
-
-            $seenCount[$item->cerimoniario_id] = ($seenCount[$item->cerimoniario_id] ?? 0) + 1;
-
-            $dataItem = \Carbon\Carbon::parse($item->data);
-            if ($dataItem->lt($hoje)) continue;             // só corrige escalas futuras
-            if ($seenCount[$item->cerimoniario_id] <= 1) continue; // 1ª aparição no mês: não é repetição
-
-            $candidatos = $naoEscalados
-                ->reject(fn ($c) => isset($escaladosPorData[$item->data][$c->id]))
-                ->filter(fn ($c) => $elegivel($c, $item->funcao_label, $dataItem, $item->horario));
-
-            if ($item->funcao_label === 'Mestre') {
-                $comFlagMestre = $candidatos->filter(fn ($c) => $c->mestre);
-                if ($comFlagMestre->isNotEmpty()) $candidatos = $comFlagMestre;
+            // Contagem "efetiva" no bucket, atualizada a cada troca proposta — permite oferecer
+            // como candidato qualquer elegível com MENOS aparições que quem está repetindo, não
+            // só quem tem zero. Sem isso, a correção fica vazia assim que quase todo mundo já
+            // tiver servido uma vez no mês, mesmo com a distribuição de domingos desequilibrada.
+            $contagemEfetiva = [];
+            foreach ($ativos as $c) {
+                $contagemEfetiva[$c->id] = $contagem->get($c->id, 0);
             }
 
-            if ($candidatos->isEmpty()) continue; // sem substituto apto — mantém a repetição
+            $escaladosPorData = [];
+            foreach ($itensBucket as $it) {
+                if ($it->cerimoniario_id) {
+                    $escaladosPorData[$it->data][$it->cerimoniario_id] = true;
+                }
+            }
 
-            $novo   = $candidatos->sortByDesc(fn ($c) => $scoreCandidato($c))->first();
-            $antigo = $ativos->get($item->cerimoniario_id);
+            // Score de desempate: último serviço no MESMO bucket (domingo ou semana) antes do mês
+            $ultimoServico = DB::table('escala_itens as ei')
+                ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
+                ->join('celebracoes as c', 'c.id', '=', 'e.celebracao_id')
+                ->where('c.data', '<', $inicioMes->toDateString())
+                ->when($isDomingoBucket, fn ($q) => $q->whereRaw('EXTRACT(DOW FROM c.data) = 0'))
+                ->when(! $isDomingoBucket, fn ($q) => $q->whereRaw('EXTRACT(DOW FROM c.data) <> 0'))
+                ->select('ei.cerimoniario_id', DB::raw('MAX(c.data) as ultimo'))
+                ->groupBy('ei.cerimoniario_id')
+                ->get()
+                ->keyBy('cerimoniario_id');
 
-            $alteracoes[] = [
-                'escala_item_id'      => $item->item_id,
-                'escala_id'           => $item->escala_id,
-                'celebracao_id'       => $item->celebracao_id,
-                'data'                => $item->data,
-                'horario'             => $item->horario,
-                'funcao_label'        => $item->funcao_label,
-                'cerimoniario_antigo' => $antigo ? ['id' => $antigo->id, 'nome' => $antigo->nome] : null,
-                'cerimoniario_novo'   => ['id' => $novo->id, 'nome' => $novo->nome],
-            ];
+            $scoreCandidato = fn (Cerimoniario $c) => $ultimoServico->has($c->id)
+                ? $inicioMes->diffInDays(\Carbon\Carbon::parse($ultimoServico->get($c->id)->ultimo))
+                : 9999;
 
-            // Atualiza estado para as próximas iterações do laço
-            unset($escaladosPorData[$item->data][$item->cerimoniario_id]);
-            $escaladosPorData[$item->data][$novo->id] = true;
-            $naoEscalados = $naoEscalados->reject(fn ($c) => $c->id === $novo->id);
-        }
+            $seenCount  = [];
+            $alteracoes = [];
+
+            foreach ($itensBucket as $item) {
+                if (! $item->cerimoniario_id) continue;
+
+                $seenCount[$item->cerimoniario_id] = ($seenCount[$item->cerimoniario_id] ?? 0) + 1;
+
+                $dataItem = \Carbon\Carbon::parse($item->data);
+                if ($dataItem->lt($hoje)) continue;             // só corrige escalas futuras
+                if ($seenCount[$item->cerimoniario_id] <= 1) continue; // 1ª aparição no bucket: não é repetição
+
+                $limiteAtual = $contagemEfetiva[$item->cerimoniario_id] ?? 0;
+
+                $candidatos = $ativos
+                    ->reject(fn ($c) => $c->id === $item->cerimoniario_id)
+                    ->reject(fn ($c) => isset($escaladosPorData[$item->data][$c->id]))
+                    ->filter(fn ($c) => ($contagemEfetiva[$c->id] ?? 0) < $limiteAtual)
+                    ->filter(fn ($c) => $elegivel($c, $item->funcao_label, $dataItem, $item->horario));
+
+                if ($item->funcao_label === 'Mestre') {
+                    $comFlagMestre = $candidatos->filter(fn ($c) => $c->mestre);
+                    if ($comFlagMestre->isNotEmpty()) $candidatos = $comFlagMestre;
+                }
+
+                if ($candidatos->isEmpty()) continue; // sem substituto apto — mantém a repetição
+
+                // Entre os candidatos, prioriza quem está mais atrasado no bucket (menos aparições)
+                // e, em empate, quem está há mais tempo sem servir nesse bucket.
+                $novo = $candidatos->sort(function ($a, $b) use ($contagemEfetiva, $scoreCandidato) {
+                    $diff = ($contagemEfetiva[$a->id] ?? 0) <=> ($contagemEfetiva[$b->id] ?? 0);
+                    return $diff !== 0 ? $diff : $scoreCandidato($b) <=> $scoreCandidato($a);
+                })->first();
+
+                $antigo = $ativos->get($item->cerimoniario_id);
+
+                $alteracoes[] = [
+                    'escala_item_id'      => $item->item_id,
+                    'escala_id'           => $item->escala_id,
+                    'celebracao_id'       => $item->celebracao_id,
+                    'data'                => $item->data,
+                    'horario'             => $item->horario,
+                    'funcao_label'        => $item->funcao_label,
+                    'cerimoniario_antigo' => $antigo ? ['id' => $antigo->id, 'nome' => $antigo->nome] : null,
+                    'cerimoniario_novo'   => ['id' => $novo->id, 'nome' => $novo->nome],
+                ];
+
+                // Atualiza estado para as próximas iterações do laço
+                unset($escaladosPorData[$item->data][$item->cerimoniario_id]);
+                $escaladosPorData[$item->data][$novo->id] = true;
+                $contagemEfetiva[$item->cerimoniario_id]--;
+                $contagemEfetiva[$novo->id] = ($contagemEfetiva[$novo->id] ?? 0) + 1;
+            }
+
+            $restantes = collect($contagemEfetiva)->filter(fn ($v) => $v === 0)->count();
+
+            return ['alteracoes' => $alteracoes, 'restantes' => $restantes];
+        };
+
+        $itensDomingo = $itensRaw->filter(fn ($i) => \Carbon\Carbon::parse($i->data)->dayOfWeek === 0)->values();
+        $itensSemana  = $itensRaw->filter(fn ($i) => \Carbon\Carbon::parse($i->data)->dayOfWeek !== 0)->values();
+
+        $resultDomingo = $processarBucket($itensDomingo, true);
+        $resultSemana  = $processarBucket($itensSemana, false);
+
+        $alteracoes = array_merge($resultDomingo['alteracoes'], $resultSemana['alteracoes']);
+        usort($alteracoes, fn ($a, $b) => [$a['data'], $a['horario']] <=> [$b['data'], $b['horario']]);
 
         return response()->json([
             'data' => [
                 'alteracoes'                     => $alteracoes,
-                'total_nao_escalados_restantes'  => $naoEscalados->count(),
+                // Prioridade do ministério é fechar o ciclo de domingos, então o "restante" reportado é o de domingo.
+                'total_nao_escalados_restantes'  => $resultDomingo['restantes'],
             ],
             'message' => $alteracoes
                 ? count($alteracoes) . ' correção(ões) de rotatividade encontrada(s).'

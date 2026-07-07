@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, Plus, Calendar,
   Clock, X, Eye, Pencil, FileDown, Copy, MessageCircle, FileUp, Upload,
-  CheckSquare, Square, ListChecks, Wand2,
+  CheckSquare, Square, ListChecks, Wand2, Info,
 } from 'lucide-react'
 import { format, addMonths, subMonths, startOfMonth, endOfMonth,
          startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth,
@@ -77,6 +77,13 @@ interface CorrecaoAlteracao {
   cerimoniario_novo: { id: number; nome: string }
 }
 
+interface ResumoDomingoCerimoniario {
+  id: number
+  nome: string
+  vezes: number
+  celebracoes: Array<{ data: string; horario: string; funcao_label: string }>
+}
+
 export default function Calendario() {
   const navigate = useNavigate()
   const [currentMonth, setCurrentMonth] = useState(new Date())
@@ -101,6 +108,11 @@ export default function Calendario() {
   const [correcaoLoading, setCorrecaoLoading] = useState(false)
   const [correcaoAplicando, setCorrecaoAplicando] = useState(false)
   const [correcaoAlteracoes, setCorrecaoAlteracoes] = useState<CorrecaoAlteracao[]>([])
+  // Aviso "todos escalados no domingo" + detalhamento de repetições
+  const [avisoDomingo, setAvisoDomingo] = useState<string | null>(null)
+  const [resumoDomingo, setResumoDomingo] = useState<ResumoDomingoCerimoniario[]>([])
+  const [resumoDomingoOpen, setResumoDomingoOpen] = useState(false)
+  const [resumoDomingoSelecionado, setResumoDomingoSelecionado] = useState<ResumoDomingoCerimoniario | null>(null)
 
   function reloadCelebracoes() {
     setLoading(true)
@@ -112,8 +124,22 @@ export default function Calendario() {
       .finally(() => setLoading(false))
   }
 
+  function reloadResumoDomingo() {
+    const mes = currentMonth.getMonth() + 1
+    const ano = currentMonth.getFullYear()
+    api.get<{ aviso: string | null; cerimoniarios: ResumoDomingoCerimoniario[] }>(
+      `/escalas/resumo-domingos-mes?mes=${mes}&ano=${ano}`
+    )
+      .then(r => {
+        setAvisoDomingo(r.data.aviso)
+        setResumoDomingo(r.data.cerimoniarios)
+      })
+      .catch(() => {})
+  }
+
   useEffect(() => {
     reloadCelebracoes()
+    reloadResumoDomingo()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMonth])
 
@@ -175,6 +201,7 @@ export default function Calendario() {
       setCorrecaoModalOpen(false)
       setCorrecaoAlteracoes([])
       reloadCelebracoes()
+      reloadResumoDomingo()
     } catch {
       toast.error('Erro ao aplicar as correções')
     } finally {
@@ -516,6 +543,22 @@ export default function Calendario() {
           )}
         </div>
       </div>
+
+      {/* Aviso: todos os acólitos já serviram em algum domingo este mês */}
+      {avisoDomingo && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <Info size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-amber-900">{avisoDomingo}</p>
+            <button
+              onClick={() => { setResumoDomingoSelecionado(null); setResumoDomingoOpen(true) }}
+              className="mt-1.5 text-xs font-semibold text-amber-700 hover:text-amber-900 underline underline-offset-2"
+            >
+              Ver quem repetiu e quantas vezes
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Legend */}
       <div className="flex flex-wrap gap-3">
@@ -940,6 +983,63 @@ export default function Calendario() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </Modal>
+
+      {/* ── Resumo de domingos servidos no mês ──────────────────────────── */}
+      <Modal
+        isOpen={resumoDomingoOpen}
+        onClose={() => { setResumoDomingoOpen(false); setResumoDomingoSelecionado(null) }}
+        title={resumoDomingoSelecionado ? resumoDomingoSelecionado.nome : 'Domingos servidos no mês'}
+        size="md"
+      >
+        {resumoDomingoSelecionado ? (
+          <div className="space-y-3">
+            <button
+              onClick={() => setResumoDomingoSelecionado(null)}
+              className="flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              <ChevronLeft size={14} /> Voltar para a lista
+            </button>
+            <p className="text-xs text-gray-500">
+              Serviu em {resumoDomingoSelecionado.vezes} domingo{resumoDomingoSelecionado.vezes === 1 ? '' : 's'} este mês:
+            </p>
+            <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
+              {resumoDomingoSelecionado.celebracoes.map((c, idx) => (
+                <div key={idx} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                  <span className="font-medium text-gray-800 capitalize">
+                    {format(safeParseDate(c.data), "dd/MM (EEEE)", { locale: ptBR })}
+                  </span>
+                  <span className="text-gray-500 text-xs">{formatHorario(c.horario)} · {c.funcao_label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-xs text-gray-500 mb-1">
+              Quantos domingos cada acólito ativo já serviu este mês. Clique num nome para ver quais e em que horário.
+            </p>
+            <div className="max-h-[60vh] overflow-y-auto divide-y divide-gray-100 border border-gray-100 rounded-xl">
+              {resumoDomingo.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setResumoDomingoSelecionado(c)}
+                  disabled={c.vezes === 0}
+                  className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-left transition-colors enabled:hover:bg-gray-50 disabled:cursor-default"
+                >
+                  <span className="font-medium text-gray-800">{c.nome}</span>
+                  <span
+                    className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                      c.vezes >= 2 ? 'bg-amber-100 text-amber-700' : c.vezes === 1 ? 'bg-gray-100 text-gray-500' : 'bg-red-50 text-red-500'
+                    }`}
+                  >
+                    {c.vezes} domingo{c.vezes === 1 ? '' : 's'}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </Modal>

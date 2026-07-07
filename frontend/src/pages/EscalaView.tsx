@@ -418,23 +418,26 @@ export default function EscalaView() {
                       )}
                       {item.cerimoniario && item.token_confirmacao && (
                         <>
-                          {item.status_confirmacao === 'confirmado' && (
+                          {/* isConfirmed junta as 3 vias (link, Portal do Membro e toggle manual do admin
+                              abaixo) — antes o badge só olhava o link, então confirmar manualmente não
+                              tirava o "Pendente" daqui. */}
+                          {isConfirmed && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
                               ✓ Confirmado
                             </span>
                           )}
-                          {item.status_confirmacao === 'recusado' && (
+                          {!isConfirmed && linkStatus === 'recusado' && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">
                               ✗ Recusou
                             </span>
                           )}
-                          {!item.status_confirmacao && (
+                          {!isConfirmed && linkStatus !== 'recusado' && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-500">
                               Pendente
                             </span>
                           )}
-                          {/* Botão de envio: oculto se já confirmado, "Reenviar" se recusou */}
-                          {item.cerimoniario.numero && linkStatus !== 'confirmado' && (
+                          {/* Botão de envio: oculto se já confirmado (por qualquer via), "Reenviar" se recusou */}
+                          {item.cerimoniario.numero && !isConfirmed && (
                             <button
                               onClick={() => {
                                 const num = item.cerimoniario!.numero!.replace(/\D/g, '')
@@ -456,7 +459,7 @@ export default function EscalaView() {
                               title={linkStatus === 'recusado' ? 'Reenviar link de confirmação' : 'Enviar link de confirmação por WhatsApp'}
                             >
                               <MessageCircle size={10} />
-                              {linkStatus === 'recusado' ? 'Reenviar' : 'Confirmar'}
+                              {linkStatus === 'recusado' ? 'Reenviar link' : 'Enviar link'}
                             </button>
                           )}
                         </>

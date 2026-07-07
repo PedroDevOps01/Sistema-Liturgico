@@ -1275,16 +1275,46 @@ export default function EscalaForm() {
           </div>
 
           <div className="space-y-3 text-sm text-gray-600 max-h-[70vh] overflow-y-auto pr-1">
-            <ul className="space-y-2.5 text-xs text-gray-600 list-disc pl-4">
-              <li><strong>Quem pode entrar:</strong> só ativos, disponíveis naquele dia/período e sem estar em outra escala no mesmo dia.</li>
-              <li><strong>Rotatividade:</strong> prioriza quem está há mais tempo sem ser escalado. Quem nunca foi escalado vem primeiro. Empates são sorteados a cada sugestão.</li>
-              <li><strong>Mestre, 2º Auxiliar e Turiferário:</strong> só para quem é Mestre ou Experiente (ignorando disponibilidade cadastrada). Sem ninguém assim, usa o pool comum.</li>
-              <li><strong>Demais funções:</strong> priorizam quem não é Mestre/Experiente, respeitando a disponibilidade normal.</li>
-              <li><strong>Ciclo completo:</strong> quando todos já foram escalados no mês, aparece um aviso dizendo que repetições passam a ser necessárias.</li>
-            </ul>
+            <p className="text-xs text-gray-500">
+              A sugestão aplica estes critérios nesta ordem, pra cada função da escala:
+            </p>
+
+            <ol className="space-y-2.5 text-xs text-gray-600 list-decimal pl-4">
+              <li>
+                <strong>Elegibilidade da função:</strong> Mestre, 2º Auxiliar e Turiferário só aceitam quem é
+                <strong> Mestre ou Experiente</strong> — e, só pra essas 3 funções, disponibilidade cadastrada e
+                "indisponível temporário" são <strong>ignorados</strong>. As demais funções (1º/3º/4º Auxiliar)
+                respeitam a disponibilidade normal (dia da semana/período) e o "indisponível temporário".
+              </li>
+              <li>
+                <strong>Exclusão por data:</strong> quem já está em qualquer outra celebração no mesmo dia não entra,
+                nem quem já foi usado em outra função dessa mesma escala.
+              </li>
+              <li>
+                <strong>Rotatividade separada por domingo e semana:</strong> quem está há mais tempo sem servir vem
+                primeiro — servir num evento de semana não tira a prioridade de ninguém pro domingo (e vice-versa).
+                Quem nunca serviu naquele tipo de dia entra automaticamente na frente da fila. Empates são sorteados
+                a cada sugestão.
+              </li>
+              <li>
+                <strong>Preferência de Mestre (só na função Mestre):</strong> entre os elegíveis (Mestre/Experiente),
+                se sobrar alguém com a flag <strong>★ Mestre</strong> disponível naquele dia, a função é preenchida
+                só entre eles — um Experiente sem a flag só é usado se não houver nenhum Mestre livre.
+              </li>
+              <li>
+                <strong>Último recurso:</strong> se ninguém elegível estiver disponível pra uma função, o sistema
+                preenche mesmo assim com quem sobrar (Mestre/Experiente ignorando disponibilidade, ou o pool geral)
+                pra não deixar a função vazia.
+              </li>
+              <li>
+                <strong>Aviso de ciclo completo:</strong> quando todos os ativos já serviram em algum domingo do mês,
+                aparece um aviso dizendo que repetições em domingo passam a ser necessárias.
+              </li>
+            </ol>
 
             <p className="text-xs text-gray-400">
-              A sugestão é só um ponto de partida — qualquer função pode ser trocada manualmente depois.
+              Observações em texto livre e períodos bloqueados não são lidos pela sugestão — ajuste manualmente se for o caso.
+              A sugestão é só um ponto de partida: qualquer função pode ser trocada depois.
             </p>
           </div>
 
