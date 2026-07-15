@@ -13,7 +13,7 @@ SSH_KEY="${3:-}"           # opcional: caminho da chave SSH
 
 if [ -z "$SERVER_IP" ]; then
   echo "Uso: bash upload.sh <IP> [deploy|update] [chave_ssh]"
-  echo "Ex:  bash upload.sh 137.131.190.99 deploy ~/Downloads/ssh-key-2026-06-18.key"
+  echo "Ex:  bash upload.sh <IP_DO_SERVIDOR> deploy ~/Downloads/<sua-chave-ssh>.key"
   exit 1
 fi
 
