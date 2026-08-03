@@ -3,7 +3,7 @@ import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import {
   BarChart2, Users, CheckCircle, XCircle,
   AlertCircle, RefreshCw, UserX,
-  ChevronRight,
+  ChevronRight, Award,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/api'
@@ -62,6 +62,12 @@ interface Substituicao {
   funcao: string
 }
 
+interface RankingSubstituto {
+  id: number
+  nome: string
+  total_substituicoes: number
+}
+
 interface RelatorioData {
   periodo: { inicio: string; fim: string }
   totais: Totais
@@ -70,6 +76,7 @@ interface RelatorioData {
   top_faltas: PorCerimoniario[]
   top_presenca: PorCerimoniario[]
   substituicoes: Substituicao[]
+  ranking_substitutos: RankingSubstituto[]
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -131,7 +138,7 @@ function StatCard({ label, value, total, icon: Icon, colorClass, textClass, bgCl
 export default function Relatorio() {
   const [data, setData] = useState<RelatorioData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'cerimoniario' | 'celebracao' | 'substituicoes'>('cerimoniario')
+  const [tab, setTab] = useState<'cerimoniario' | 'celebracao' | 'substituicoes' | 'ranking_substitutos'>('cerimoniario')
 
   // Date filter
   const [inicio, setInicio] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
@@ -298,6 +305,7 @@ export default function Relatorio() {
                 { key: 'cerimoniario',  label: 'Por Cerimoniário', icon: Users },
                 { key: 'celebracao',   label: 'Por Celebração',   icon: BarChart2 },
                 { key: 'substituicoes', label: 'Substituições',   icon: RefreshCw },
+                { key: 'ranking_substitutos', label: 'Ranking de Substitutos', icon: Award },
               ] as const).map(({ key, label, icon: Icon }) => (
                 <button key={key} onClick={() => setTab(key)}
                         className={`flex items-center gap-2 px-5 py-3.5 text-sm font-semibold transition-colors border-b-2 ${
@@ -458,6 +466,42 @@ export default function Relatorio() {
                               <span className="text-gray-400 text-xs italic">Não informado</span>
                             )}
                           </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+            {/* ── Ranking de substitutos ── */}
+            {tab === 'ranking_substitutos' && (
+              <div className="overflow-x-auto">
+                {(!data.ranking_substitutos || data.ranking_substitutos.length === 0) ? (
+                  <div className="py-16 text-center text-gray-400">
+                    <Award size={36} className="mx-auto mb-2 opacity-30" />
+                    <p>Nenhuma substituição registrada no período</p>
+                  </div>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr style={{ background: 'linear-gradient(135deg, var(--theme-mid), var(--theme-to))' }} className="text-white">
+                        <th className="text-left px-4 py-3 font-semibold">#</th>
+                        <th className="text-left px-4 py-3 font-semibold">Cerimoniário</th>
+                        <th className="text-center px-3 py-3 font-semibold text-amber-200">Vezes que substituiu</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.ranking_substitutos.map((r, i) => (
+                        <tr key={r.id}
+                            className={`border-t border-gray-100 hover:bg-wine-50/30 transition-colors ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                          <td className="px-4 py-3">
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                                 style={{ background: i === 0 ? 'linear-gradient(135deg, var(--theme-btn-to), var(--theme-btn-from))' : '#d1d5db' }}>
+                              {i + 1}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-gray-900">{r.nome}</td>
+                          <td className="text-center px-3 py-3 font-bold text-amber-600">{r.total_substituicoes}</td>
                         </tr>
                       ))}
                     </tbody>

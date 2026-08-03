@@ -145,15 +145,34 @@ class RelatorioController extends Controller
             ->orderBy('cel.horario')
             ->get();
 
+        // ── Ranking de quem mais serviu como substituto ─────────────────
+        $rankingSubstitutos = DB::table('presencas as p')
+            ->join('escala_itens as ei', 'ei.id', '=', 'p.escala_item_id')
+            ->join('escalas as e',       'e.id',  '=', 'ei.escala_id')
+            ->join('celebracoes as cel', 'cel.id', '=', 'e.celebracao_id')
+            ->join('cerimoniarios as c_sub', 'c_sub.id', '=', 'p.substituto_id')
+            ->where('p.status', 'substituido')
+            ->whereNotNull('p.substituto_id')
+            ->whereBetween('cel.data', [$inicio, $fim])
+            ->where('cel.ativo', true)
+            ->where('e.ativo', true)
+            ->whereNull('cel.deleted_at')
+            ->whereNull('e.deleted_at')
+            ->groupBy('c_sub.id', 'c_sub.nome')
+            ->selectRaw('c_sub.id, c_sub.nome, COUNT(*) as total_substituicoes')
+            ->orderByDesc('total_substituicoes')
+            ->get();
+
         return response()->json([
             'data' => [
-                'periodo'          => ['inicio' => $inicio, 'fim' => $fim],
-                'totais'           => $totais,
-                'por_cerimoniario' => $porCerimoniario->values(),
-                'por_celebracao'   => $porCelebracao,
-                'top_faltas'       => $topFaltas,
-                'top_presenca'     => $topPresenca,
-                'substituicoes'    => $substituicoes,
+                'periodo'             => ['inicio' => $inicio, 'fim' => $fim],
+                'totais'              => $totais,
+                'por_cerimoniario'    => $porCerimoniario->values(),
+                'por_celebracao'      => $porCelebracao,
+                'top_faltas'          => $topFaltas,
+                'top_presenca'        => $topPresenca,
+                'substituicoes'       => $substituicoes,
+                'ranking_substitutos' => $rankingSubstitutos,
             ],
             'message' => 'Relatório gerado com sucesso.',
         ]);
