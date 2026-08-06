@@ -539,10 +539,15 @@ class EscalaController extends Controller
         // sirvam em algum domingo do mês antes de repetir alguém — por isso o aviso mede
         // especificamente participação em domingo (não em qualquer celebração), refletindo
         // a mesma regra usada no score de rotatividade acima.
+        //
+        // O total considerado exclui quem está indisponível temporariamente (além de inativo):
+        // essas pessoas nunca são de fato escaladas enquanto durar a indisponibilidade, então
+        // contá-las no "total que precisa servir" faria esse aviso nunca disparar — a contagem de
+        // quem já serviu nunca alcançaria um total inflado por gente que não pode ser escalada.
         $inicioPeriodo = $data->copy()->startOfMonth()->toDateString();
         $fimPeriodo    = $data->copy()->endOfMonth()->toDateString();
 
-        $totalAtivos = Cerimoniario::where('ativo', true)->count();
+        $totalAtivos = Cerimoniario::where('ativo', true)->where('indisponivel_temporario', false)->count();
 
         $escaladosDomingoNoPeriodo = DB::table('escala_itens as ei')
             ->join('escalas as e', 'e.id', '=', 'ei.escala_id')

@@ -1281,39 +1281,41 @@ export default function EscalaForm() {
 
             <ol className="space-y-2.5 text-xs text-gray-600 list-decimal pl-4">
               <li>
+                <strong>Quem nunca entra na lista:</strong> inativo, marcado como <strong>indisponível temporariamente</strong>,
+                com um período bloqueado cobrindo aquele dia, ou já escalado em outra função da mesma celebração.
+                Essas exclusões valem pra qualquer função, sem exceção.
+              </li>
+              <li>
                 <strong>Elegibilidade da função:</strong> Mestre, 2º Auxiliar e Turiferário só aceitam quem é
-                <strong> Mestre ou Experiente</strong> — e, só pra essas 3 funções, disponibilidade cadastrada e
-                "indisponível temporário" são <strong>ignorados</strong>. As demais funções (1º/3º/4º Auxiliar)
-                respeitam a disponibilidade normal (dia da semana/período) e o "indisponível temporário".
+                <strong> Mestre ou Experiente</strong>. As demais funções (1º/3º/4º Auxiliar) evitam usar quem tem
+                essas flags, guardando esse pessoal pras 3 funções acima — só usam se não sobrar mais ninguém.
               </li>
               <li>
-                <strong>Exclusão por data:</strong> quem já está em qualquer outra celebração no mesmo dia não entra,
-                nem quem já foi usado em outra função dessa mesma escala.
-              </li>
-              <li>
-                <strong>Rotatividade separada por domingo e semana:</strong> quem está há mais tempo sem servir vem
-                primeiro — servir num evento de semana não tira a prioridade de ninguém pro domingo (e vice-versa).
-                Quem nunca serviu naquele tipo de dia entra automaticamente na frente da fila. Empates são sorteados
-                a cada sugestão.
-              </li>
-              <li>
-                <strong>Preferência de Mestre (só na função Mestre):</strong> entre os elegíveis (Mestre/Experiente),
-                se sobrar alguém com a flag <strong>★ Mestre</strong> disponível naquele dia, a função é preenchida
-                só entre eles — um Experiente sem a flag só é usado se não houver nenhum Mestre livre.
-              </li>
-              <li>
-                <strong>Último recurso:</strong> se ninguém elegível estiver disponível pra uma função, o sistema
-                preenche mesmo assim com quem sobrar (Mestre/Experiente ignorando disponibilidade, ou o pool geral)
+                <strong>Disponibilidade cadastrada é a 1ª tentativa:</strong> pra todas as funções, o sistema prioriza
+                quem marcou disponibilidade pra aquele dia da semana/período. Só quando ninguém elegível está
+                disponível naquele horário específico é que essa disponibilidade é ignorada, como último recurso,
                 pra não deixar a função vazia.
               </li>
               <li>
+                <strong>Rotatividade separada por domingo e semana:</strong> quem serviu <strong>menos vezes esse
+                mês</strong> vem primeiro — o contador zera todo mês e separa domingo de dia de semana (servir numa
+                quinta não tira a vez de ninguém pro domingo, e vice-versa). Empates (normalmente todo mundo com
+                zero no início do mês) são sorteados a cada sugestão.
+              </li>
+              <li>
+                <strong>Preferência de Mestre (só na função Mestre):</strong> entre os elegíveis disponíveis,
+                se sobrar alguém com a flag <strong>★ Mestre</strong>, a função é preenchida só entre eles — um
+                Experiente sem a flag só é usado se não houver nenhum Mestre disponível.
+              </li>
+              <li>
                 <strong>Aviso de ciclo completo:</strong> quando todos os ativos já serviram em algum domingo do mês,
-                aparece um aviso dizendo que repetições em domingo passam a ser necessárias.
+                aparece um aviso dizendo que repetições em domingo passam a ser necessárias — é só um alerta, não
+                muda a forma como as pessoas são escolhidas.
               </li>
             </ol>
 
             <p className="text-xs text-gray-400">
-              Observações em texto livre e períodos bloqueados não são lidos pela sugestão — ajuste manualmente se for o caso.
+              Observações em texto livre não são lidas pela sugestão — ajuste manualmente se for o caso.
               A sugestão é só um ponto de partida: qualquer função pode ser trocada depois.
             </p>
           </div>
