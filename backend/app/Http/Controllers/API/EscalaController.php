@@ -355,11 +355,7 @@ class EscalaController extends Controller
             return $c->disponivel_semana_noite;
         };
 
-        // Shuffle antes de pontuar: mantém as regras de elegibilidade/score intactas, mas garante
-        // que empates (mesmo score, ex: vários que nunca serviram) não sejam sempre desempatados
-        // pela mesma ordem (id de cadastro) — sortByDesc é estável, então a ordem embaralhada aqui
-        // se propaga como critério de desempate.
-        $todos = Cerimoniario::where('ativo', true)->get()->shuffle();
+        $todos = Cerimoniario::where('ativo', true)->get();
 
         // Exclui quem já está em escala na mesma data (vale para todos, inclusive mestre/experiente)
         $jaEscaladosIds = DB::table('escala_itens as ei')
@@ -368,6 +364,8 @@ class EscalaController extends Controller
             ->where('c.data', $data->toDateString())
             ->where('c.ativo', true)
             ->whereNull('c.deleted_at')
+            ->where('e.ativo', true)
+            ->whereNull('e.deleted_at')
             ->whereNotNull('ei.cerimoniario_id')
             ->pluck('ei.cerimoniario_id')
             ->unique();
@@ -385,33 +383,56 @@ class EscalaController extends Controller
         $poolMestreExperiente = $todos->filter(fn ($c) => $c->mestre || $c->experiente);
 
 
-        // Rotatividade separada por domingo/semana: servir num tríduo ou quinta eucarística
-        // durante a semana não pode "resetar" a prioridade de alguém pra próxima vaga de
-        // domingo (e vice-versa) — é isso que garante que a prioridade real do ministério
-        // (todos servirem nos domingos) não seja atropelada por serviços de semana.
-        $scoreFn = function ($pool) use ($data, $isDomingo) {
-            $ultimoServico = DB::table('escala_itens as ei')
+        // Rotatividade do ministério: a regra é "todos servem todo mês" (obrigatório), não
+        // "quem está há mais tempo sem servir" — por isso a prioridade é por CONTAGEM de
+        // aparições dentro do mês da própria celebração (zera a cada mês), separada por bucket
+        // domingo/semana: servir num tríduo ou quinta eucarística durante a semana não deve
+        // "contar" pra próxima vaga de domingo (e vice-versa). Histórico de meses anteriores
+        // não entra mais na conta — usar "dias desde o último serviço" não fazia sentido pra um
+        // rodízio que é obrigatoriamente zerado mês a mês.
+        //
+        // Importante: só conta como "serviço" quem esteve numa escala/celebração ATIVA e não
+        // excluída (mesmo filtro usado em $jaEscaladosIds acima) — escalas de teste ou
+        // inativadas/excluídas não devem contar como participação real.
+        //
+        // O cálculo do bucket domingo/semana é feito em PHP (não via SQL) para não depender de
+        // sintaxe específica de um driver de banco (ex: EXTRACT(DOW FROM ...) só existe no Postgres).
+        $inicioMesCelebracao = $data->copy()->startOfMonth()->toDateString();
+        $fimMesCelebracao    = $data->copy()->endOfMonth()->toDateString();
+
+        $countFn = function ($pool) use ($isDomingo, $inicioMesCelebracao, $fimMesCelebracao) {
+            if ($pool->isEmpty()) {
+                return $pool->values();
+            }
+
+            $historicoMes = DB::table('escala_itens as ei')
                 ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
                 ->join('celebracoes as c', 'c.id', '=', 'e.celebracao_id')
                 ->whereIn('ei.cerimoniario_id', $pool->pluck('id'))
-                ->where('c.data', '<', $data->toDateString())
-                ->when($isDomingo, fn ($q) => $q->whereRaw('EXTRACT(DOW FROM c.data) = 0'))
-                ->when(! $isDomingo, fn ($q) => $q->whereRaw('EXTRACT(DOW FROM c.data) <> 0'))
-                ->select('ei.cerimoniario_id', DB::raw('MAX(c.data) as ultimo'))
-                ->groupBy('ei.cerimoniario_id')
-                ->get()
-                ->keyBy('cerimoniario_id');
+                ->whereBetween('c.data', [$inicioMesCelebracao, $fimMesCelebracao])
+                ->where('c.ativo', true)
+                ->whereNull('c.deleted_at')
+                ->where('e.ativo', true)
+                ->whereNull('e.deleted_at')
+                ->select('ei.cerimoniario_id', 'c.data')
+                ->get();
 
-            return $pool->map(function ($c) use ($ultimoServico, $data) {
-                $last = $ultimoServico->get($c->id);
-                $dias = $last ? $data->diffInDays(\Carbon\Carbon::parse($last->ultimo)) : 9999;
-                return ['cerimoniario' => $c, 'score' => $dias];
-            })->sortByDesc('score')->values();
+            $contagemPorId = $historicoMes
+                ->filter(fn ($row) => (\Carbon\Carbon::parse($row->data)->dayOfWeek === 0) === $isDomingo)
+                ->groupBy('cerimoniario_id')
+                ->map->count();
+
+            // Desempate genuinamente aleatório a cada chamada: entre quem tem a mesma contagem
+            // no mês (ex: todos com zero aparições ainda), a ordem realmente varia de sugestão
+            // para sugestão, em vez de depender da ordem de cadastro.
+            return $pool->map(function ($c) use ($contagemPorId) {
+                return ['cerimoniario' => $c, 'score' => $contagemPorId->get($c->id, 0), 'rand' => mt_rand()];
+            })->sort(fn ($a, $b) => $a['score'] <=> $b['score'] ?: $a['rand'] <=> $b['rand'])->values();
         };
 
-        // Score por rotatividade: quem serviu há mais tempo vem primeiro
-        $scored          = $scoreFn($disponiveis);
-        $scoredMestreExp = $scoreFn($poolMestreExperiente);
+        // Prioridade por rotatividade: quem já serviu MENOS vezes este mês vem primeiro
+        $scored          = $countFn($disponiveis);
+        $scoredMestreExp = $countFn($poolMestreExperiente);
 
         // Monta estrutura de slots
         $estrutura = $this->buildEstruturaSimples($celebracao);
@@ -487,10 +508,12 @@ class EscalaController extends Controller
             ->whereBetween('c.data', [$inicioPeriodo, $fimPeriodo])
             ->where('c.ativo', true)
             ->whereNull('c.deleted_at')
+            ->where('e.ativo', true)
+            ->whereNull('e.deleted_at')
             ->whereNotNull('ei.cerimoniario_id')
-            ->whereRaw('EXTRACT(DOW FROM c.data) = 0')
-            ->distinct()
-            ->pluck('ei.cerimoniario_id')
+            ->get(['ei.cerimoniario_id', 'c.data'])
+            ->filter(fn ($row) => \Carbon\Carbon::parse($row->data)->dayOfWeek === 0)
+            ->pluck('cerimoniario_id')
             ->unique();
 
         $aviso = null;
@@ -526,6 +549,8 @@ class EscalaController extends Controller
             ->whereBetween('c.data', [$inicioMes->toDateString(), $fimMes->toDateString()])
             ->where('c.ativo', true)
             ->whereNull('c.deleted_at')
+            ->where('e.ativo', true)
+            ->whereNull('e.deleted_at')
             ->orderBy('c.data')
             ->orderBy('c.horario')
             ->orderBy('ei.ordem')
@@ -557,10 +582,14 @@ class EscalaController extends Controller
         };
 
         $elegivel = function (Cerimoniario $c, string $funcaoLabel, \Carbon\Carbon $dataCel, string $horario) use ($slotsExperientes, $disponivelNoPeriodo) {
+            // Indisponibilidade temporária invalida o candidato para QUALQUER função — inclusive
+            // Mestre/Auxiliar/Turiferário. Antes, esse bloqueio só valia para as demais funções,
+            // então a correção do mês podia propor alguém marcado como indisponível no momento.
+            if ($c->indisponivel_temporario) return false;
+
             if (in_array($funcaoLabel, $slotsExperientes)) {
                 return $c->mestre || $c->experiente;
             }
-            if ($c->indisponivel_temporario) return false;
             return (bool) $disponivelNoPeriodo($c, $dataCel, $horario);
         };
 
@@ -587,20 +616,30 @@ class EscalaController extends Controller
                 }
             }
 
-            // Score de desempate: último serviço no MESMO bucket (domingo ou semana) antes do mês
-            $ultimoServico = DB::table('escala_itens as ei')
+            // Score de desempate: último serviço no MESMO bucket (domingo ou semana) antes do mês.
+            // Só conta histórico de escala/celebração ATIVA e não excluída (mesmo cuidado do
+            // score usado em sugerir()) — do contrário, escalas de teste ou inativadas continuam
+            // "contando" como serviço e distorcem quem realmente está atrasado no rodízio. O
+            // bucket domingo/semana é calculado em PHP para não depender de sintaxe SQL específica
+            // de um driver (EXTRACT(DOW FROM ...) só existe no Postgres).
+            $historicoBucket = DB::table('escala_itens as ei')
                 ->join('escalas as e', 'e.id', '=', 'ei.escala_id')
                 ->join('celebracoes as c', 'c.id', '=', 'e.celebracao_id')
                 ->where('c.data', '<', $inicioMes->toDateString())
-                ->when($isDomingoBucket, fn ($q) => $q->whereRaw('EXTRACT(DOW FROM c.data) = 0'))
-                ->when(! $isDomingoBucket, fn ($q) => $q->whereRaw('EXTRACT(DOW FROM c.data) <> 0'))
-                ->select('ei.cerimoniario_id', DB::raw('MAX(c.data) as ultimo'))
-                ->groupBy('ei.cerimoniario_id')
-                ->get()
-                ->keyBy('cerimoniario_id');
+                ->where('c.ativo', true)
+                ->whereNull('c.deleted_at')
+                ->where('e.ativo', true)
+                ->whereNull('e.deleted_at')
+                ->select('ei.cerimoniario_id', 'c.data')
+                ->get();
+
+            $ultimoServico = $historicoBucket
+                ->filter(fn ($row) => (\Carbon\Carbon::parse($row->data)->dayOfWeek === 0) === $isDomingoBucket)
+                ->groupBy('cerimoniario_id')
+                ->map(fn ($rows) => $rows->max('data'));
 
             $scoreCandidato = fn (Cerimoniario $c) => $ultimoServico->has($c->id)
-                ? $inicioMes->diffInDays(\Carbon\Carbon::parse($ultimoServico->get($c->id)->ultimo))
+                ? $inicioMes->diffInDays(\Carbon\Carbon::parse($ultimoServico->get($c->id)))
                 : 9999;
 
             $seenCount  = [];
@@ -1053,12 +1092,13 @@ class EscalaController extends Controller
 
     public function ultima(): JsonResponse
     {
-        $escala = Escala::with([
-            'celebracao',
-            'escalaItens' => fn ($q) => $q->orderBy('ordem'),
-            'escalaItens.cerimoniario',
-            'escalaItens.funcao',
-        ])->latest()->first();
+        $escala = Escala::where('ativo', true)
+            ->with([
+                'celebracao',
+                'escalaItens' => fn ($q) => $q->orderBy('ordem'),
+                'escalaItens.cerimoniario',
+                'escalaItens.funcao',
+            ])->latest()->first();
 
         return response()->json([
             'data'    => $escala,
@@ -1090,7 +1130,7 @@ class EscalaController extends Controller
 
     public function duplicar(Request $request, int $id): JsonResponse
     {
-        $escala = Escala::with('escalaItens')->findOrFail($id);
+        $escala = Escala::with('escalaItens.cerimoniario')->findOrFail($id);
 
         $request->validate([
             'celebracao_id' => 'required|exists:celebracoes,id',
@@ -1112,6 +1152,12 @@ class EscalaController extends Controller
             ]);
 
             foreach ($escala->escalaItens as $item) {
+                // Não replica a função para cerimoniários que foram inativados (ou excluídos)
+                // desde a escala original — a vaga fica em aberto para ser preenchida de novo.
+                if ($item->cerimoniario_id && (! $item->cerimoniario || ! $item->cerimoniario->ativo)) {
+                    continue;
+                }
+
                 EscalaItem::create([
                     'escala_id' => $novaEscala->id,
                     'cerimoniario_id' => $item->cerimoniario_id,
