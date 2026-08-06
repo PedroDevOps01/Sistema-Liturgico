@@ -28,7 +28,12 @@ class EscalaController extends Controller
     {
         $query = Escala::with(['celebracao', 'criador', 'escalaItens.cerimoniario', 'escalaItens.funcao', 'paramentados']);
         if (! $request->boolean('todos')) {
-            $query->where('ativo', true);
+            // Além da própria escala estar ativa, a celebração associada também precisa estar
+            // ativa — sem isso, escalas de celebrações canceladas/inativadas continuavam
+            // aparecendo em listagens por período (ex: "Copiar mês" e "Copiar selecionados" no
+            // calendário, e relatórios). `todos=1` continua trazendo tudo, inclusive inativos.
+            $query->where('ativo', true)
+                ->whereHas('celebracao', fn ($q) => $q->where('ativo', true));
         }
 
         if ($request->filled('celebracao_id')) {
