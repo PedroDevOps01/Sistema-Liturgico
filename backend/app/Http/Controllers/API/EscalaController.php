@@ -377,15 +377,37 @@ class EscalaController extends Controller
 
         $todos = $todos->reject(fn ($c) => $jaEscaladosIds->contains($c->id));
 
+        // Exclui quem tem bloqueio de data específica (DataBloqueada) cobrindo a data da
+        // celebração — bloqueio pontual (viagem, compromisso, etc.) é sempre respeitado, mesmo
+        // para mestre/experiente, e não tem nenhum recurso de fallback que o ignore.
+        $dataStr       = $data->toDateString();
+        $bloqueadosIds = DB::table('datas_bloqueadas')
+            ->where('data', '<=', $dataStr)
+            ->where(function ($q) use ($dataStr) {
+                $q->whereNull('data_fim')->where('data', $dataStr)
+                  ->orWhere('data_fim', '>=', $dataStr);
+            })
+            ->pluck('cerimoniario_id')
+            ->unique();
+
+        $todos = $todos->reject(fn ($c) => $bloqueadosIds->contains($c->id));
+
         // Pool normal: respeita indisponibilidade temporária e disponibilidade por dia/período
         $disponiveis = $todos->filter(
             fn ($c) => ! $c->indisponivel_temporario && $disponivelNoPeriodo($c)
         );
 
-        // Pool prioritário (mestre/experiente): para os slots que exigem essa qualificação, a
-        // disponibilidade cadastrada (por dia/período) e o "indisponível temporário" são ignorados —
-        // assume-se que essas pessoas topam servir mesmo fora do que está marcado no cadastro.
-        $poolMestreExperiente = $todos->filter(fn ($c) => $c->mestre || $c->experiente);
+        // Pool prioritário (mestre/experiente): indisponibilidade temporária é SEMPRE respeitada,
+        // mesmo para quem é mestre/experiente — nunca sugerimos alguém marcado como indisponível.
+        $poolMestreExperiente = $todos->filter(fn ($c) => ($c->mestre || $c->experiente) && ! $c->indisponivel_temporario);
+
+        // Dentro do pool prioritário, a primeira tentativa é por quem também está disponível no
+        // dia/período cadastrado. Só ignoramos essa disponibilidade (mantendo sempre o respeito à
+        // indisponibilidade temporária) como último recurso, quando não há ninguém qualificado
+        // disponível — evita que alguém que se marcou indisponível naquele dia monopolize a vaga
+        // indefinidamente (já que, nunca sendo de fato escalado, sua contagem de rotatividade no
+        // mês nunca sobe e ele continua "vencendo" o desempate para sempre).
+        $poolMestreExperienteDisponivel = $poolMestreExperiente->filter($disponivelNoPeriodo);
 
 
         // Rotatividade do ministério: a regra é "todos servem todo mês" (obrigatório), não
@@ -436,8 +458,9 @@ class EscalaController extends Controller
         };
 
         // Prioridade por rotatividade: quem já serviu MENOS vezes este mês vem primeiro
-        $scored          = $countFn($disponiveis);
-        $scoredMestreExp = $countFn($poolMestreExperiente);
+        $scored                    = $countFn($disponiveis);
+        $scoredMestreExp           = $countFn($poolMestreExperiente);
+        $scoredMestreExpDisponivel = $countFn($poolMestreExperienteDisponivel);
 
         // Monta estrutura de slots
         $estrutura = $this->buildEstruturaSimples($celebracao);
@@ -452,8 +475,9 @@ class EscalaController extends Controller
             $label = $slot['funcao_label'];
 
             if (in_array($label, $slotsExperientes)) {
-                // Pool prioritário: mestre/experiente, ignorando a disponibilidade cadastrada
-                $qualificados = $scoredMestreExp->filter(fn ($s) => ! $usados->contains($s['cerimoniario']->id));
+                // Pool prioritário: mestre/experiente disponível no dia/período (a indisponibilidade
+                // temporária já foi excluída na montagem do pool, nunca é sugerida).
+                $qualificados = $scoredMestreExpDisponivel->filter(fn ($s) => ! $usados->contains($s['cerimoniario']->id));
 
                 if ($label === 'Mestre') {
                     // Dentro dos qualificados, prefere mestre=true primeiro
@@ -465,7 +489,20 @@ class EscalaController extends Controller
                     $candidatos = $qualificados;
                 }
 
-                // Último recurso: se não há nenhum mestre/experiente, cai para o pool normal
+                // Recurso 1: ninguém mestre/experiente disponível no dia/período cadastrado —
+                // amplia para todo o pool qualificado ignorando essa disponibilidade (mas continua
+                // excluindo quem está indisponível temporariamente).
+                if ($candidatos->isEmpty()) {
+                    $candidatos = $scoredMestreExp->filter(fn ($s) => ! $usados->contains($s['cerimoniario']->id));
+                    if ($label === 'Mestre') {
+                        $comFlagMestre = $candidatos->filter(fn ($s) => $s['cerimoniario']->mestre);
+                        if ($comFlagMestre->isNotEmpty()) {
+                            $candidatos = $comFlagMestre;
+                        }
+                    }
+                }
+
+                // Recurso 2: se não há nenhum mestre/experiente elegível, cai para o pool normal
                 if ($candidatos->isEmpty()) {
                     $candidatos = $scored->filter(fn ($s) => ! $usados->contains($s['cerimoniario']->id));
                 }
