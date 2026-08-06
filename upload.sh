@@ -37,6 +37,7 @@ rsync -avz --progress -e "ssh ${SSH_OPTS}" \
   --exclude='.git/' \
   --exclude='backend/storage/app/public/' \
   --exclude='*.pdf' \
+  --exclude='chavessh/' \
   "${SCRIPT_DIR}/" \
   "ubuntu@${SERVER_IP}:~/Escala/"
 
